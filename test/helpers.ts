@@ -7,6 +7,7 @@ import type { Identity, SignOn } from '../server/signon.js';
 import { MEANINGS, makeProof } from '../server/signatures.js';
 import { ConnectionOff, type Master, type MasterEquipment, type MasterMaterial, type MasterProduct, type MasterRoom } from '../server/master.js';
 import type { Permission } from '../server/auth.js';
+import type { Links } from '../server/links.js';
 
 export const TEST_DATABASE_URL =
   process.env.TEST_DATABASE_URL ?? 'postgres://truebatch_owner:dev@localhost:5432/truebatch_test';
@@ -34,6 +35,7 @@ export async function freshDb(): Promise<TestDb> {
     close: async () => {
       await sql.end();
       await owner.unsafe(`drop schema ${schema} cascade`);
+      await owner.unsafe(`drop schema if exists ${schema}_report cascade`);
       await owner.end();
     },
   };
@@ -93,10 +95,12 @@ export function proofFor(username: string, at?: number, meanings: string[] = [..
   return makeProof(TEST_PROOF_KEY, { sub: p?.sub ?? '00000000-0000-0000-0000-000000000000', permissions: p?.permissions ?? [] }, meanings, at);
 }
 
-export async function freshApp(): Promise<TestApp> {
+// withLinks: the links to the other products (test/links.test.ts); without, every link is absent.
+export async function freshApp(withLinks?: (db: TestDb) => Promise<Links>): Promise<TestApp> {
   const db = await freshDb();
   const master = fakeMaster();
-  const app = await buildApp({ sql: db.sql, signOn: fakeSignOn(), proofKey: TEST_PROOF_KEY, master, webRoot: '/nonexistent' });
+  const links = withLinks ? await withLinks(db) : undefined;
+  const app = await buildApp({ sql: db.sql, signOn: fakeSignOn(), proofKey: TEST_PROOF_KEY, master, links, webRoot: '/nonexistent' });
   return {
     ...db,
     app,
@@ -129,4 +133,10 @@ export async function login(app: FastifyInstance, username: string) {
 // JSON request helper carrying the session cookie.
 export function call(app: FastifyInstance, cookie: string, method: 'GET' | 'POST' | 'PATCH' | 'PUT', url: string, payload?: object) {
   return app.inject({ method, url, headers: { cookie }, ...(method === 'GET' ? {} : { payload: payload ?? {} }) });
+}
+
+// The label questions of a machine, room or lot entered by hand (no Logbook or MMS link), all answered yes.
+export function handLabels(field: string, kind: 'machine' | 'room' | 'lot'): Record<string, string> {
+  const names = { machine: ['clean', 'calibrated', 'inService', 'qualified'], room: ['clean', 'inService', 'qualified'], lot: ['released'] }[kind];
+  return { ...Object.fromEntries(names.map((n) => [`${field}.${n}`, 'yes'])), ...(kind === 'lot' ? { [`${field}.expiry`]: '2099-12-31' } : {}) };
 }

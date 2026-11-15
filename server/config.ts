@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+const optionalUrl = z.preprocess((v) => (v === '' ? undefined : v), z.string().url().optional());
 const schema = z.object({
   // The app connects as the restricted role truebatch_app (PL-06); migrations use MIGRATION_DATABASE_URL.
   DATABASE_URL: z.string().url(),
@@ -8,6 +9,11 @@ const schema = z.object({
   DB_APP_ROLE: z.string().optional(),
   // master_data's views, read with TrueBatch's own login while the link is on (PL-08).
   MASTER_DATA_DATABASE_URL: z.string().url(),
+  // The optional links (PL-08), written by apply only while each link is on; unset, people go on by hand.
+  DEVIATIONS_DATABASE_URL: optionalUrl,
+  QMS_DATABASE_URL: optionalUrl,
+  LOGBOOK_DATABASE_URL: optionalUrl,
+  MMS_DATABASE_URL: optionalUrl,
   // Sign-on through Medhanta core, written by the platform's apply.
   OIDC_ISSUER: z.string().url(),
   OIDC_CLIENT_ID: z.string().default('truebatch'),

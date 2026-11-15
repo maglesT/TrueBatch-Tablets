@@ -4,3 +4,4 @@ export * from './values.js';
 export * from './batch.js';
 export { TEMPLATES, callTemplate } from './templates.js';
 export * from './release.js';
+export * from './links.js';
