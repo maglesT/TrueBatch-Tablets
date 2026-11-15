@@ -3,8 +3,8 @@
  * T10 Compensating excipient, T11 Salt / base factor, T12 Dry basis, T15 Re-scale to actual yield,
  * T16 Overage, T18 Content-adjusted quantity, T19 Split into portions, T20 Multi-lot quantity.
  */
-import { checkOf, defaultDecimals, Dec, fmt, HUNDRED, needKind, parse, percent, refuse, run, sameKind, show, shownNumber, to, unitOf, ZERO, type Done, type Outcome, type Parsed, type Q } from './core.js';
-import type { Limit } from './rounding.js';
+import { checkOf, decimalsOf, defaultDecimals, Dec, fmt, HUNDRED, needKind, parse, percent, refuse, run, sameKind, show, shownNumber, to, unitOf, ZERO, type Done, type Outcome, type Parsed, type Q } from './core.js';
+import { checkLimit, type Check, type Limit } from './rounding.js';
 import type { Kind, Unit } from './units.js';
 
 const MASS: Kind[] = ['mass'];
@@ -22,7 +22,7 @@ export type T8Input = (
   | { readonly mode: 'rate x time'; readonly rate: Q; readonly time: Q }
   /** Coat by area: target mg/cm² × tablet surface area (from the tooling record) × number of units. */
   | { readonly mode: 'per area'; readonly perArea: Q; readonly area: Q; readonly count: Q }
-  /** Product of two or three recorded values, e.g. tablet volume = length × width × height. */
+  /** Product of two or three recorded values, e.g. tablet volume = length × width × height; Hz × rpm/Hz (equipment record) = rpm. */
   | { readonly mode: 'product'; readonly factors: readonly Q[] }
 ) & { readonly unit?: string; readonly decimals?: number; readonly limit?: Limit };
 
@@ -75,7 +75,13 @@ export function t8BatchScaling(i: T8Input): Outcome {
       if (fs.some((f) => f.v.isNegative())) refuse('The values cannot be negative');
       let raw: Dec;
       let rawUnit: string;
-      if (lengths === fs.length) {
+      const hz = fs.find((f) => f.unit.kind === 'frequency');
+      const perHz = fs.find((f) => f.unit.kind === 'rpm per Hz');
+      if (fs.length === 2 && hz && perHz) {
+        // A drive frequency to a speed, only through the equipment record's factor (F0250 chopper 10-12 Hz).
+        raw = hz.v.times(perHz.v);
+        rawUnit = 'rpm';
+      } else if (lengths === fs.length) {
         raw = fs.reduce((s, f) => s.times(to(f, 'mm')), new Dec(1));
         rawUnit = fs.length === 2 ? 'mm²' : 'mm³';
       } else if (numbers >= fs.length - 1) {
@@ -113,6 +119,10 @@ export interface Form {
   readonly moleculesPerUnit?: number;
   /** true when this MW includes water or solvent of crystallisation (a hydrate or solvate MW). */
   readonly hydrateOrSolvate?: boolean;
+  /** The ion's charge (K⁺ 1, Ca²⁺ 2), from the material record: needed for a quantity in mEq of this form. */
+  readonly charge?: number;
+  /** The MW is an average that varies by lot (HP-β-cyclodextrin, degree of substitution): taken from `lotMw`. */
+  readonly mwFromLot?: boolean;
 }
 
 export interface T11Input {
@@ -120,6 +130,10 @@ export interface T11Input {
   readonly quantity: Q;
   readonly from: Form;
   readonly to: Form;
+  /** The lot's average MW from its certificate, for the form marked `mwFromLot`. */
+  readonly lotMw?: string;
+  /** A salt factor as written in a dossier: refused when the molecular weights do not give it (at its decimals). */
+  readonly writtenFactor?: string;
   readonly unit?: string;
   readonly decimals?: number;
   readonly limit?: Limit;
@@ -159,15 +173,28 @@ function hemiIgnored(f: Form, n: number, mw: Dec, otherPerMolecule: Dec): void {
 export function t11SaltFactor(i: T11Input): Outcome<T11Extra> {
   return run(() => {
     const q = parse(i.quantity, `The quantity of ${i.from.name}`);
-    if (!MASS.includes(q.unit.kind)) needKind(q, MASS, `The quantity of ${i.from.name}`);
-    const mwFrom = parse(i.from.mw, `The molecular weight of ${i.from.name}`).v;
-    const mwTo = parse(i.to.mw, `The molecular weight of ${i.to.name}`).v;
+    if (q.unit.kind === 'charge') return milliequivalents(i, q);
+    needKind(q, MASS, `The quantity of ${i.from.name}`);
+    const mw = (f: Form): Dec => {
+      if (f.mwFromLot !== true) return parse(f.mw, `The molecular weight of ${f.name}`).v;
+      if (i.lotMw === undefined) refuse(`The average molecular weight of ${f.name} varies by lot: give it from the lot's certificate`);
+      return parse(i.lotMw, `The lot's average molecular weight of ${f.name}`).v;
+    };
+    const mwFrom = mw(i.from);
+    const mwTo = mw(i.to);
     if (!mwFrom.isPositive() || mwFrom.isZero() || !mwTo.isPositive() || mwTo.isZero()) refuse('Molecular weights must be more than zero');
     const nFrom = molecules(i.from);
     const nTo = molecules(i.to);
     hemiIgnored(i.to, nTo, mwTo, mwFrom.div(nFrom));
     hemiIgnored(i.from, nFrom, mwFrom, mwTo.div(nTo));
     const factor = mwTo.div(nTo).div(mwFrom.div(nFrom));
+    if (i.writtenFactor !== undefined) {
+      const w = parse(i.writtenFactor, 'The salt factor as written').v;
+      const dp = decimalsOf(i.writtenFactor);
+      if (!factor.toDecimalPlaces(dp, Dec.ROUND_HALF_UP).eq(w)) {
+        refuse(`The salt factor ${i.writtenFactor} as written does not match the molecular weights of ${i.from.name} and ${i.to.name} (factor ${fmt(factor, Math.max(dp, 4))}): check which form is weighed (F0062: 1.177 is the anhydrous dihydrochloride, the monohydrate is 1.220)`);
+      }
+    }
     const u = outUnit(q, i.unit);
     const value = to(q, u).times(factor);
     const dp = i.decimals ?? defaultDecimals(u.symbol);
@@ -178,6 +205,26 @@ export function t11SaltFactor(i: T11Input): Outcome<T11Extra> {
       ` (factor ${fmt(factor, 4)}; ${nTo} molecule${nTo === 1 ? '' : 's'} per ${i.to.name} unit; MW ${hyd ? 'includes' : 'without'} water/solvent of crystallisation)`;
     return { ok: true, value, unit: u.symbol, factor, form: { name: i.to.name, hydrateOrSolvate: hyd }, shown, ...checkOf(value, u.symbol, i.limit) };
   });
+}
+
+/**
+ * A quantity in mEq of an ion: mmol of ion = mEq ÷ the ion's charge; the mass of the form weighed = mmol of ion ÷ ions
+ * per formula unit × its MW (10 mEq K = 3.333 mmol potassium citrate monohydrate = 1081 mg, F0393). Read as mmol of
+ * the salt it would be 3 times the potassium, so the charge must come from the material record.
+ */
+function milliequivalents(i: T11Input, q: Parsed): Done & T11Extra {
+  const z = i.from.charge;
+  if (z === undefined || !Number.isInteger(z) || z < 1) refuse(`A quantity in mEq needs the charge of the ion ${i.from.name} from the material record (1 for K⁺ or Na⁺, 2 for Ca²⁺ or Mg²⁺)`);
+  const n = molecules(i.to);
+  const mwTo = parse(i.to.mw, `The molecular weight of ${i.to.name}`).v;
+  if (!mwTo.isPositive() || mwTo.isZero()) refuse('Molecular weights must be more than zero');
+  const mmol = q.v.div(z).div(n);
+  const u = unitOf(i.unit ?? 'mg');
+  needKind({ v: ZERO, unit: u, text: '' }, MASS, 'The result unit');
+  const value = to({ v: mmol.times(mwTo), unit: unitOf('mg'), text: '' }, u);
+  const dp = i.decimals ?? defaultDecimals(u.symbol);
+  const shown = `${q.text} ${i.from.name} ÷ ${z} (charge) = ${fmt(q.v.div(z), 3)} mmol; ÷ ${n} per ${i.to.name} unit × ${i.to.mw} = ${show(value, u.symbol, dp)} ${i.to.name}`;
+  return { ok: true, value, unit: u.symbol, factor: mwTo.div(n).div(z), form: { name: i.to.name, hydrateOrSolvate: i.to.hydrateOrSolvate === true }, shown, ...checkOf(value, u.symbol, i.limit) };
 }
 
 // ---------------------------------------------------------------- C5 Same basis
@@ -198,13 +245,19 @@ export interface C5Input {
   readonly potencyAs?: 'parent' | 'element';
   /** true when the standard quantity came through a salt/base factor (T11) in the same chain. */
   readonly saltFactorInChain?: boolean;
+  /**
+   * true when that factor runs from the labelled salt or hydrate DOWN to the form the potency is stated as (factor
+   * below 1, to a form without crystal water): desmopressin acetate to base (F0434), procaterol HCl hemihydrate to
+   * anhydrous (F0088). That chain is right and is not refused; the other way round it is.
+   */
+  readonly saltFactorToParent?: boolean;
 }
 
 /** The same-basis rule as a plain message, or undefined when the basis is consistent. */
 export function sameBasisProblem(i: C5Input): string | undefined {
   if (i.potencyAs !== undefined) {
     const as = i.potencyAs === 'parent' ? 'the parent drug per mg of material' : 'the element (% Ca, % Zn, % Fe …)';
-    if (i.saltFactorInChain === true) {
+    if (i.saltFactorInChain === true && i.saltFactorToParent !== true) {
       return (
         `Same-basis rule (C5): the potency is stated as ${as}, so the salt/ester/hydrate/compound factor is already inside it. ` +
         'Applying the salt/base factor (T11) as well would overstate the dose by that factor ' +
@@ -224,7 +277,9 @@ export function sameBasisProblem(i: C5Input): string | undefined {
   if (i.standardIs === 'hydrate or solvate' && correction) {
     return (
       'Same-basis rule (C5): the standard quantity already uses the hydrate (or solvate) molecular weight, so it already contains the water. ' +
-      `Correcting the ${i.basis} assay for water/LOD as well would count the water twice (for pantoprazole sodium sesquihydrate about 6.7 % too much API). ` +
+      (i.basis === 'anhydrous and solvent-free'
+        ? 'Correcting the assay to the anhydrous and solvent-free basis as well would count the water or solvent twice (darunavir ethanolate: about 8.4 % too much API). '
+        : `Correcting the ${i.basis} assay for water/LOD as well would count the water twice (for pantoprazole sodium sesquihydrate about 6.7 % too much API). `) +
       'Use the anhydrous molecular weight in the salt factor (T11), or use the assay as is stated for the hydrate.'
     );
   }
@@ -260,6 +315,7 @@ export interface FromT11 {
   readonly value: Dec;
   readonly unit: string;
   readonly form: { readonly name: string; readonly hydrateOrSolvate: boolean };
+  readonly factor?: Dec;
 }
 
 export interface T9Input {
@@ -304,7 +360,8 @@ export function t9PotencyAdjusted(i: T9Input): Outcome<T9Extra> {
     let standardIs: 'anhydrous' | 'hydrate or solvate' | undefined = i.standardIs;
     const asParent = i.potencyAs !== undefined;
     if (i.potencyAs !== undefined) {
-      const p = sameBasisProblem({ standardIs: standardIs ?? 'anhydrous', basis: i.basis, potencyAs: i.potencyAs, saltFactorInChain: isT11(i.standard) });
+      const down = isT11(i.standard) && i.standard.factor !== undefined && i.standard.factor.lt(1) && !i.standard.form.hydrateOrSolvate;
+      const p = sameBasisProblem({ standardIs: standardIs ?? 'anhydrous', basis: i.basis, potencyAs: i.potencyAs, saltFactorInChain: isT11(i.standard), saltFactorToParent: down });
       if (p !== undefined) refuse(p);
       standardIs = 'anhydrous';
     }
@@ -354,7 +411,7 @@ export function t9PotencyAdjusted(i: T9Input): Outcome<T9Extra> {
     const u = outUnit(std, i.unit);
     const value = to(std, u).times(HUNDRED).div(used);
     const dp = i.decimals ?? defaultDecimals(u.symbol);
-    const parentNote = asParent ? ` (potency ${a.text} stated as the ${i.potencyAs === 'element' ? 'element' : 'parent drug'}: no salt factor applied)` : '';
+    const parentNote = asParent ? ` (potency ${a.text} stated as the ${i.potencyAs === 'element' ? 'element' : 'parent drug'}: ${isT11(i.standard) ? 'the factor ran from the labelled form down to it' : 'no salt factor applied'})` : '';
     const shown = `${asIsLine}${std.text} × 100 ÷ ${fmt(used, 3)} % = ${show(value, u.symbol, dp)}${capNote}${parentNote}`;
     return { ok: true, value, unit: u.symbol, assayAsIs: asIs, shown, ...checkOf(value, u.symbol, i.limit) };
   });
@@ -538,6 +595,18 @@ export interface T18Input {
   readonly nominalContent?: Q;
   /** Where the content comes from (recorded on the line): the certificate or an in-process result of this batch. */
   readonly contentSource?: 'certificate' | 'in-process result';
+  /**
+   * What the result is: the content (% w/w, the default) or a relative assay in % of theoretical (F0205: an extrudate
+   * assayed at 95.3 % of its theoretical 30 % load is 28.6 % w/w). A % of theoretical needs `nominalContent`, the
+   * theoretical content.
+   */
+  readonly resultType?: 'content' | 'percent of theoretical';
+  /**
+   * One intermediate carrying a second API in a fixed ratio (F0187 layered particles): the quantity is set on the first
+   * API's content; the second API's content gives what it delivers, shown and checked against `limit` (% of its
+   * target). Refused when outside.
+   */
+  readonly second?: { readonly name: string; readonly content: Q; readonly target: Q; readonly limit: Limit };
   readonly unit?: string;
   readonly decimals?: number;
   readonly limit?: Limit;
@@ -546,10 +615,17 @@ export interface T18Input {
 const PER_MASS: Partial<Record<Kind, Kind>> = { 'IU per mass': 'IU', 'CFU per mass': 'CFU', 'activity units per mass': 'activity units' };
 
 /** T18 Content-adjusted quantity (any material): pure quantity × 100 ÷ content %, or units ÷ units per gram. */
-export function t18ContentAdjusted(i: T18Input): Outcome {
+export function t18ContentAdjusted(i: T18Input): Outcome<{ readonly second?: { readonly delivered: Dec; readonly percent: Dec; readonly check: Check } }> {
   return run(() => {
     const t = parse(i.target, 'The formula quantity');
-    const c = parse(i.content, "The lot's content");
+    let c = parse(i.content, "The lot's content");
+    if (i.resultType === 'percent of theoretical') {
+      if (i.nominalContent === undefined || i.formulaQuantityIs !== 'dry') refuse('A result in % of theoretical needs the theoretical content (nominal content) and a pure (dry) formula quantity');
+      needKind(c, ['fraction'], 'A result in % of theoretical');
+      const n = percent(i.nominalContent, 'The theoretical content');
+      const v = to(c, '%').times(n.v).div(HUNDRED);
+      c = { v, unit: unitOf('%'), text: `(${c.text} of theoretical × ${n.text} = ${shownNumber(v, '%')} %)` };
+    }
     if (!c.v.isPositive() || c.v.isZero()) refuse("The lot's content must be more than zero");
     const src = i.contentSource === undefined ? '' : ` (content from the ${i.contentSource})`;
     let value: Dec;
@@ -588,7 +664,18 @@ export function t18ContentAdjusted(i: T18Input): Outcome {
       refuse(`The lot's content "${c.text}" must be a % or a content per mass (IU/g, CFU/g, U/mg) or mg/IU`);
     }
     const dp = i.decimals ?? defaultDecimals(u.symbol);
-    return { ok: true, value, unit: u.symbol, shown: `${line} = ${show(value, u.symbol, dp)}${src}`, ...checkOf(value, u.symbol, i.limit) };
+    let shown = `${line} = ${show(value, u.symbol, dp)}${src}`;
+    if (i.second === undefined) return { ok: true, value, unit: u.symbol, shown, ...checkOf(value, u.symbol, i.limit) };
+    const s2 = percent(i.second.content, `The content of ${i.second.name}`);
+    const t2 = parse(i.second.target, `The target of ${i.second.name}`);
+    needKind(t2, MASS, `The target of ${i.second.name}`);
+    if (!t2.v.isPositive() || t2.v.isZero()) refuse(`The target of ${i.second.name} must be more than zero`);
+    const delivered = to({ v: value, unit: u, text: '' }, t2.unit).times(s2.v).div(HUNDRED);
+    const pct = delivered.div(t2.v).times(HUNDRED);
+    const check = checkLimit(pct, '%', i.second.limit);
+    shown += `; ${i.second.name}: ${show(value, u.symbol, dp)} × ${s2.text} = ${show(delivered, t2.unit.symbol, defaultDecimals(t2.unit.symbol) + 1)} = ${fmt(pct, 1)} % of ${t2.text}`;
+    if (!check.pass) refuse(`${shown}: ${i.second.name} is out of its limits (${check.shown}). The quantity is set on one API's content and moves the other: do not use this intermediate lot without QA`);
+    return { ok: true, value, unit: u.symbol, shown, second: { delivered, percent: pct, check }, ...checkOf(value, u.symbol, i.limit) };
   });
 }
 
