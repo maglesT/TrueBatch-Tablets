@@ -62,9 +62,11 @@ describe('master designer', () => {
       expect(masterChecks(doc).every((p) => /not set|no core materials/.test(p.message))).toBe(true);
     }
     const dc = skeletonStages('direct-compression-uncoated', header);
-    expect(dc.map((s) => s.steps.length)).toEqual([4, 3]);
-    expect(dc.every((s) => s.steps[0]!.block.id === 'line-clearance')).toBe(true);
-    expect(dc[1]!.steps[1]!.settings.meanLimit).toEqual({ low: '237.5', high: '262.5', unit: 'mg' });
+    expect(dc.map((s) => s.steps.map((t) => t.block.id).join(' '))).toEqual(['line-clearance weigh sift dry-mix stage-yield',
+      'line-clearance punch-die-check compress punch-die-check tablet-reconciliation']);
+    expect(dc[1]!.steps[2]!.settings.meanLimit).toEqual({ low: '237.5', high: '262.5', unit: 'mg' });
+    const wg = skeletonStages('wet-granulation-film-coated', header);
+    expect(wg.find((s) => s.key === 'coating')!.steps[1]).toMatchObject({ block: { id: 'spray-coat' }, everyMinutes: 30, flow: { kind: 'repeat-until' } });
   });
 
   it('copy to a new batch size scales typed batch quantities, not limits or quantities per tablet', () => {
