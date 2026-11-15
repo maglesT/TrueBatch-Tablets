@@ -8,9 +8,9 @@ import { SignError, authenticateSigner, contentHash, sign, signBody } from '../s
 import { masterVersion } from './masters.js';
 import { findBlock } from '../../shared/blocks/index.js';
 import { masterChecks } from '../../shared/master/checks.js';
-import type { MasterDoc } from '../../shared/master/schema.js';
+import type { MasterDoc, Step } from '../../shared/master/schema.js';
 import {
-  ACTIONS, BATCH_ACTIONS, batchRefusal, batchView, doneProblems, evaluate, openSteps, parseKey, readValue, refusal, review, timers,
+  ACTIONS, BATCH_ACTIONS, batchRefusal, batchView, doneProblems, evaluate, lateItems, openSteps, parseKey, readValue, refusal, review, timers,
   type Action, type BatchAction, type BatchEvent, type StepEvent, type StepKey, type StepView, type Value,
 } from '../../shared/engine/index.js';
 
@@ -115,6 +115,41 @@ const NAMES = Object.keys(ACTIONS) as Action[];
 const BATCH_NAMES = Object.keys(BATCH_ACTIONS) as BatchAction[];
 const flowOf = (doc: MasterDoc, k: StepKey) => doc.stages[k.stage]!.steps[k.step]!.flow.kind;
 const context = (doc: MasterDoc, v: StepView, user: SessionUser) => ({ state: v.state, events: v.events, flow: flowOf(doc, v.key), user });
+// A step as people name it: the block, and the formula line or the thing checked.
+function stepTitle(doc: MasterDoc, st: Step): string {
+  const line = Object.values(st.settings).find((v): v is { formula: string } => typeof v === 'object' && 'formula' in v);
+  const what = line ? doc.formula.find((l) => l.key === line.formula)?.name : typeof st.settings.what === 'string' ? st.settings.what : undefined;
+  return [findBlock(st.block)?.name ?? st.key, what].filter(Boolean).join(': ');
+}
+
+/** "My work": what in this batch waits for the person, and where the batch stands. Null when nothing does. */
+function myWork(l: LoadedBatch, user: SessionUser) {
+  const { stages, steps } = openSteps(l.doc, l.events, l.now);
+  const bv = view(l);
+  const title = (v: StepView) => stepTitle(l.doc, l.doc.stages[v.key.stage]!.steps[v.key.step]!);
+  const stageName = (i: number) => l.doc.stages[i]?.name ?? '';
+  const badges: { kind: 'check' | 'resign' | 'due' | 'late' | 'approve'; step?: string; stage: string; title: string; at?: Date; timer?: string }[] = [];
+  for (const v of steps) {
+    // TB-08: the checker's own list holds only steps the person was not involved in.
+    if (!refusal('check', context(l.doc, v, user))) badges.push({ kind: 'check', step: v.id, stage: stageName(v.key.stage), title: title(v) });
+    if (v.needsResign && user.permissions.includes('truebatch.batch.operate')) badges.push({ kind: 'resign', step: v.id, stage: stageName(v.key.stage), title: title(v) });
+  }
+  for (const t of timers(l.doc, l.events, l.now)) {
+    if (t.kind === 'periodic' && t.state !== 'late') badges.push({ kind: 'due', step: `${t.key.stage}.${t.key.sub}.${t.key.step}.${t.key.round - 1}`, stage: stageName(t.key.stage), title: t.label, at: t.at, timer: t.kind });
+  }
+  for (const { timer: t } of lateItems(l.doc, l.events, l.now).filter((x) => !x.notes.length)) {
+    badges.push({ kind: 'late', stage: stageName(t.key.stage), title: t.label, at: t.at, timer: t.kind });
+  }
+  if (!batchRefusal('production-approve', bv, user)) badges.push({ kind: 'approve', stage: '', title: 'Production approval' });
+  const now = steps.find((s) => s.state === 'in_progress') ?? steps.find((s) => s.state === 'open');
+  const operates = user.permissions.includes('truebatch.batch.operate') && bv.status === 'in production';
+  if (!operates && !badges.length) return null;
+  return {
+    id: l.batch.id, batchNo: l.batch.batchNo, productCode: l.doc.header.productCode, productName: l.doc.header.productName, status: bv.status,
+    issuedAt: l.batch.issuedAt, stagesClosed: stages.filter((s) => s.closed).length, stageCount: stages.length,
+    current: now ? { step: now.id, stage: stageName(now.key.stage), title: title(now), state: now.state } : null, badges,
+  };
+}
 
 export function batchRoutes(app: FastifyInstance, sql: Sql) {
   const anyUser = { preHandler: requirePermission() };
@@ -149,6 +184,21 @@ export function batchRoutes(app: FastifyInstance, sql: Sql) {
     }
   });
 
+  // My work: the batches still in production (or waiting for production approval) with what waits for this person.
+  app.get('/api/batches', anyUser, async (req) => {
+    const ids = await sql<{ id: number }[]>`
+      select b.id::int from batches b
+      where not exists (select 1 from batch_events e where e.batch_id = b.id and e.kind in ('production_approved', 'released', 'rejected'))
+      order by b.issued_at desc limit 100`;
+    const out = [];
+    for (const { id } of ids) {
+      const l = await loadBatch(sql, id);
+      const w = l && myWork(l, req.user!);
+      if (w) out.push(w);
+    }
+    return out;
+  });
+
   // The batch with, per step, its state, current values, why it is not open, the actions open to this person, and
   // the timers. All computed from the step events; nothing is stored.
   app.get<{ Params: { id: string } }>('/api/batches/:id', anyUser, async (req, reply) => {
@@ -160,7 +210,8 @@ export function batchRoutes(app: FastifyInstance, sql: Sql) {
     const bv = view(l);
     return {
       batch: { ...l.batch, ...bv, contentHash: batchHash(l), actions: BATCH_NAMES.filter((a) => a !== 'close-deviation' && !batchRefusal(a, bv, req.user!)) },
-      master: { id: v!.id, masterId: v!.masterId, versionNo: v!.versionNo, doc: l.doc }, stages, timers: timers(l.doc, l.events, l.now),
+      // The server time: the screens count timers down on the server clock.
+      now: l.now, master: { id: v!.id, masterId: v!.masterId, versionNo: v!.versionNo, doc: l.doc }, stages, timers: timers(l.doc, l.events, l.now),
       steps: steps.map((s) => {
         const { events, replaced: _, ...current } = s;
         return {

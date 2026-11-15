@@ -18,7 +18,12 @@ await migrate(schemaOwner);
 for (const [username, permissions] of Object.entries(USERS)) await seedUser(schemaOwner, username, permissions);
 await schemaOwner.end();
 
+// The product and material of the small fixture master (test/engine-fixture.ts, small()).
+const master = fakeMaster();
+master.products_.push({ itemId: 'p', code: 'PRD-050', name: 'Demolol 50 mg tablets', version: 1, active: true, strength: null, dosageForm: 'tablet' });
+master.materials_.push({ itemId: 'm', code: 'MAT-010', name: 'Demolol', version: 1, active: true, category: null, unit: 'kg' });
+
 const sql = connect(TEST_DATABASE_URL, { role: 'truebatch_app', searchPath: E2E_SCHEMA });
-const app = await buildApp({ sql, signOn: fakeSignOn(), proofKey: TEST_PROOF_KEY, master: fakeMaster(),
+const app = await buildApp({ sql, signOn: fakeSignOn(), proofKey: TEST_PROOF_KEY, master,
   webRoot: new URL('../dist/web', import.meta.url).pathname, cookieSecure: false });
 await app.listen({ port: E2E_PORT, host: '127.0.0.1' });
