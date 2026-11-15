@@ -76,6 +76,8 @@ export const blockSchema = z.object({
   packing: z.boolean().optional(),
   // A new master step from this block starts as a QA hold (the master may change it).
   qaHold: z.boolean().optional(),
+  // The name of a step that names a material, "{material}" its name and code: "Issue {material}".
+  title: z.string().regex(/\{material\}/).optional(),
 }).strict();
 
 export type BlockField = z.infer<typeof fieldSchema>;

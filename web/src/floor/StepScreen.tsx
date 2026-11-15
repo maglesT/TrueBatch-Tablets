@@ -18,10 +18,12 @@ type Dialog = { kind: 'done' | 'repeat' | 'check' | 'na' | 'send-back' | 'note' 
 const INVOLVING = ['started', 'value', 'done', 'corrected', 'not_applicable'];
 const same = (a: StepRow['key'], b: StepRow['key']) => a.stage === b.stage && a.sub === b.sub && a.step === b.step;
 
-/** The limits and values the master set for this step, in words. */
-function settingsText(block: Block, st: Step): [string, string][] {
+/** The material, limits and values the master set for this step, in words. */
+function settingsText(doc: BatchDetail['master']['doc'], block: Block, st: Step): [string, string][] {
   return block.settings.flatMap((s): [string, string][] => {
     const v = st.settings[s.name];
+    const m = v && typeof v === 'object' && 'formula' in v ? materialLines(doc).find((l) => l.key === v.formula) : undefined;
+    if (m) return [[s.label, `${m.code} · ${m.name}${'perPack' in m ? ` (${m.kind}, ${m.perPack} ${m.unit} per pack)` : ''}`]];
     if (typeof v === 'string') return v && s.kind !== 'text' ? [[s.label, v]] : [];
     if (!v || !('unit' in v)) return [];
     const u = v.unit ? ` ${v.unit}` : '';
@@ -187,7 +189,7 @@ export function StepScreen({ me, d, blocks, row, now, reload }: { me: Me; d: Bat
         <div>
           <section className="dash-panel" aria-label="Instruction">
             <p className="instr">{st.instruction || block.instruction}</p>
-            {settingsText(block, st).length > 0 && <dl className="fields">{settingsText(block, st).map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl>}
+            {settingsText(doc, block, st).length > 0 && <dl className="fields">{settingsText(doc, block, st).map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl>}
           </section>
           {checking ? (
             <section className="dash-panel" aria-label="What was recorded">

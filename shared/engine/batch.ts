@@ -28,12 +28,19 @@ export interface StepView extends Current {
   notYet?: string;
 }
 
-/** A step as people name it: the master's name for it, or the block's name and the formula line or the thing checked. */
+/**
+ * A step as people name it: the master's name for it, or the block's name and the formula line or the thing checked.
+ * A packing material step names its material first ("Issue Printed aluminium foil (PM-101)"), so the issue steps of
+ * the pack's materials never look alike.
+ */
 export function stepTitle(doc: MasterDoc, st: Step): string {
   if (st.name) return st.name;
+  const block = findBlock(st.block);
   const line = Object.values(st.settings).find((v): v is { formula: string } => typeof v === 'object' && 'formula' in v);
-  const what = line ? materialLines(doc).find((l) => l.key === line.formula)?.name : typeof st.settings.what === 'string' ? st.settings.what : undefined;
-  return [findBlock(st.block)?.name ?? st.key, what].filter(Boolean).join(': ');
+  const m = line && materialLines(doc).find((l) => l.key === line.formula);
+  if (m && block?.title) return block.title.replace('{material}', `${m.name} (${m.code})`);
+  const what = line ? m?.name : typeof st.settings.what === 'string' ? st.settings.what : undefined;
+  return [block?.name ?? st.key, what].filter(Boolean).join(': ');
 }
 /** Where a step instance is, in words: "Granulation › Dry to an LOD limit (round 2)". */
 export function stepLabel(doc: MasterDoc, k: StepKey): string {

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { findBlock } from '../shared/blocks/index.js';
 import { blocking, masterChecks } from '../shared/master/checks.js';
 import { masterSchema, type MasterDoc } from '../shared/master/schema.js';
-import { batchRefusal, batchView, doneProblems, evaluate, openSteps, type BatchEvent, type StepEvent } from '../shared/engine/index.js';
+import { batchRefusal, batchView, doneProblems, evaluate, openSteps, stepLabel, stepTitle, type BatchEvent, type StepEvent } from '../shared/engine/index.js';
 import { c8PrintedData, c9SerialCodes, expiryMonth, gs1, printedMonth, t27Expiry } from '../shared/templates/index.js';
 import { at, ev, small } from './engine-fixture.js';
 import { code, GTIN, packing } from './packing-fixture.js';
@@ -71,6 +71,12 @@ describe('the packing master (TB-P1 to TB-P9)', () => {
     late.stages[1]!.steps.push(late.stages[0]!.steps.pop()!);
     expect(errors(late, 'TB-P4')).toEqual(['Leaflet is issued after the line set-up']);
     expect(findBlock({ id: 'pack-material-issue', version: 1 })).toMatchObject({ gmp: 'weighing', checker: true });
+  });
+
+  it('TB-P4 each issue step is named after its material from the pack list, so no two look alike', () => {
+    const d = packing();
+    expect(d.stages[0]!.steps.slice(1).map((t) => stepTitle(d, t))).toEqual(['Issue Printed aluminium foil (PM-101)', 'Issue PVC/PVDC film (PM-102)', 'Issue Carton (PM-103)', 'Issue Leaflet (PM-104)']);
+    expect(stepLabel(d, { stage: 2, sub: 1, step: 1, round: 1 })).toBe('Reconciliation and line clearance › Reconcile Printed aluminium foil (PM-101)');
   });
 
   it('TB-P5 the coding is checked at the start and every N minutes at most, packs are inspected on line, and the camera is challenged with serialisation', () => {
