@@ -9,6 +9,8 @@ import type { Sql } from './db.js';
 import { BACKGROUND_HEADER, SESSION_COOKIE, loadSession } from './auth.js';
 import { authRoutes } from './routes/auth.js';
 import { masterDataRoutes } from './routes/masterdata.js';
+import { masterRoutes } from './routes/masters.js';
+import { batchRoutes } from './routes/batches.js';
 import type { SignOn } from './signon.js';
 import { ConnectionOff, NotUsable, type Master } from './master.js';
 
@@ -27,13 +29,16 @@ export interface AppOptions {
   webRoot?: string;
   // Secure flag on the session cookie; off only for plain-HTTP development.
   cookieSecure?: boolean;
+  // The fixed start of every batch number (TB-03).
+  batchPrefix?: string;
 }
 
-export async function buildApp({ sql, signOn, master, proofKey = randomBytes(32), logger = false, webRoot, cookieSecure = true }: AppOptions): Promise<FastifyInstance> {
+export async function buildApp({ sql, signOn, master, proofKey = randomBytes(32), logger = false, webRoot, cookieSecure = true, batchPrefix = 'TB' }: AppOptions): Promise<FastifyInstance> {
   const app = Fastify({ logger, trustProxy: true });
   app.decorate('cookieSecure', cookieSecure);
   app.decorate('proofKey', proofKey);
   app.decorate('master', master);
+  app.decorate('batchPrefix', batchPrefix);
   // A cut master-data link stops the feature with one message (platform D-02, PL-08); an unknown or inactive item is
   // refused at write time (PL-08).
   app.setErrorHandler((err, _req, reply) => {
@@ -65,6 +70,8 @@ export async function buildApp({ sql, signOn, master, proofKey = randomBytes(32)
 
   authRoutes(app, sql, signOn);
   masterDataRoutes(app);
+  masterRoutes(app, sql);
+  batchRoutes(app, sql);
 
   // In production the built web UI is served from the same process.
   const root = webRoot ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../web');
