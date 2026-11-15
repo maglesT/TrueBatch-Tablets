@@ -5,7 +5,7 @@
  */
 import { findBlock, type Block } from '../blocks/index.js';
 import { Dec, c1WithinLimits, findUnit, t10Compensating, t11SaltFactor, t2Total, type Q } from '../templates/index.js';
-import { lineQuantity } from '../engine/values.js';
+import { evaluate, lineQuantity } from '../engine/values.js';
 import type { Answer, FormulaLine, MasterDoc, SettingValue } from './schema.js';
 
 /** A warning the author answers: one of the options, with a reason when `needsReason`. */
@@ -87,9 +87,13 @@ export function masterChecks(doc: MasterDoc): Problem[] {
       for (const bs of block.settings) if (!bs.optional && st.settings[bs.name] === undefined) error(`${p}.settings.${bs.name}`, `${bs.label} is not set`);
       for (const [name, v] of Object.entries(st.settings)) {
         const bs = block.settings.find((x) => x.name === name);
-        const why = bs ? settingProblem(doc, si, ti, bs.kind, v) : `The block ${block.name} has no setting ${name}`;
+        const listed = !bs?.options || (typeof v === 'string' && bs.options.includes(v));
+        const why = !bs ? `The block ${block.name} has no setting ${name}` : listed ? settingProblem(doc, si, ti, bs.kind, v) : `${bs.label}: choose one of ${bs.options!.join(', ')}`;
         if (why) error(`${p}.settings.${name}`, why);
       }
+      // A calculation that needs no recorded value is worked out now (e.g. a liquid make-up, T17): a refusal must be fixed.
+      const now = evaluate(doc, [], { stage: si, sub: 1, step: ti, round: 1 }, {});
+      for (const c of block.calcs) { const r = now[c.name]; if (r && !r.ok) error(p, `${c.label}: ${r.message}`); }
       if (st.flow.kind === 'repeat-until') {
         if (!st.flow.maxRounds) error(`${p}.flow`, 'A repeat-until step needs the most rounds allowed');
         const stop = st.flow.stop ?? block.stop;

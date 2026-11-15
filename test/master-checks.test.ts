@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { BLOCKS } from '../shared/blocks/index.js';
 import { blockProblems, type Block } from '../shared/blocks/format.js';
+import { evaluate } from '../shared/engine/index.js';
 import { blocking, masterChecks } from '../shared/master/checks.js';
 import { masterSchema, type MasterDoc } from '../shared/master/schema.js';
 import { tablet } from './engine-fixture.js';
@@ -157,9 +158,27 @@ describe('calculation checks', () => {
     expect(only('error', 'formula[4].adjust.compensates')(mccCompensates('10.0'))).toEqual([]);
   });
 
-  it('calculation check ⛔ weight variation on coated tablets and negative solvent: no block of the library uses T14 or T17 yet', () => {
-    // When a block uses them, their refusals reach the master check through the block's settings like the others.
-    expect(BLOCKS.flatMap((b) => b.calcs.map((c) => c.template)).filter((t) => t === 'T14' || t === 'T17')).toEqual([]);
+  it('calculation check ⛔ weight variation on coated tablets other than film-coated: the block offers no other coating, and T14 refuses it', () => {
+    const uniformity = (coating: string): Change => (d) => {
+      d.stages[2]!.steps.splice(1, 0, { key: 'uniformity', block: { id: 'uniformity-by-weight', version: 1 }, checker: true, waitForCheck: false, critical: false,
+        settings: { coating, labelClaim: '100 mg' }, flow: { kind: 'none' } });
+    };
+    expect(errors(uniformity('sugar-coated'))).toEqual(['error - stages[2].steps[1].settings.coating: Coating: choose one of uncoated, film-coated']);
+    expect(errors(uniformity('film-coated'))).toEqual([]);
+    const d = tablet();
+    uniformity('sugar-coated')(d);
+    const weights = Array.from({ length: 10 }, () => ({ value: '250.0', unit: 'mg' }));
+    expect(evaluate(d, [], { stage: 2, sub: 1, step: 1, round: 1 }, { weights, assay: { value: '99.0', unit: '%' } }).acceptance)
+      .toEqual({ ok: false, message: 'The weight-variation method is not allowed for sugar-coated tablets: only uncoated and film-coated tablets may use it. Test content uniformity on individual units' });
+  });
+
+  it('calculation check ⛔ a liquid make-up the templates refuse is shown on its step before any batch (T17)', () => {
+    const solution = (targetSolids: string): Change => (d) => {
+      d.stages[0]!.steps[1] = { key: 'stir', block: { id: 'binder-solution', version: 1 }, checker: true, waitForCheck: false, critical: false, flow: { kind: 'none' },
+        settings: { binder: { formula: 'pvp' }, targetSolids, tolerance: '1.0', mixTimeLimit: { low: '10', high: '20', unit: 'min' } } };
+    };
+    expect(errors(solution('0 %'))).toEqual(['error - stages[0].steps[1]: Solvent to add: The target solids content must be more than 0 and not more than 100 %']);
+    expect(errors(solution('10 %'))).toEqual([]);
   });
 
   const hcl: Change = (d) => { d.formula[0]!.name = 'Examplol hydrochloride'; };

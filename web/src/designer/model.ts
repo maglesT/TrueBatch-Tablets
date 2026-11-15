@@ -64,6 +64,7 @@ export function neededKind(block: Block, setting: string, settings: Step['settin
     if (!refs.includes(setting)) continue;
     if (s?.kind === 'limit' && PERCENT_RESULT.includes(c.template)) return 'fraction';
     if (s?.kind === 'limit' && c.template === 'F2') return undefined;
+    if (s?.kind === 'limit' && c.template === 'T13') return 'time';
     for (const r of refs) {
       if (r === setting || block.settings.find((x) => x.name === r)?.kind === 'limit') continue;
       const k = kindOf(block, r, settings, new Set(seen));
@@ -107,7 +108,7 @@ export function stepTitle(t: Step, j?: number): string {
 /** A new step from a block, with its default instruction and signatures. */
 export function stepFrom(block: Block, taken: string[]): Step {
   return { key: newKey(block.id, taken), block: { id: block.id, version: block.version }, settings: {}, checker: block.checker,
-    waitForCheck: false, critical: false, flow: block.stop ? { kind: 'repeat-until', maxRounds: 10 } : { kind: 'none' },
+    waitForCheck: false, critical: false, flow: block.stop ? { kind: 'repeat-until', maxRounds: 10 } : block.qaHold ? { kind: 'qa-hold' } : { kind: 'none' },
     ...(block.periodic ? { everyMinutes: block.periodic.maxMinutes } : {}) };
 }
 

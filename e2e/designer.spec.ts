@@ -37,12 +37,12 @@ test('TB-02 build a master from a skeleton, fix a master-check problem, then che
   await author.getByLabel('Role of Examplol').selectOption('api');
   await expect(author.locator('.total.ok')).toContainText('equals the theoretical core weight');
 
-  // The process: 2 stages, each starting with line clearance (TB-10); the mix step is removed, leaving 6 steps.
+  // The process: 2 stages, each starting with line clearance (TB-10); the dry-mix step of blending is removed, leaving 4.
   await author.getByRole('button', { name: 'Process', exact: true }).click();
   await expect(author.locator('.steps-col .olist li').first()).toContainText('Line clearance');
-  await author.getByRole('button', { name: /3\. Mix for a time/ }).click();
+  await author.locator('.steps-col').getByRole('button', { name: /4\. Dry mix for a time/ }).click();
   await author.getByRole('button', { name: 'Remove step blend' }).click();
-  await expect(author.locator('.steps-col .olist li')).toHaveCount(3);
+  await expect(author.locator('.steps-col .olist li')).toHaveCount(4);
 
   // The master check shows what is missing; its link selects the step, and the template sentence takes the input.
   const check = author.getByRole('complementary', { name: 'Master check' });
@@ -52,6 +52,10 @@ test('TB-02 build a master from a skeleton, fix a master-check problem, then che
   await sentence.getByLabel('Target quantity').selectOption({ label: 'Examplol' });
   await expect(author.locator('.ex-results')).toContainText('250.0 mg × 100000 tablets = 25.000 kg');
   await expect(check.getByRole('button', { name: /Target quantity is not set/ })).toBeHidden();
+
+  await check.getByRole('button', { name: /Sieve no\. \(mesh and aperture\) is not set/ }).click();
+  await author.getByLabel('Sieve no. (mesh and aperture)').fill('40 mesh (425 µm)');
+  await expect(check.getByRole('button', { name: /Sieve no\. \(mesh and aperture\) is not set/ })).toBeHidden();
 
   await check.getByRole('button', { name: /Hardness limits is not set/ }).click();
   await author.getByLabel('Hardness limits: lowest').fill('60');

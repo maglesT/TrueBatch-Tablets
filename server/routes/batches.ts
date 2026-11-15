@@ -88,7 +88,8 @@ async function readValues(app: FastifyInstance, doc: MasterDoc, key: StepKey, ra
   for (const [name, x] of Object.entries(raw)) {
     const f = block.fields.find((y) => y.name === name);
     if (!f) { problems.push(`There is no field ${name}`); continue; }
-    if (f.kind === 'timer') { out[name] = now.toISOString(); continue; }
+    // Whole seconds, as the time templates read them (T13).
+    if (f.kind === 'timer') { out[name] = `${now.toISOString().slice(0, 19)}Z`; continue; }
     if (f.kind === 'machine' || f.kind === 'room') {
       const item = f.kind === 'machine' ? usableItem(await app.master.equipment(), String(x), 'machine') : usableItem(await app.master.rooms(), String(x), 'room');
       const type = 'type' in item ? item.type : item.area;

@@ -85,12 +85,16 @@ export function readValue(f: BlockField, raw: unknown, unit: string): Value | { 
 const MISSING = Symbol('missing');
 /**
  * Replaces each "$name" by its input; MISSING when one is not there yet (the calculation then waits). "$name?" is an
- * optional setting: left out when not set. "$prev.name" is the same field or calculation in the previous round.
+ * optional setting or field: left out when not set. "$prev.name" is the same field or calculation in the previous round.
  */
 function resolve(x: unknown, inputs: Record<string, unknown>): unknown {
   if (typeof x === 'string' && x.endsWith('?') && x.startsWith('$')) return inputs[x.slice(1, -1)];
   if (typeof x === 'string' && x.startsWith('$')) return x.slice(1) in inputs ? inputs[x.slice(1)] : MISSING;
-  if (Array.isArray(x)) { const a = x.map((y) => resolve(y, inputs)); return a.includes(MISSING) ? MISSING : a; }
+  if (Array.isArray(x)) {
+    const a = x.map((y) => resolve(y, inputs));
+    // An optional entry that is not set is left out of the list (e.g. the second stage of a staged test).
+    return a.includes(MISSING) ? MISSING : a.filter((v, i) => v !== undefined || !(typeof x[i] === 'string' && x[i].endsWith('?')));
+  }
   if (x && typeof x === 'object') {
     const o: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(x)) { const r = resolve(v, inputs); if (r === MISSING) return MISSING; o[k] = r; }

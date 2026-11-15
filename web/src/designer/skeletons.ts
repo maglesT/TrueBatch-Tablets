@@ -17,32 +17,38 @@ const yieldStep = (theoretical: SettingValue): StepPlan => ({ block: 'stage-yiel
 const weighStep = (key: string): StepPlan => ({ block: 'weigh', key, settings: () => ({ tolerance: '0.5' }) });
 const compressStep: StepPlan = { block: 'compress', settings: (h) => ({
   meanLimit: { low: pct(h, h.coreWeightMg, '-5'), high: pct(h, h.coreWeightMg, '5'), unit: 'mg' }, weightBand: '5.0', weightOuterBand: '10.0' }) };
+// TB-16: the tooling is checked before and after compression; the tablets are reconciled at the end.
+const tooling = (key: string): StepPlan => ({ block: 'punch-die-check', key });
+const reconcile: StepPlan = { block: 'tablet-reconciliation', key: 'yield', settings: () => ({ theoretical: { header: 'batchSize' },
+  meanWeight: { ref: 'compression/compress/meanWeight' }, yieldLimit: { low: '97.0', high: '100.5', unit: '%' }, accountabilityLimit: { low: '99.0', high: '100.5', unit: '%' } }) };
+const compression = [tooling('tooling-before'), compressStep, tooling('tooling-after'), reconcile];
 
 const SKELETONS: { id: string; name: string; text: string; stages: StagePlan[] }[] = [
   {
     id: 'wet-granulation-film-coated', name: 'Wet granulation, film-coated',
-    text: 'Binder solution, granulation and drying, blending, compression, film coating.',
+    text: 'Binder solution, granulation and drying, lubrication, compression, coating suspension and film coating.',
     stages: [
       { key: 'binder', name: 'Binder solution', kind: 'preparation', role: 'Granulation operator', produces: ['binder solution', 24],
-        steps: [weighStep('weigh-binder'), { block: 'mix', key: 'stir', minMinutes: 10 }] },
+        steps: [weighStep('weigh-binder'), { block: 'binder-solution' }] },
       { key: 'granulation', name: 'Granulation', role: 'Granulation operator', produces: ['dried granules', 72], uses: ['binder'],
-        steps: [weighStep('weigh-api'), { block: 'charge', key: 'charge-api' }, { block: 'granulate' }, { block: 'dry' }, { block: 'sieve', key: 'mill' }, yieldStep('')] },
+        steps: [weighStep('weigh-api'), { block: 'sift' }, { block: 'charge', key: 'charge-api' }, { block: 'dry-mix' }, { block: 'granulate' }, { block: 'dry' },
+          { block: 'sieve', key: 'mill' }, yieldStep('')] },
       { key: 'blending', name: 'Blending', role: 'Granulation operator', produces: ['lubricated blend', 72], uses: ['granulation'],
-        steps: [weighStep('weigh-lubricant'), { block: 'charge', key: 'charge-lubricant' }, { block: 'mix', key: 'blend', minMinutes: 5 }, yieldStep({ header: 'coreBatch' })] },
-      { key: 'compression', name: 'Compression', role: 'Compression operator', produces: ['core tablets', 720], uses: ['blending'],
-        steps: [compressStep, yieldStep({ header: 'coreBatch' })] },
-      { key: 'coating', name: 'Film coating', role: 'Coating operator', produces: ['coated tablets', 2160], uses: ['compression'],
-        steps: [weighStep('weigh-coating'), { block: 'coat', settings: () => ({ coreWeight: { header: 'coreWeight' } }) }, yieldStep({ header: 'coatedBatch' })] },
+        steps: [{ block: 'lubricate', settings: () => ({ granuleWeight: { ref: 'granulation/yield/output' }, tolerance: '0.5' }) }, { block: 'blend-uniformity' }, yieldStep({ header: 'coreBatch' })] },
+      { key: 'compression', name: 'Compression', role: 'Compression operator', produces: ['core tablets', 720], uses: ['blending'], steps: compression },
+      { key: 'suspension', name: 'Coating suspension', kind: 'preparation', role: 'Coating operator', produces: ['coating suspension', 24],
+        steps: [weighStep('weigh-coating'), { block: 'coating-suspension' }] },
+      { key: 'coating', name: 'Film coating', role: 'Coating operator', produces: ['coated tablets', 2160], uses: ['compression', 'suspension'],
+        steps: [{ block: 'spray-coat', key: 'coat', settings: () => ({ coreWeight: { header: 'coreWeight' }, base: 'start' }) }, yieldStep({ header: 'coatedBatch' })] },
     ],
   },
   {
     id: 'direct-compression-uncoated', name: 'Direct compression, uncoated',
-    text: 'Blending of the dispensed materials, then compression.',
+    text: 'Sifting and blending of the dispensed materials, then compression.',
     stages: [
       { key: 'blending', name: 'Blending', role: 'Production operator', produces: ['blend', 72],
-        steps: [weighStep('weigh'), { block: 'mix', key: 'blend', minMinutes: 10 }, yieldStep({ header: 'coreBatch' })] },
-      { key: 'compression', name: 'Compression', role: 'Compression operator', produces: ['bulk tablets', 720], uses: ['blending'],
-        steps: [compressStep, yieldStep({ header: 'coreBatch' })] },
+        steps: [weighStep('weigh'), { block: 'sift' }, { block: 'dry-mix', key: 'blend' }, yieldStep({ header: 'coreBatch' })] },
+      { key: 'compression', name: 'Compression', role: 'Compression operator', produces: ['bulk tablets', 720], uses: ['blending'], steps: compression },
     ],
   },
 ];

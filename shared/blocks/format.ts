@@ -5,8 +5,8 @@
  *
  * Calculation arguments are the template's own input object, written as JSON. A string "$name" is replaced by the
  * value of this step's field, setting or earlier calculation of that name; everything else is passed as written.
- * "$name?" names an optional setting (left out when the master does not set it). "$prev.name" is the same field or
- * calculation in the previous round of a repeat-until step (in round 1 the calculation waits).
+ * "$name?" names an optional setting or field (left out when it is not set, and left out of a list). "$prev.name" is the
+ * same field or calculation in the previous round of a repeat-until step (in round 1 the calculation waits).
  */
 import { z } from 'zod';
 import { findUnit } from '../templates/index.js';
@@ -33,6 +33,8 @@ export const settingSchema = z.object({
   name,
   label: z.string().min(1),
   kind: z.enum(SETTING_KINDS),
+  // text: the fixed list the master picks from.
+  options: z.array(z.string().min(1)).optional(),
   optional: z.boolean().optional(),
 }).strict();
 
@@ -59,6 +61,8 @@ export const blockSchema = z.object({
   stop: name.optional(),
   // Rounds every N minutes (periodic in-process checks); the master may not set more than maxMinutes (TB-15).
   periodic: z.object({ maxMinutes: z.number().int().positive() }).strict().optional(),
+  // A new master step from this block starts as a QA hold (the master may change it).
+  qaHold: z.boolean().optional(),
 }).strict();
 
 export type BlockField = z.infer<typeof fieldSchema>;
@@ -89,6 +93,7 @@ export function blockProblems(b: Block): string[] {
     if (f.unit?.startsWith('$') ? !settings.has(f.unit.slice(1)) : f.unit !== undefined && !findUnit(f.unit)) p.push(`field ${f.name}: unknown unit ${f.unit}`);
     if (f.kind === 'choice' && !f.options?.length) p.push(`field ${f.name}: a choice needs options`);
   }
+  for (const s of b.settings) if (s.options && (s.kind !== 'text' || !s.options.length)) p.push(`setting ${s.name}: only a text setting has a list`);
   const known = new Set([...b.fields.map((f) => f.name), ...b.settings.map((s) => s.name)]);
   for (const c of b.calcs) {
     if (!(c.template in TEMPLATES)) p.push(`calculation ${c.name}: unknown template ${c.template}`);

@@ -20,6 +20,11 @@ describe('C6 Staged test: disintegration (6, then 12 more; 16 of 18)', () => {
     expect(r.stageReached).toBe(stage);
   });
 
+  it('C6: readings recorded with their unit count as their values', () => {
+    const min = (s: string) => six(s).map((value) => ({ value, unit: 'min' }));
+    expect(ok(c6StagedTest({ test: 'disintegration', maxTime: '15', stages: [min('8 9 10 11 12 16'), min('8 9 10 11 12 13 14 9 10 11 12 13')] })).decision).toBe('pass');
+  });
+
   it('C6: refuses the wrong number of units', () => {
     expect(refused(c6StagedTest({ test: 'disintegration', maxTime: '15', stages: [six('8 9 10 11 12')] }))).toMatch(/needs 6 units/);
   });
