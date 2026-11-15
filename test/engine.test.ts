@@ -292,6 +292,33 @@ describe('calculations come from the templates library', () => {
   });
 });
 
+describe('repeat-until: no further change from the previous round (F2)', () => {
+  const doc = small([{ steps: [{ block: { id: 'dry-constant', version: 1 }, settings: { maxChange: '0.05 g' }, flow: { kind: 'repeat-until', maxRounds: 5 } }, {}] }]);
+  const g = (x: string) => ({ weight: { value: x, unit: 'g' } });
+  const round = (events: StepEvent[], r: number, w: string) => {
+    const results = evaluate(doc, events, { stage: 0, sub: 1, step: 0, round: r }, g(w));
+    return [...events, ev('started', `0.1.0.${r}`), ev('value', `0.1.0.${r}`, { payload: { values: g(w), results } }), ev('done', `0.1.0.${r}`)];
+  };
+
+  it('round 1 has no previous reading: the stop check waits and round 2 opens', () => {
+    const r1 = round([], 1, '10.00');
+    expect(openSteps(doc, r1, at(1000)).steps[0]!.results.constant).toBeUndefined();
+    expect(stateOf(doc, r1, '0.1.0.2')).toBe('open');
+  });
+
+  it.each([
+    ['10.30', '10.00', false],
+    ['10.03', '10.00', true],
+    ['10.05', '10.00', true],
+    ['9.94', '10.00', false],
+  ])('F2 this round %s g against the previous round %s g (largest change 0.05 g) → stop %s', (now, before, stop) => {
+    const r2 = round(round([], 1, before), 2, now);
+    expect(openSteps(doc, r2, at(1000)).steps.find((s) => s.id === '0.1.0.2')!.results.constant).toMatchObject({ ok: true, check: { pass: stop } });
+    expect(stateOf(doc, r2, '0.1.1.1')).toBe(stop ? 'open' : 'waiting');
+    expect(stateOf(doc, r2, '0.1.0.3')).toBe(stop ? 'absent' : 'open');
+  });
+});
+
 describe('yield accountability (T4)', () => {
   const values = { output: { value: '24.500', unit: 'kg' }, samples: { value: '0.200', unit: 'kg' }, rejects: { value: '0.100', unit: 'kg' } };
   const key = { stage: 2, sub: 1, step: 1, round: 1 };

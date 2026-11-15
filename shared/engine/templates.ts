@@ -12,6 +12,8 @@ export const TEMPLATES: Record<string, Template> = {
   T25: T.t25AbsoluteHumidity, T26: T.t26MixToTarget,
   C1: T.c1WithinLimits, C2: T.c2Count, C3: T.c3AllIndividual, C4: T.c4Observation, C5: T.c5SameBasis,
   C6: T.c6StagedTest, C7: T.c7SamplingPlan,
+  // F2 "no further change": this round's reading against the previous round's ("$prev.name").
+  F2: (i: { previous: T.Q; current: T.Q; limit: Parameters<typeof T.noFurtherChange>[2] }) => T.noFurtherChange(i.previous, i.current, i.limit),
 };
 
 /** Calls a template with arguments already resolved; a bug-level throw becomes a refusal so a batch never crashes. */

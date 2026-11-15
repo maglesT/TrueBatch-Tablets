@@ -5,7 +5,8 @@
  *
  * Calculation arguments are the template's own input object, written as JSON. A string "$name" is replaced by the
  * value of this step's field, setting or earlier calculation of that name; everything else is passed as written.
- * "$name?" names an optional setting (left out when the master does not set it).
+ * "$name?" names an optional setting (left out when the master does not set it). "$prev.name" is the same field or
+ * calculation in the previous round of a repeat-until step (in round 1 the calculation waits).
  */
 import { z } from 'zod';
 import { findUnit } from '../templates/index.js';
@@ -64,9 +65,9 @@ export type BlockField = z.infer<typeof fieldSchema>;
 export type BlockSetting = z.infer<typeof settingSchema>;
 export type Block = z.infer<typeof blockSchema>;
 
-/** The names inside "$name" strings of calculation arguments ("$name?" optional). */
+/** The names inside "$name" strings of calculation arguments ("$name?" optional, "$prev.name" the previous round). */
 export function refsIn(x: unknown): string[] {
-  if (typeof x === 'string') return x.startsWith('$') ? [x.slice(1).replace(/\?$/, '')] : [];
+  if (typeof x === 'string') return x.startsWith('$') ? [x.slice(1).replace(/^prev\./, '').replace(/\?$/, '')] : [];
   if (Array.isArray(x)) return x.flatMap(refsIn);
   if (x && typeof x === 'object') return Object.values(x).flatMap(refsIn);
   return [];

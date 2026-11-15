@@ -69,7 +69,7 @@ export function readValue(f: BlockField, raw: unknown, unit: string): Value | { 
 const MISSING = Symbol('missing');
 /**
  * Replaces each "$name" by its input; MISSING when one is not there yet (the calculation then waits). "$name?" is an
- * optional setting: left out when not set.
+ * optional setting: left out when not set. "$prev.name" is the same field or calculation in the previous round.
  */
 function resolve(x: unknown, inputs: Record<string, unknown>): unknown {
   if (typeof x === 'string' && x.endsWith('?') && x.startsWith('$')) return inputs[x.slice(1, -1)];
@@ -83,10 +83,10 @@ function resolve(x: unknown, inputs: Record<string, unknown>): unknown {
   return x;
 }
 
-/** The latest round of a step that has values, in the copy `sub`. */
-function latestValues(events: readonly StepEvent[], stage: number, sub: number, step: number): Current {
+/** The latest round of a step that has values, in the copy `sub` (or the given round). */
+function latestValues(events: readonly StepEvent[], stage: number, sub: number, step: number, round?: number): Current {
   const mine = events.filter((e) => e.stage === stage && e.sub === sub && e.step === step);
-  const last = Math.max(0, ...mine.filter((e) => e.kind === 'value' || e.kind === 'corrected').map((e) => e.round));
+  const last = round ?? Math.max(0, ...mine.filter((e) => e.kind === 'value' || e.kind === 'corrected').map((e) => e.round));
   return currentValues(mine.filter((e) => e.round === last));
 }
 
@@ -173,6 +173,11 @@ export function evaluate(doc: MasterDoc, events: readonly StepEvent[], key: Step
   const inputs: Record<string, unknown> = { ...values };
   // C1 takes earlier results as results, and shows them at display precision.
   const asResults: Record<string, ResultValue> = {};
+  if (key.round > 1 && JSON.stringify(block.calcs).includes('"$prev.')) {
+    const p = latestValues(events, key.stage, key.sub, key.step, key.round - 1);
+    for (const [k, v] of Object.entries(p.values)) inputs[`prev.${k}`] = v;
+    for (const [k, r] of Object.entries(p.results)) if (r.ok) inputs[`prev.${k}`] = asQ(r);
+  }
   for (const s of block.settings) {
     const v: SettingValue | undefined = step.settings[s.name];
     if (v === undefined) continue;
