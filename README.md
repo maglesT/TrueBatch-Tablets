@@ -6,8 +6,9 @@ platform. Built the way the Medhanta Logbook is built: one app, plain SQL, a sma
 - Design decisions: `docs/design.md`
 - The TrueBatch rules and their tests: `docs/rules.md`
 
-Status: skeleton. Sign-on through core, permissions, the audit trail, e-signatures and master-data reads are in place;
-no batch record features yet.
+Status: sign-on through core, permissions, the audit trail, e-signatures and master-data reads are in place, with the
+calculation templates (`shared/templates/`), the step blocks (`shared/blocks/`), the master document and its checks
+(`shared/master/`) and the batch engine (`shared/engine/`, routes in `server/routes/`). No designer or floor screens yet.
 
 ## Develop
 Needs Node 22 and PostgreSQL 16.
