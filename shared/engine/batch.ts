@@ -24,6 +24,8 @@ export interface StepView extends Current {
   inputChanged: StepEvent[];
   // F4 by rule: the master's rule left this step out (it is not applicable without an operator's choice).
   leftOut?: string;
+  // The stop check of a repeat-until round that may still be repeated has not passed: "not yet", not out of limits.
+  notYet?: string;
 }
 
 /** F4 by a rule of the master on a header value (e.g. the bag premix only for a batch of at most 50 kg); null when the step is in. */
@@ -59,6 +61,14 @@ const plus = (t: Date, minutes: number) => new Date(t.getTime() + minutes * MINU
 
 const stopName = (st: Step) => (st.flow.kind === 'repeat-until' ? st.flow.stop ?? findBlock(st.block)?.stop : undefined);
 const maxRounds = (st: Step) => (st.flow.kind === 'repeat-until' ? st.flow.maxRounds ?? 1 : 1);
+const notYetOf = (st: Step, round: number, results: Current['results']) => {
+  const stop = stopName(st);
+  return stop && round < maxRounds(st) && failed(results[stop]) ? stop : undefined;
+};
+/** The results out of limits: a real limit failure, never a round that is "not yet" (TB-14). */
+export const outOfLimits = (v: StepView) => Object.entries(v.results).filter(([n, r]) => n !== v.notYet && failed(r));
+/** A "not yet" worked line in plain words: the stop check is not reached yet and the rounds go on. */
+export const notYetText = (shown: string) => shown.replace(/:\s*OUT OF LIMITS(?: \([^)]*\))?/g, ': not reached yet, the rounds go on').replace(/:\s*FAIL\b/g, ': not yet, the rounds go on');
 function stopPassed(v: StepView, st: Step): boolean {
   const r = v.results[stopName(st) ?? ''];
   return r?.ok === true && r.check?.pass === true;
@@ -141,8 +151,9 @@ export function openSteps(doc: MasterDoc, events: readonly StepEvent[], now: Dat
             c.results = evaluate(doc, events, key, c.values);
             if (state === 'done' || state === 'done_awaiting_check' || state === 'checked') [state, needsResign] = ['in_progress', true];
           }
+          const notYet = notYetOf(st, round, c.results);
           last = { key, id: keyId(key), stageKey: s.key, stepKey: st.key, state: state === 'waiting' && gate === null ? 'open' : state, needsResign,
-            ...(state === 'waiting' && gate !== null ? { blocked: gate } : {}), events: evs, ...c, inputChanged, ...(leftOut ? { leftOut } : {}) };
+            ...(state === 'waiting' && gate !== null ? { blocked: gate } : {}), events: evs, ...c, inputChanged, ...(leftOut ? { leftOut } : {}), ...(notYet ? { notYet } : {}) };
           steps.push(last);
           // A round that has events is always shown (an earlier round may be back in progress after a correction).
           if (!byKey.has(keyId({ ...key, round: round + 1 })) && (st.flow.kind !== 'repeat-until' || !finished(last, st.waitForCheck) || stopPassed(last, st) || round >= maxRounds(st))) break;

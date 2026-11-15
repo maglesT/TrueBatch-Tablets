@@ -11,7 +11,7 @@ export type { Block, BlockField, MasterDoc, Step, Action, State, StepKey, Stored
 
 export interface FloorEvent extends StepKey { id: number; kind: EventKind; payload: Payload; person: number | null; personName: string | null; at: string }
 export interface StepRow {
-  key: StepKey; id: string; stageKey: string; stepKey: string; state: State; needsResign: boolean; blocked?: string;
+  key: StepKey; id: string; stageKey: string; stepKey: string; state: State; needsResign: boolean; blocked?: string; notYet?: string;
   values: Record<string, Value>; results: Record<string, Stored>; inputChanged: FloorEvent[]; events: FloorEvent[];
   contentHash: string; actions: Action[]; problems: string[];
   // Where values came from (a link, or by hand) and the label questions of what was entered by hand.

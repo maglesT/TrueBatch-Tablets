@@ -9,6 +9,7 @@ import { Alerts } from './BatchScreen.js';
 import { FieldInput } from './Fields.js';
 import { ReasonDialog } from './ReasonDialog.js';
 import { CERTIFICATE, fieldLabel, handEntered, LINK_OF } from '../../../shared/engine/links.js';
+import { notYetText } from '../../../shared/engine/batch.js';
 import { materialLines } from '../../../shared/master/schema.js';
 
 type Dialog = { kind: 'done' | 'repeat' | 'check' | 'na' | 'send-back' | 'note' } | { kind: 'na-sign'; reason: string } | { kind: 'correct'; field: BlockField };
@@ -210,7 +211,7 @@ export function StepScreen({ me, d, blocks, row, now, reload }: { me: Me; d: Bat
           <section className="dash-panel" aria-label="Results">
             <div className="panel-head"><h2>Results</h2><span className="muted">worked out by the server</span></div>
             {resultRows.length === 0 ? <p className="muted">The results appear here as soon as the values are saved.</p> : (
-              <div className="results">{resultRows.map((x) => <ResultCard key={x.n} label={x.label} r={x.r} big={block.gmp === 'yield'} stop={x.n === stop} />)}</div>
+              <div className="results">{resultRows.map((x) => <ResultCard key={x.n} label={x.label} r={x.r} big={block.gmp === 'yield'} stop={x.n === row.notYet} />)}</div>
             )}
           </section>
           {repeatUntil && rounds.length > 0 && (
@@ -289,14 +290,15 @@ function ResultCard({ label, r, big, stop }: { label: string; r: Stored; big?: b
   if (!r.ok) return <div className="result warn"><div className="rh"><span>{label}</span></div><div className="shown">{r.message}</div></div>;
   const t = tone(r);
   const h = headline(r);
-  // The stop check of a repeat-until step is not a failure until the rounds run out.
+  // The stop check of a repeat-until round is not a failure until the rounds run out (the server says which: notYet).
   const cls = stop && t === 'bad' ? '' : t ?? '';
+  const shown = (x: string) => (stop ? notYetText(x) : x);
   const word = t === 'ok' ? 'Within limits' : t === 'bad' ? (stop ? 'Not yet: repeat' : 'Out of limits') : t === 'warn' ? 'Alert' : null;
   return (
     <div className={`result ${cls}${big ? ' big' : ''}`}>
       <div className="rh"><span>{label}</span>{word && <span className={`chip ${cls === 'ok' ? 'chip-ok' : cls === 'bad' ? 'chip-bad' : 'chip-warn'}`}>{word}</span>}</div>
       {h && <div className="rv">{h}</div>}
-      <div className="shown">{r.shown}{r.check && r.check.shown !== r.shown ? <><br />{r.check.shown}</> : null}</div>
+      <div className="shown">{shown(r.shown)}{r.check && r.check.shown !== r.shown ? <><br />{shown(r.check.shown)}</> : null}</div>
     </div>
   );
 }
@@ -307,7 +309,7 @@ function Summary({ row, block }: { row: StepRow; block: Block }) {
       {block.fields.filter((f) => row.values[f.name] !== undefined).map((f) => <div key={f.name} style={{ display: 'contents' }}><dt>{f.label}</dt><dd>{valueText(row.values[f.name])}</dd></div>)}
       {block.calcs.filter((c) => row.results[c.name]?.ok).map((c) => {
         const r = row.results[c.name]!;
-        return <div key={c.name} style={{ display: 'contents' }}><dt>{c.label}</dt><dd>{headline(r) ?? ''} {tone(r) === 'bad' ? '(out of limits)' : tone(r) === 'ok' ? '(within limits)' : ''}</dd></div>;
+        return <div key={c.name} style={{ display: 'contents' }}><dt>{c.label}</dt><dd>{headline(r) ?? ''} {c.name === row.notYet ? '(not yet: the rounds go on)' : tone(r) === 'bad' ? '(out of limits)' : tone(r) === 'ok' ? '(within limits)' : ''}</dd></div>;
       })}
     </dl>
   );

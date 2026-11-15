@@ -5,7 +5,7 @@
 import type { Permission } from '../../server/auth.js';
 import { findBlock } from '../blocks/index.js';
 import type { MasterDoc } from '../master/schema.js';
-import { openSteps, timers, type StepView, type Timer } from './batch.js';
+import { openSteps, outOfLimits, timers, type StepView, type Timer } from './batch.js';
 import { keyId, type StepEvent } from './state.js';
 import { failed } from './values.js';
 import { isHand, type Source } from './links.js';
@@ -106,7 +106,7 @@ export function review(doc: MasterDoc, events: readonly StepEvent[], batchEvents
     corrections: steps.flatMap((s) => s.replaced.map((r) => ({ step: s.id, ...r }))),
     sentBack: events.filter((e) => e.kind === 'sent_back'),
     late: lateItems(doc, events, now),
-    outOfLimits: steps.flatMap((s) => Object.entries(s.results).filter(([, r]) => failed(r)).map(([calc, r]) => ({ step: s.id, calc, shown: r.ok ? r.shown : '', notes: notes(s) }))),
+    outOfLimits: steps.flatMap((s) => outOfLimits(s).map(([calc, r]) => ({ step: s.id, calc, shown: r.ok ? r.shown : '', notes: notes(s) }))),
     inputChanged: steps.filter((s) => s.inputChanged.length).map((s) => ({ step: s.id, changes: s.inputChanged })),
     deviations: deviations(events, batchEvents, read),
     // Every value typed by hand because a link was absent or down (owner 15 Nov 2026), and who typed it.

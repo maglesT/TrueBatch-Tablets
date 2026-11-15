@@ -4,7 +4,7 @@
 import type { Content, TDocumentDefinitions } from 'pdfmake/interfaces.js';
 import { findBlock, type Block } from '../shared/blocks/index.js';
 import { materialLines, type MasterDoc, type Step } from '../shared/master/schema.js';
-import { batchView, deviations, fieldLabel, handFields, lateItems, lineQuantity, openSteps, PROVIDER_NAME, type DeviationStatus, type EventKind, type Source, type Stored, type StepView, type Value } from '../shared/engine/index.js';
+import { batchView, deviations, fieldLabel, handFields, lateItems, lineQuantity, notYetText, openSteps, PROVIDER_NAME, type DeviationStatus, type EventKind, type Source, type Stored, type StepView, type Value } from '../shared/engine/index.js';
 import type { LoadedBatch } from './routes/batches.js';
 import { pageFrame, plant, runs } from './pdf.js';
 
@@ -189,10 +189,13 @@ function resultLines(block: Block, st: Step, v: StepView, who: (id: number | nul
   const out: Content[] = Object.entries(v.results).flatMap(([name, r]) => {
     if (!r.ok) return [small(`${label(name)}: ${r.message}`, { color: RED })];
     const checks = checksOf(r);
+    // A round whose stop check is not reached yet is not out of limits: the rounds go on.
+    const notYet = name === v.notYet;
+    const text = (t: string) => (notYet ? notYetText(t) : t);
     return [
-      small(`${label(name)}: ${r.shown}`),
-      ...checks.filter(([, c]) => c.shown !== r.shown).map(([, c]) => small(c.shown, { margin: [8, 0, 0, 0] })),
-      ...checks.map(([, c]) => small(c.pass ? 'PASS' : 'FAIL: out of limits', { bold: true, color: c.pass ? '#1b6e3a' : RED, margin: [8, 0, 0, 2] })),
+      small(`${label(name)}: ${text(r.shown)}`),
+      ...checks.filter(([, c]) => c.shown !== r.shown).map(([, c]) => small(text(c.shown), { margin: [8, 0, 0, 0] })),
+      ...checks.map(([, c]) => small(c.pass ? 'PASS' : notYet ? 'NOT YET: the rounds go on' : 'FAIL: out of limits', { bold: true, color: c.pass ? '#1b6e3a' : notYet ? '#666666' : RED, margin: [8, 0, 0, 2] })),
     ];
   });
   if (v.inputChanged.length) out.push(small(`Worked out again: an input was corrected later (${v.inputChanged.map((e) => `${who(e.person)}, ${plant(e.at)}`).join('; ')})`, { color: RED }));

@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
-  batchRefusal, batchView, evaluate, review,
+  batchRefusal, batchView, evaluate, notYetText, review,
   type BatchAction, type BatchEvent, type BatchEventKind, type StepEvent,
 } from '../shared/engine/index.js';
-import { at, ev, small } from './engine-fixture.js';
+import { at, ev, fail, pass, reading, small } from './engine-fixture.js';
 
 // The batch status and its signatures (TB-20, TB-21), computed from step events and batch events.
 
@@ -119,5 +119,17 @@ describe('the review list for QA', () => {
     expect(r.deviations).toMatchObject([{ reference: 'DEV-26-001', open: false, closed: { payload: { reason: 'Investigation closed' } } }]);
     expect(r.notApplicable).toMatchObject([{ step: 1, payload: { reason: 'Not needed' } }]);
     expect(r.late).toEqual([]);
+  });
+
+  it('TB-14 a repeat-until round whose stop check is "not yet" is not out of limits; the last allowed round failing is', () => {
+    const d = small([{ steps: [{ flow: { kind: 'repeat-until', maxRounds: 3, stop: 'readingCheck' } }] }]);
+    const round = (r: number, ok: boolean) => [ev('started', `0.1.0.${r}`), reading(`0.1.0.${r}`, { readingCheck: ok ? pass : fail }), ev('done', `0.1.0.${r}`)];
+    const dried = [...round(1, false), ...round(2, true)];
+    expect(review(d, dried, [], at(1000)).outOfLimits).toEqual([]);
+    expect(batchView(d, dried, [], at(1000)).open).toEqual([]);
+    const never = [...round(1, false), ...round(2, false), ...round(3, false)];
+    expect(review(d, never, [], at(1000)).outOfLimits.map((o) => o.step)).toEqual(['0.1.0.3']);
+    expect(notYetText('2.150 % rounded to 1 decimal = 2.2 %; limit 2.5 to 3.5 %: OUT OF LIMITS (below the lower limit)')).toBe('2.150 % rounded to 1 decimal = 2.2 %; limit 2.5 to 3.5 %: not reached yet, the rounds go on');
+    expect(notYetText('Compression finished: no: FAIL')).toBe('Compression finished: no: not yet, the rounds go on');
   });
 });
