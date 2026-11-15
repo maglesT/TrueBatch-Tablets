@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
-import { api, ApiError, type Me } from './api.js';
+import { api, ApiError, can, type Me } from './api.js';
 import { Login } from './pages/Login.js';
 import { MyWork } from './floor/MyWork.js';
 import { BatchScreen } from './floor/BatchScreen.js';
 import { go, useRoute } from './api-floor.js';
+import { Masters } from './designer/Masters.js';
 
-type Page = 'home';
+type Page = 'home' | 'masters';
 
 export function App() {
   const [me, setMe] = useState<Me | null | undefined>(undefined);
@@ -42,6 +43,9 @@ export function App() {
         <span className="brand"><img className="brand-mark" src="/truebatch-mark.svg" alt="TrueBatch" /><span><b>TrueBatch Tablets</b><small>by Medhanta</small></span></span>
         <nav>
           <button className={page === 'home' && !route.batch ? 'tab on' : 'tab'} onClick={() => { setPage('home'); go('#/'); }}>My work</button>
+          {['master.author', 'master.check', 'master.approve', 'view'].some((c) => can(me, c)) && (
+            <button className={page === 'masters' ? 'tab on' : 'tab'} onClick={() => { setPage('masters'); go('#/'); }}>Master records</button>
+          )}
         </nav>
         <span className="who">
           {me.fullName}
@@ -50,6 +54,7 @@ export function App() {
       </header>
       <main className="page">
         {page === 'home' && (route.batch ? <BatchScreen me={me} id={route.batch} step={route.step} approve={route.approve} /> : <MyWork me={me} />)}
+        {page === 'masters' && <Masters me={me} />}
       </main>
     </>
   );
