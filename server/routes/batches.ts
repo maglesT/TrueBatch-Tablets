@@ -197,16 +197,17 @@ async function issueValues(app: FastifyInstance, tx: Tx, doc: MasterDoc, raw: Re
   const results = evaluate(doc, [], FIRST, typed.values);
   const refused = Object.values(results).flatMap((r) => (r.ok ? [] : [r.message]));
   if (missing.length || refused.length) throw new StepError(400, 'invalid_values', [...missing, ...refused]);
-  const line = Object.entries(typed.values).find(([n]) => block.fields.find((f) => f.name === n)?.kind === 'machine')?.[1] as { itemId: string; code: string } | undefined;
+  const field = block.fields.find((f) => f.kind === 'machine')?.name ?? '';
+  const line = typed.values[field] as { itemId: string; code: string } | undefined;
   if (line) {
     await tx`select pg_advisory_xact_lock(hashtext(${`line:${line.itemId}`}))`;
     const others = await tx<{ id: number }[]>`
       select distinct e.batch_id::int as id from step_events e
-      where e.stage = 0 and e.step = 0 and e.round = 1 and e.kind in ('value', 'corrected') and e.payload->'values'->'line'->>'itemId' = ${line.itemId}
+      where e.stage = 0 and e.step = 0 and e.round = 1 and e.kind in ('value', 'corrected') and e.payload->'values'->${field}->>'itemId' = ${line.itemId}
         and not exists (select 1 from batch_events x where x.batch_id = e.batch_id and x.kind in ('production_approved', 'released', 'rejected'))`;
     for (const { id } of others) {
       const l = (await loadBatch(tx, id))!;
-      if (view(l).status === 'in production' && (openSteps(l.doc, l.events, l.now).steps[0]!.values.line as { itemId?: string } | undefined)?.itemId === line.itemId) {
+      if (view(l).status === 'in production' && (openSteps(l.doc, l.events, l.now).steps[0]!.values[field] as { itemId?: string } | undefined)?.itemId === line.itemId) {
         throw new StepError(409, 'line_in_use', [`Line ${line.code} has an active packing order: batch ${l.batch.batchNo} (${l.doc.header.productCode}) is still being packed. One packing order per line.`]);
       }
     }
