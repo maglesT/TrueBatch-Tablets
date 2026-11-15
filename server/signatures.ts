@@ -17,6 +17,7 @@ export const MEANING_NEEDS = {
   production_approved: 'truebatch.batch.supervise',
   qc_approved: 'truebatch.qc.approve',
   released: 'truebatch.qa.release',
+  rejected: 'truebatch.qa.release',
 } as const satisfies Record<string, Permission>;
 export type Meaning = keyof typeof MEANING_NEEDS;
 export const MEANINGS = Object.keys(MEANING_NEEDS) as Meaning[];

@@ -6,7 +6,7 @@ import { Dec, type Outcome, type Q, type ResultValue } from '../templates/index.
 import { findBlock, type BlockField } from '../blocks/index.js';
 import type { FormulaLine, MasterDoc, SettingValue } from '../master/schema.js';
 import { callTemplate } from './templates.js';
-import type { StepEvent, StepKey } from './state.js';
+import { keyId, type StepEvent, type StepKey } from './state.js';
 
 /** A recorded value: a number with its unit, a list of them, a text (yes/no, choice, lot, time) or a picked item. */
 export type Value = { value: string; unit: string } | { value: string; unit: string }[] | string | { itemId: string; code: string; name: string; version: number };
@@ -30,21 +30,37 @@ export interface Current {
   results: Record<string, Stored>;
   // Corrections replace a value; the original stays in the record.
   replaced: { field: string; was: Value; now: Value; reason: string; person: number | null; at: Date }[];
+  // The events of other steps (or rounds) the current results were worked out from.
+  uses: number[];
 }
 
-/** The current values of one step instance: later values and corrections replace earlier ones, which are kept. */
+/**
+ * The current values of one step instance: later values and corrections replace earlier ones, which are kept. A
+ * "done" that carries results (signing again after an input changed) replaces the results.
+ */
 export function currentValues(events: readonly StepEvent[]): Current {
-  const c: Current = { values: {}, results: {}, replaced: [] };
+  const c: Current = { values: {}, results: {}, replaced: [], uses: [] };
   for (const e of events) {
-    if (e.kind !== 'value' && e.kind !== 'corrected') continue;
+    if (e.kind !== 'value' && e.kind !== 'corrected' && !e.payload.results) continue;
     for (const [k, v] of Object.entries(e.payload.values ?? {})) {
       const was = c.values[k];
       if (e.kind === 'corrected' && was !== undefined) c.replaced.push({ field: k, was, now: v, reason: e.payload.reason ?? '', person: e.person, at: e.at });
       c.values[k] = v;
     }
-    if (e.payload.results) c.results = e.payload.results;
+    if (e.payload.results) { c.results = e.payload.results; c.uses = e.payload.uses ?? []; }
   }
   return c;
+}
+
+/**
+ * GMP: a result must not silently keep a value that was changed after it was used. Returns the events that changed
+ * one of the used steps since (a correction, or results worked out again); empty when the inputs are as used.
+ */
+export function inputChanges<E extends StepEvent>(events: readonly E[], uses: readonly number[]): E[] {
+  return [...new Set(uses)].flatMap((u) => {
+    const src = events.find((e) => e.id === u);
+    return src ? events.filter((e) => e.id > u && e.payload.results && keyId(e) === keyId(src)) : [];
+  });
 }
 
 const NUMBER = /^[+-]?(\d+(\.\d*)?|\.\d+)$/;
@@ -67,8 +83,12 @@ export function readValue(f: BlockField, raw: unknown, unit: string): Value | { 
 }
 
 const MISSING = Symbol('missing');
-/** Replaces each "$name" by its input; MISSING when one is not there yet (the calculation then waits). */
+/**
+ * Replaces each "$name" by its input; MISSING when one is not there yet (the calculation then waits). "$name?" is an
+ * optional setting: left out when not set. "$prev.name" is the same field or calculation in the previous round.
+ */
 function resolve(x: unknown, inputs: Record<string, unknown>): unknown {
+  if (typeof x === 'string' && x.endsWith('?') && x.startsWith('$')) return inputs[x.slice(1, -1)];
   if (typeof x === 'string' && x.startsWith('$')) return x.slice(1) in inputs ? inputs[x.slice(1)] : MISSING;
   if (Array.isArray(x)) { const a = x.map((y) => resolve(y, inputs)); return a.includes(MISSING) ? MISSING : a; }
   if (x && typeof x === 'object') {
@@ -79,20 +99,26 @@ function resolve(x: unknown, inputs: Record<string, unknown>): unknown {
   return x;
 }
 
-/** The latest round of a step that has values, in the copy `sub`. */
-function latestValues(events: readonly StepEvent[], stage: number, sub: number, step: number): Current {
+/**
+ * The latest round of a step that has values, in the copy `sub` (or the given round). The id of its latest event
+ * with values or results goes into `uses`.
+ */
+function latestValues(events: readonly StepEvent[], stage: number, sub: number, step: number, uses: number[], round?: number): Current {
   const mine = events.filter((e) => e.stage === stage && e.sub === sub && e.step === step);
-  const last = Math.max(0, ...mine.filter((e) => e.kind === 'value' || e.kind === 'corrected').map((e) => e.round));
-  return currentValues(mine.filter((e) => e.round === last));
+  const last = round ?? Math.max(0, ...mine.filter((e) => e.kind === 'value' || e.kind === 'corrected').map((e) => e.round));
+  const these = mine.filter((e) => e.round === last);
+  const used = these.filter((e) => e.payload.values || e.payload.results).at(-1);
+  if (used) uses.push(used.id);
+  return currentValues(these);
 }
 
 /** An earlier step's field or calculation, "stage/step/name". In the same sub-batch stage: the same copy. */
-function refValue(doc: MasterDoc, events: readonly StepEvent[], here: StepKey, ref: string): unknown {
+function refValue(doc: MasterDoc, events: readonly StepEvent[], here: StepKey, ref: string, uses: number[]): unknown {
   const [sk, tk, name] = ref.split('/') as [string, string, string];
   const si = doc.stages.findIndex((s) => s.key === sk);
   const ti = doc.stages[si]?.steps.findIndex((t) => t.key === tk) ?? -1;
   if (ti < 0) return undefined;
-  const c = latestValues(events, si, si === here.stage ? here.sub : 1, ti);
+  const c = latestValues(events, si, si === here.stage ? here.sub : 1, ti, uses);
   return name in c.values ? c.values[name] : c.results[name] ? asQ(c.results[name]) : undefined;
 }
 
@@ -110,11 +136,11 @@ function headerValue(doc: MasterDoc, h: 'batchSize' | 'coreWeight' | 'coatedWeig
 }
 
 /** The adjusted quantity a step recorded for a formula line (its setting that asks for the adjusted line). */
-function recordedAdjusted(doc: MasterDoc, events: readonly StepEvent[], here: StepKey, lineKey: string): Stored | undefined {
+function recordedAdjusted(doc: MasterDoc, events: readonly StepEvent[], here: StepKey, lineKey: string, uses: number[]): Stored | undefined {
   for (const [si, s] of doc.stages.entries()) for (const [ti, t] of s.steps.entries()) {
     for (const [name, v] of Object.entries(t.settings)) {
       if (typeof v === 'object' && 'formula' in v && v.formula === lineKey && v.adjusted) {
-        const r = latestValues(events, si, si === here.stage ? here.sub : 1, ti).results[name];
+        const r = latestValues(events, si, si === here.stage ? here.sub : 1, ti, uses).results[name];
         if (r) return r;
       }
     }
@@ -127,7 +153,7 @@ function recordedAdjusted(doc: MasterDoc, events: readonly StepEvent[], here: St
  * order: T11 salt factor, T9 potency (with the lot's assay, water, LOD from this step) or T18 content, T16 overage,
  * or T10 for a filler that compensates other lines. The worked lines are joined.
  */
-export function lineQuantity(doc: MasterDoc, events: readonly StepEvent[], here: StepKey, line: FormulaLine, adjusted: boolean, values: Record<string, Value>): Stored {
+export function lineQuantity(doc: MasterDoc, events: readonly StepEvent[], here: StepKey, line: FormulaLine, adjusted: boolean, values: Record<string, Value>, uses: number[] = []): Stored {
   let q: Outcome<object> = perBatch(line.mgPerTablet, doc);
   const shown: string[] = [];
   const next = (o: Outcome<object>) => { if (q.ok) shown.push(q.shown); q = o; };
@@ -142,7 +168,7 @@ export function lineQuantity(doc: MasterDoc, events: readonly StepEvent[], here:
   }
   if (a?.overage && q.ok) next(callTemplate('T16', { quantity: exact(q.value, q.unit), overagePercent: a.overage.percent, maxOveragePercent: a.overage.maxPercent, unit: 'kg' }));
   if (a?.compensates?.length && q.ok) {
-    const others = a.compensates.map((k) => ({ k, l: doc.formula.find((f) => f.key === k), r: recordedAdjusted(doc, events, here, k) }));
+    const others = a.compensates.map((k) => ({ k, l: doc.formula.find((f) => f.key === k), r: recordedAdjusted(doc, events, here, k, uses) }));
     const missing = others.find((o) => !o.r?.ok);
     if (missing) return { ok: false, message: `Weigh ${missing.l?.name ?? missing.k} first: ${line.name} compensates its adjusted quantity` };
     next(callTemplate('T10', { fillers: [{ name: line.name, standard: exact(q.value, q.unit) }], unit: 'kg',
@@ -159,9 +185,9 @@ const perBatchQ = (doc: MasterDoc, l: FormulaLine | undefined) => {
 /**
  * The results of a step's calculations for its current values: settings that refer to the formula or the header are
  * worked out first (they show their own worked line), then the block's calculations in order. A calculation whose
- * inputs are not all there yet is left out until they are.
+ * inputs are not all there yet is left out until they are. The ids of the other steps' events used go into `uses`.
  */
-export function evaluate(doc: MasterDoc, events: readonly StepEvent[], key: StepKey, values: Record<string, Value>): Record<string, Stored> {
+export function evaluate(doc: MasterDoc, events: readonly StepEvent[], key: StepKey, values: Record<string, Value>, uses: number[] = []): Record<string, Stored> {
   const step = doc.stages[key.stage]?.steps[key.step];
   const block = step && findBlock(step.block);
   if (!step || !block) return {};
@@ -169,15 +195,20 @@ export function evaluate(doc: MasterDoc, events: readonly StepEvent[], key: Step
   const inputs: Record<string, unknown> = { ...values };
   // C1 takes earlier results as results, and shows them at display precision.
   const asResults: Record<string, ResultValue> = {};
+  if (key.round > 1 && JSON.stringify(block.calcs).includes('"$prev.')) {
+    const p = latestValues(events, key.stage, key.sub, key.step, uses, key.round - 1);
+    for (const [k, v] of Object.entries(p.values)) inputs[`prev.${k}`] = v;
+    for (const [k, r] of Object.entries(p.results)) if (r.ok) inputs[`prev.${k}`] = asQ(r);
+  }
   for (const s of block.settings) {
     const v: SettingValue | undefined = step.settings[s.name];
     if (v === undefined) continue;
     if (typeof v === 'string' || 'unit' in v) { inputs[s.name] = v; continue; }
-    if ('ref' in v) { const r = refValue(doc, events, key, v.ref); if (r !== undefined) inputs[s.name] = r; continue; }
+    if ('ref' in v) { const r = refValue(doc, events, key, v.ref, uses); if (r !== undefined) inputs[s.name] = r; continue; }
     if ('formula' in v) {
       const line = doc.formula.find((l) => l.key === v.formula);
       if (s.kind === 'material' || !line) continue;
-      results[s.name] = lineQuantity(doc, events, key, line, v.adjusted ?? false, values);
+      results[s.name] = lineQuantity(doc, events, key, line, v.adjusted ?? false, values, uses);
     } else {
       const h = headerValue(doc, v.header);
       if (typeof h === 'string') { inputs[s.name] = h; continue; }

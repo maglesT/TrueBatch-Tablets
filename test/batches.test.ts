@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { recordLate } from '../server/late.js';
 import { call, freshApp, login, proofFor, seedUser, type TestApp } from './helpers.js';
-import { tablet } from './engine-fixture.js';
+import { small, tablet } from './engine-fixture.js';
 
 // Master versions (draft, locked once out of draft), issuing a batch from an effective version (TB-03), walking a
 // stage through the step routes, refused actions (TB-08), insert-only step events and the timer job (TB-17).
@@ -23,6 +23,7 @@ beforeAll(async () => {
   const people = {
     author: ['truebatch.master.author', 'truebatch.view'], issuer: ['truebatch.batch.issue'], viewer: ['truebatch.view'],
     asha: ['truebatch.batch.operate', 'truebatch.batch.check'], ravi: ['truebatch.batch.check'], meera: ['truebatch.qa.release'],
+    sam: ['truebatch.batch.supervise'], quinn: ['truebatch.qc.approve'],
   } as const;
   for (const [name, perms] of Object.entries(people)) {
     await seedUser(t.owner, name, [...perms]);
@@ -32,8 +33,7 @@ beforeAll(async () => {
 afterAll(() => t.close());
 
 const as = (who: string, method: 'GET' | 'POST' | 'PUT', url: string, body?: object) => call(t.app, cookies[who]!, method as 'GET', url, body);
-async function effectiveMaster(change?: (d: ReturnType<typeof tablet>) => void) {
-  const doc = tablet();
+async function effectiveMaster(change?: (d: ReturnType<typeof tablet>) => void, doc = tablet()) {
   change?.(doc);
   const res = await as('author', 'POST', '/api/masters', { doc });
   expect(res.statusCode).toBe(200);
@@ -122,7 +122,7 @@ describe('walking a stage', () => {
     expect(b.steps.find((s) => s.id === '1.1.0.1')!.blocked).toBe('Waits for the preparation Binder solution to close');
   });
 
-  it('start → record (the templates compute) → done (signed performed) → checked by another person (signed verified)', async () => {
+  it('TB-07 start → record (the templates compute) → done (signed performed) → checked by another person (signed verified)', async () => {
     expect((await act('asha', id, '0.1.0.1', 'start')).statusCode).toBe(200);
     // 10.0 mg × 100 000 = 1.000 kg target; 1.350 − 0.350 = 1.000 kg net.
     const rec = await act('asha', id, '0.1.0.1', 'record', { values: { lot: 'PVP-2611', balance: 'eq-bal', gross: '1.350', tare: '0.350' } });
@@ -171,6 +171,19 @@ describe('walking a stage', () => {
     expect(stale.json()).toMatchObject({ error: 'content_changed' });
   });
 
+  it('TB-11 a machine not active in master data, or of a type the stage does not allow, is refused', async () => {
+    t.master.equipment_.push({ ...item('eq-old', 'BAL-09', 'Old balance'), active: false, kind: 'instrument', type: 'balance', room: 'DSP-01' });
+    expect((await act('asha', id, '1.1.0.1', 'record', { values: { balance: 'eq-old' } })).json()).toMatchObject({ error: 'inactive_item' });
+    expect((await act('asha', id, '1.1.0.1', 'record', { values: { balance: 'eq-prs' } })).json()).toMatchObject({ error: 'invalid_values' });
+  });
+
+  it('TB-04 each entry is saved at once, with the person and the server time', async () => {
+    const [e] = await t.owner<{ person: string; fresh: boolean }[]>`
+      select u.username as person, now() - e.at < interval '1 minute' as fresh from step_events e join users u on u.id = e.person_id
+      where e.batch_id = ${id} order by e.id desc limit 1`;
+    expect(e).toEqual({ person: 'asha', fresh: true });
+  });
+
   it('TB-08 the person who performed a step cannot check it', async () => {
     expect((await sign('asha', id, '1.1.0.1', 'done')).statusCode).toBe(200);
     expect((await stepOf(id, '1.1.0.1')).actions).not.toContain('check');
@@ -184,20 +197,129 @@ describe('walking a stage', () => {
     expect((await act('asha', id, '1.1.0.1', 'record', { values: { tare: '0.849' } })).json()).toMatchObject({ error: 'wrong_state' });
     expect((await act('asha', id, '1.1.0.1', 'correct', { values: { tare: '0.849' } })).statusCode).toBe(400);
     expect((await act('asha', id, '1.1.0.1', 'correct', { values: { tare: '0.849' }, reason: 'Tare misread' })).statusCode).toBe(200);
-    const s = (await stepOf(id, '1.1.0.1')) as unknown as { needsResign: boolean; replaced: { field: string; reason: string }[]; results: Record<string, { value: string }> };
+    const s = (await stepOf(id, '1.1.0.1')) as unknown as { needsResign: boolean; replaced?: unknown; results: Record<string, { value: string }> };
     expect(s.needsResign).toBe(true);
-    expect(s.replaced).toMatchObject([{ field: 'tare', reason: 'Tare misread' }]);
+    expect(s.replaced).toBeUndefined();
     expect(s.results.net!.value).toBe('10.151');
+    const history = (await as('viewer', 'GET', `/api/batches/${id}/steps/1.1.0.1/events`)).json() as { events: { kind: string }[]; replaced: unknown };
+    expect(history.replaced).toMatchObject([{ field: 'tare', was: { value: '0.850' }, now: { value: '0.849' }, reason: 'Tare misread' }]);
+    expect(history.events.map((e) => e.kind)).toEqual(['started', 'value', 'done', 'sent_back', 'corrected']);
     expect((await sign('asha', id, '1.1.0.1', 'done')).statusCode).toBe(200);
     expect((await sign('ravi', id, '1.1.0.1', 'check')).statusCode).toBe(200);
   });
 
-  it('step events are insert-only: the app role cannot change or delete them, nor can the owner', async () => {
+  it('TB-06 a correction reaches the step that used the value: it shows the new result and who changed it, and is signed and checked again', async () => {
+    expect((await act('asha', id, '1.1.1.1', 'start')).statusCode).toBe(200);
+    await act('asha', id, '1.1.1.1', 'record', { values: { lot: 'LAC-2611', balance: 'eq-bal', gross: '12.700', tare: '0.850' } });
+    expect((await sign('asha', id, '1.1.1.1', 'done')).statusCode).toBe(200);
+    expect((await sign('ravi', id, '1.1.1.1', 'check')).statusCode).toBe(200);
+    const before = (await stepOf(id, '1.1.1.1')).results as unknown as { target: { value: string } };
+    // The API's assay is corrected after the lactose target (T10) was worked out from it.
+    expect((await act('asha', id, '1.1.0.1', 'correct', { values: { assay: '98.0' }, reason: 'Assay typed from the old certificate' })).statusCode).toBe(200);
+    const s = (await stepOf(id, '1.1.1.1')) as unknown as { state: string; needsResign: boolean; inputChanged: { kind: string; personName: string; payload: { reason: string } }[]; results: { target: { value: string } } };
+    expect([s.state, s.needsResign]).toEqual(['in_progress', true]);
+    expect(s.inputChanged).toMatchObject([{ kind: 'corrected', personName: 'ASHA', payload: { reason: 'Assay typed from the old certificate' } }]);
+    expect(Number(s.results.target.value)).toBeLessThan(Number(before.target.value));
+    // Signed again with the new target, then checked again. 11.850 kg is now 0.9 % over the new target: a note first.
+    await sign('asha', id, '1.1.0.1', 'done');
+    await sign('ravi', id, '1.1.0.1', 'check');
+    expect((await sign('asha', id, '1.1.1.1', 'done')).json()).toMatchObject({ error: 'not_ready', problems: ['Out of limits: Net against target. Add a deviation note first.'] });
+    await act('asha', id, '1.1.1.1', 'note', { text: 'Lactose 0.9 % over the corrected target', reference: 'DEV-26-003' });
+    expect((await sign('asha', id, '1.1.1.1', 'done')).statusCode).toBe(200);
+    expect((await stepOf(id, '1.1.1.1')).state).toBe('done_awaiting_check');
+    expect((await sign('ravi', id, '1.1.1.1', 'check')).statusCode).toBe(200);
+    const after = (await stepOf(id, '1.1.1.1')) as unknown as { inputChanged: unknown[]; results: { target: { value: string } } };
+    expect([after.inputChanged, after.results.target.value]).toEqual([[], s.results.target.value]);
+  });
+
+  it('GET /api/batches/:id shows each step\'s last events only', async () => {
+    const b = (await as('viewer', 'GET', `/api/batches/${id}`)).json() as { steps: { id: string; events: unknown[] }[] };
+    const all = (await as('viewer', 'GET', `/api/batches/${id}/steps/1.1.0.1/events`)).json() as { events: unknown[] };
+    expect(all.events.length).toBeGreaterThan(5);
+    expect(b.steps.find((x) => x.id === '1.1.0.1')!.events).toEqual(all.events.slice(-5));
+    expect((await as('viewer', 'GET', `/api/batches/${id}/steps/9.1.0.1/events`)).statusCode).toBe(404);
+  });
+
+  it('TB-06 step events are insert-only: the app role cannot change or delete them, nor can the owner', async () => {
     expect(await code(t.sql`update step_events set kind = 'checked'`)).toBe('42501');
     expect(await code(t.sql`delete from step_events`)).toBe('42501');
     expect(await code(t.owner`update step_events set payload = '{}'`)).toBe('42501');
     expect(await code(t.owner`delete from step_events`)).toBe('42501');
     expect(await code(t.sql`insert into step_events (batch_id, stage, sub, step, round, kind, person_id, at) values (${id}, 0, 1, 0, 1, 'note', 1, now() - interval '1 day')`)).toBe('42501');
+  });
+});
+
+describe('production approval, QC approval and QA release', () => {
+  let id: number;
+  let note: number;
+  const full = async () => (await as('viewer', 'GET', `/api/batches/${id}`)).json() as { batch: { status: string; contentHash: string; actions: string[]; open: string[] } };
+  const batchAct = (who: string, action: string, body: object) => as(who, 'POST', `/api/batches/${id}/${action}`, body);
+  const batchSign = async (who: string, action: string, extra: object = {}) => batchAct(who, action, { proof: proofFor(who), contentHash: (await full()).batch.contentHash, ...extra });
+  beforeAll(async () => {
+    t.master.products_.push({ ...item('p', 'P', 'P'), strength: null, dosageForm: 'tablet' });
+    t.master.materials_.push({ ...item('m', 'M', 'M'), category: null, unit: 'kg' });
+    // One pH check and the stage yield, checked by a second person.
+    const doc = small([{ steps: [{}, { block: { id: 'stage-yield', version: 1 }, checker: true, settings: { theoretical: '0.100 kg', yieldLimit: { low: '97.0', high: '100.5', unit: '%' } } }] }]);
+    id = (await issue(await effectiveMaster(undefined, doc))).id;
+  });
+
+  it('TB-20 production cannot sign while anything in the record is open', async () => {
+    expect((await batchSign('sam', 'production-approve')).json()).toMatchObject({ error: 'not_ready', problems: ['Step t0 (0.1.0.1) is open', 'Step t1 (0.1.1.1) is waiting', 'Stage Stage 0 is not closed'] });
+    await act('asha', id, '0.1.0.1', 'start');
+    await act('asha', id, '0.1.0.1', 'record', { values: { reading: '6.0' } });
+    expect((await sign('asha', id, '0.1.0.1', 'done')).statusCode).toBe(200);
+    await act('asha', id, '0.1.1.1', 'start');
+    await act('asha', id, '0.1.1.1', 'record', { values: { output: '0.099', samples: '0.000', rejects: '0.001' } });
+    expect((await sign('asha', id, '0.1.1.1', 'done')).statusCode).toBe(200);
+    expect((await batchSign('sam', 'production-approve')).json()).toMatchObject({ problems: ['Step t1 (0.1.1.1) is done awaiting check', 'Stage Stage 0 is not closed'] });
+    expect((await sign('ravi', id, '0.1.1.1', 'check')).statusCode).toBe(200);
+    expect((await full()).batch).toMatchObject({ status: 'manufacturing complete', open: [] });
+  });
+
+  it('TB-07 production approval is an e-signature on the record as shown; the record is then closed to changes', async () => {
+    expect((await batchAct('sam', 'production-approve', { proof: proofFor('sam'), contentHash: '0'.repeat(64) })).json()).toMatchObject({ error: 'content_changed' });
+    const ok = await batchSign('sam', 'production-approve');
+    expect(ok.statusCode).toBe(200);
+    const { eventId } = ok.json() as { eventId: number };
+    expect(await t.owner`select 1 from signatures where object_type = 'batch_event' and object_id = ${eventId} and meaning = 'production_approved'`).toHaveLength(1);
+    expect((await full()).batch.status).toBe('production approved');
+    expect((await act('asha', id, '0.1.0.1', 'correct', { values: { reading: '6.1' }, reason: 'x' })).json()).toMatchObject({ error: 'batch_closed' });
+    const n = await act('asha', id, '0.1.0.1', 'note', { text: 'pH meter found out of calibration', reference: 'DEV-26-010' });
+    expect(n.statusCode).toBe(200);
+    note = (n.json() as { eventId: number }).eventId;
+  });
+
+  it('TB-21 QC approves with its report number; QA releases only once the linked deviations are closed', async () => {
+    expect((await batchSign('quinn', 'qc-approve')).statusCode).toBe(400);
+    expect((await batchSign('meera', 'release')).json()).toMatchObject({ problems: ['Not possible while the batch is production approved.'] });
+    expect((await batchSign('quinn', 'qc-approve', { reportNo: 'QC-26-0042' })).statusCode).toBe(200);
+    expect((await batchSign('meera', 'release')).json()).toMatchObject({ error: 'not_ready', problems: ['Deviation DEV-26-010 (step 0.1.0.1) is open'] });
+    expect((await batchAct('quinn', 'close-deviation', { note, reason: 'x' })).statusCode).toBe(403);
+    expect((await batchAct('meera', 'close-deviation', { note, reason: 'Meter recalibrated; results confirmed by a second meter' })).statusCode).toBe(200);
+    expect((await batchAct('meera', 'close-deviation', { note, reason: 'again' })).statusCode).toBe(409);
+    expect((await batchSign('meera', 'release')).statusCode).toBe(200);
+    expect((await full()).batch).toMatchObject({ status: 'released', actions: [] });
+  });
+
+  it('TB-21 the review list shows the deviations with their status and every signature of the batch', async () => {
+    const r = (await as('viewer', 'GET', `/api/batches/${id}/review`)).json() as { status: string; deviations: unknown[]; signatures: { meaning: string; printedName: string }[] };
+    expect(r.status).toBe('released');
+    expect(r.deviations).toMatchObject([{ reference: 'DEV-26-010', open: false, closed: { personName: 'MEERA' } }]);
+    expect(r.signatures.map((x) => `${x.meaning} ${x.printedName}`)).toEqual(['issued ISSUER', 'performed ASHA', 'performed ASHA', 'verified RAVI', 'production_approved SAM', 'qc_approved QUINN', 'released MEERA']);
+  });
+
+  it('TB-05 every step and batch action is in TrueBatch\'s own audit trail', async () => {
+    const rows = await t.owner<{ action: string }[]>`select distinct action from audit_log where object_type = 'batch' and object_id = ${String(id)} order by action`;
+    expect(rows.map((r) => r.action)).toEqual(['batch.deviation_closed', 'batch.issued', 'batch.production_approved', 'batch.qc_approved', 'batch.released', 'signed.issued',
+      'step.checked', 'step.done', 'step.note', 'step.started', 'step.value']);
+  });
+
+  it('TB-19 a released batch takes no more entries or decisions: rework is a new batch from an effective master', async () => {
+    expect((await act('asha', id, '0.1.0.1', 'note', { text: 'x' })).json()).toMatchObject({ error: 'batch_closed', problems: ['The batch is released.'] });
+    expect((await batchSign('meera', 'reject', { reason: 'x' })).json()).toMatchObject({ problems: ['Not possible while the batch is released.'] });
+    const [m] = await t.owner<{ id: string }[]>`select id from users where username = 'meera'`;
+    expect(await code(t.owner`insert into batch_events (batch_id, kind, person_id) values (${id}, 'rejected', ${m!.id})`)).toBe('23505');
+    expect(await code(t.sql`update batch_events set kind = 'rejected'`)).toBe('42501');
   });
 });
 
@@ -220,5 +342,15 @@ describe('the timer job', () => {
     expect(await code(t.sql`insert into step_events (batch_id, stage, sub, step, round, kind, payload) values (${id}, 1, 1, 0, 1, 'late', '{"timer": "hold:0:1"}')`)).toBe('23505');
     expect((await act('asha', id, '1.1.0.1', 'note', { text: 'Binder solution held 25 h; deviation raised' })).statusCode).toBe(200);
     expect((await stepOf(id, '1.1.0.1')).state).toBe('open');
+  });
+
+  it('skips a batch that is released or rejected', async () => {
+    const { id } = await issue(await effectiveMaster());
+    const [p] = await t.owner<{ id: string }[]>`select id from users where username = 'asha'`;
+    await t.owner`insert into step_events (batch_id, stage, sub, step, round, kind, person_id, at) values
+      (${id}, 0, 1, 1, 1, 'started', ${p!.id}, now() - interval '26 hours'), (${id}, 0, 1, 1, 1, 'done', ${p!.id}, now() - interval '25 hours')`;
+    await t.owner`insert into batch_events (batch_id, kind, person_id) values (${id}, 'rejected', ${p!.id})`;
+    await recordLate(t.sql);
+    expect(await t.owner`select 1 from step_events where batch_id = ${id} and kind = 'late'`).toHaveLength(0);
   });
 });

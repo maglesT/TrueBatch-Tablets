@@ -10,7 +10,9 @@ import { timers } from '../shared/engine/index.js';
 /** Records every timer now late that is not on record yet. Returns the number of new records. */
 export async function recordLate(sql: Sql): Promise<number> {
   let added = 0;
-  for (const { id } of await sql<{ id: number }[]>`select id::int from batches order by id`) {
+  // A released or rejected batch is finished: nothing more runs late.
+  for (const { id } of await sql<{ id: number }[]>`select b.id::int from batches b where not exists
+      (select 1 from batch_events e where e.batch_id = b.id and e.kind in ('released', 'rejected')) order by b.id`) {
     const l = await loadBatch(sql, id);
     if (!l) continue;
     for (const t of timers(l.doc, l.events, l.now)) {

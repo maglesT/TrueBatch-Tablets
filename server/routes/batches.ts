@@ -10,8 +10,8 @@ import { findBlock } from '../../shared/blocks/index.js';
 import { masterChecks } from '../../shared/master/checks.js';
 import type { MasterDoc } from '../../shared/master/schema.js';
 import {
-  ACTIONS, doneProblems, evaluate, openSteps, parseKey, readValue, refusal, timers,
-  type Action, type StepEvent, type StepKey, type StepView, type Value,
+  ACTIONS, BATCH_ACTIONS, batchRefusal, batchView, doneProblems, evaluate, openSteps, parseKey, readValue, refusal, review, timers,
+  type Action, type BatchAction, type BatchEvent, type StepEvent, type StepKey, type StepView, type Value,
 } from '../../shared/engine/index.js';
 
 // Plant time zone: the batch number's year is the plant's year.
@@ -30,6 +30,7 @@ export interface LoadedBatch {
   batch: { id: number; batchNo: string; masterVersionId: number; issuedBy: number; issuedAt: Date };
   doc: MasterDoc;
   events: (StepEvent & { personName: string | null })[];
+  batchEvents: (BatchEvent & { personName: string })[];
   now: Date;
 }
 
@@ -43,9 +44,18 @@ export async function loadBatch(q: Sql | Tx, id: number): Promise<LoadedBatch | 
   const events = await q<LoadedBatch['events']>`
     select e.id::int, e.stage, e.sub, e.step, e.round, e.kind, e.payload, e.person_id::int as person, u.full_name as "personName", e.at
     from step_events e left join users u on u.id = e.person_id where e.batch_id = ${id} order by e.id`;
+  const batchEvents = await q<LoadedBatch['batchEvents']>`
+    select e.id::int, e.kind, e.payload, e.person_id::int as person, u.full_name as "personName", e.at
+    from batch_events e join users u on u.id = e.person_id where e.batch_id = ${id} order by e.id`;
   const { doc, now, ...batch } = b;
-  return { batch, doc, events: [...events], now };
+  return { batch, doc, events: [...events], batchEvents: [...batchEvents], now };
 }
+
+// What a batch-level signer is shown: the record as it stands, by its last events (the signature is refused if
+// anything was added since).
+const batchContent = (l: LoadedBatch) => ({ batch: l.batch.id, batchNo: l.batch.batchNo, lastStepEvent: l.events.at(-1)?.id ?? 0, lastBatchEvent: l.batchEvents.at(-1)?.id ?? 0 });
+const batchHash = (l: LoadedBatch) => contentHash('batch', l.batch.id, batchContent(l));
+const view = (l: LoadedBatch) => batchView(l.doc, l.events, l.batchEvents, l.now);
 
 // What a signer is shown of a step, and its hash: the signature is refused if the step changed since (PL-05).
 const stepContent = (batchId: number, v: StepView) => ({ batch: batchId, step: v.id, values: v.values, results: v.results });
@@ -90,9 +100,19 @@ const BODIES: Record<Action, z.ZodTypeAny> = {
   correct: z.object({ values, reason }),
   'not-applicable': signBody.extend({ reason }),
   'release-hold': signBody,
-  note: z.object({ text: reason }),
+  note: z.object({ text: reason, reference: z.string().trim().min(1).max(60).optional() }),
 };
+const BATCH_BODIES: Record<BatchAction, z.ZodTypeAny> = {
+  'production-approve': signBody,
+  'qc-approve': signBody.extend({ reportNo: z.string().trim().min(1).max(60) }),
+  release: signBody,
+  reject: signBody.extend({ reason }),
+  'close-deviation': z.object({ note: z.number().int().positive(), reason }),
+};
+// GET /api/batches/:id shows the last few events of each step; the full history is per step.
+const LAST_EVENTS = 5;
 const NAMES = Object.keys(ACTIONS) as Action[];
+const BATCH_NAMES = Object.keys(BATCH_ACTIONS) as BatchAction[];
 const flowOf = (doc: MasterDoc, k: StepKey) => doc.stages[k.stage]!.steps[k.step]!.flow.kind;
 const context = (doc: MasterDoc, v: StepView, user: SessionUser) => ({ state: v.state, events: v.events, flow: flowOf(doc, v.key), user });
 
@@ -137,15 +157,80 @@ export function batchRoutes(app: FastifyInstance, sql: Sql) {
     if (!l) return reply.code(404).send({ error: 'not_found' });
     const v = await masterVersion(sql, l.batch.masterVersionId);
     const { stages, steps } = openSteps(l.doc, l.events, l.now);
+    const bv = view(l);
     return {
-      batch: l.batch, master: { id: v!.id, masterId: v!.masterId, versionNo: v!.versionNo, doc: l.doc }, stages, timers: timers(l.doc, l.events, l.now),
-      steps: steps.map((s) => ({
-        ...s, contentHash: stepHash(l.batch.id, s),
-        actions: NAMES.filter((a) => !refusal(a, context(l.doc, s, req.user!))),
-        problems: s.state === 'in_progress' ? doneProblems(l.doc, s, l.now) : [],
-      })),
+      batch: { ...l.batch, ...bv, contentHash: batchHash(l), actions: BATCH_NAMES.filter((a) => a !== 'close-deviation' && !batchRefusal(a, bv, req.user!)) },
+      master: { id: v!.id, masterId: v!.masterId, versionNo: v!.versionNo, doc: l.doc }, stages, timers: timers(l.doc, l.events, l.now),
+      steps: steps.map((s) => {
+        const { events, replaced: _, ...current } = s;
+        return {
+          ...current, events: events.slice(-LAST_EVENTS), contentHash: stepHash(l.batch.id, s),
+          actions: NAMES.filter((a) => !refusal(a, context(l.doc, s, req.user!))),
+          problems: s.state === 'in_progress' ? doneProblems(l.doc, s, l.now) : [],
+        };
+      }),
     };
   });
+
+  // The full history of one step, with every correction (the original value, the new one, the reason).
+  app.get<{ Params: { id: string; key: string } }>('/api/batches/:id/steps/:key/events', anyUser, async (req, reply) => {
+    const id = parseId(req.params.id);
+    const l = id === null ? null : await loadBatch(sql, id);
+    const s = l && openSteps(l.doc, l.events, l.now).steps.find((x) => x.id === req.params.key);
+    return s ? { events: s.events, replaced: s.replaced, inputChanged: s.inputChanged } : reply.code(404).send({ error: 'not_found' });
+  });
+
+  // TB-21: what QA reviews in the release screen: corrections, sent-backs, late items, values out of limits with
+  // their notes, deviation notes and their status, steps not applicable, and every signature of the batch.
+  app.get<{ Params: { id: string } }>('/api/batches/:id/review', anyUser, async (req, reply) => {
+    const id = parseId(req.params.id);
+    const l = id === null ? null : await loadBatch(sql, id);
+    if (!l) return reply.code(404).send({ error: 'not_found' });
+    const signatures = await sql`
+      select s.object_type as "objectType", s.object_id::int as "objectId", s.printed_name as "printedName", s.meaning, s.signed_at as "signedAt"
+      from signatures s
+      where (s.object_type = 'batch' and s.object_id = ${id})
+         or (s.object_type = 'step_event' and s.object_id in (select e.id from step_events e where e.batch_id = ${id}))
+         or (s.object_type = 'batch_event' and s.object_id in (select e.id from batch_events e where e.batch_id = ${id}))
+      order by s.signed_at, s.id`;
+    const names = new Map(l.events.map((e) => [e.person, e.personName]));
+    const r = review(l.doc, l.events, l.batchEvents, l.now);
+    return { status: view(l).status, ...r, corrections: r.corrections.map((c) => ({ ...c, personName: names.get(c.person) ?? null })), signatures };
+  });
+
+  // Production approval, QC approval, release or rejection (each an e-signature), and QA closing a deviation note.
+  for (const action of BATCH_NAMES) {
+    const rule = BATCH_ACTIONS[action];
+    app.post<{ Params: { id: string } }>(`/api/batches/:id/${action}`, anyUser, async (req, reply) => {
+      const id = parseId(req.params.id);
+      const body = BATCH_BODIES[action].safeParse(req.body);
+      if (id === null || !body.success) return reply.code(400).send({ error: 'invalid', problems: body.error?.issues.map((i) => `${i.path.join('.')}: ${i.message}`) ?? [] });
+      const b = body.data as { proof?: string; contentHash?: string; reportNo?: string; reason?: string; note?: number };
+      const user = req.user!;
+      try {
+        const signer = rule.meaning ? await authenticateSigner(sql, app.proofKey, user, { proof: b.proof! }, { objectType: 'batch', objectId: id, meaning: rule.meaning }) : null;
+        return await sql.begin(async (tx) => {
+          await tx`select pg_advisory_xact_lock(${id}::bigint)`;
+          const l = await loadBatch(tx, id);
+          if (!l) throw new StepError(404, 'not_found');
+          const no = batchRefusal(action, view(l), user, b.note);
+          if (no) throw new StepError(no.status, no.error, no.problems);
+          if (signer && b.contentHash !== batchHash(l)) throw new StepError(409, 'content_changed', ['The batch record changed since you opened it.']);
+          const payload = { ...(b.reportNo ? { reportNo: b.reportNo } : {}), ...(b.reason ? { reason: b.reason } : {}), ...(b.note ? { note: b.note } : {}) };
+          const [ev] = await tx<{ id: number }[]>`
+            insert into batch_events (batch_id, kind, payload, person_id) values (${id}, ${rule.event}, ${tx.json(payload)}, ${user.id}) returning id::int`;
+          if (signer && rule.meaning) {
+            const content = { ...batchContent(l), action, ...payload };
+            await sign(tx, { signer, objectType: 'batch_event', objectId: ev!.id, meaning: rule.meaning, content, shownHash: contentHash('batch_event', ev!.id, content) });
+          }
+          await audit(tx, { actorId: user.id, action: `batch.${rule.event}`, objectType: 'batch', objectId: id, new: { event: ev!.id, ...payload }, reason: b.reason ?? null });
+          return { ok: true, eventId: ev!.id };
+        });
+      } catch (e) {
+        return send(reply, e);
+      }
+    });
+  }
 
   // One route per action. Each does the same five things: read the step's events, work out its state, check the
   // action is allowed (state, permission, checker not the performer), insert one event (and its signature), audit.
@@ -156,7 +241,7 @@ export function batchRoutes(app: FastifyInstance, sql: Sql) {
       const key = parseKey(req.params.key);
       const body = BODIES[action].safeParse(req.body);
       if (id === null || key === null || !body.success) return reply.code(400).send({ error: 'invalid', problems: body.error?.issues.map((i) => `${i.path.join('.')}: ${i.message}`) ?? [] });
-      const b = body.data as { proof?: string; contentHash?: string; reason?: string; text?: string; values?: Record<string, unknown> };
+      const b = body.data as { proof?: string; contentHash?: string; reason?: string; text?: string; reference?: string; values?: Record<string, unknown> };
       const user = req.user!;
       try {
         const signer = rule.meaning ? await authenticateSigner(sql, app.proofKey, user, { proof: b.proof! }, { objectType: 'batch', objectId: id, meaning: rule.meaning }) : null;
@@ -167,18 +252,27 @@ export function batchRoutes(app: FastifyInstance, sql: Sql) {
           if (!l) throw new StepError(404, 'not_found');
           const v = openSteps(l.doc, l.events, l.now).steps.find((s) => s.id === req.params.key);
           if (!v) throw new StepError(404, 'no_such_step');
+          // Once production has approved the record it is closed to changes; notes stay possible until QA decides.
+          const decided = l.batchEvents.find((e) => e.kind === 'released' || e.kind === 'rejected');
+          if (decided || (action !== 'note' && l.batchEvents.some((e) => e.kind === 'production_approved'))) {
+            throw new StepError(409, 'batch_closed', [decided ? `The batch is ${decided.kind}.` : 'Production has approved the batch record.']);
+          }
           // 3. allowed?
           const no = refusal(action, context(l.doc, v, user));
           if (no) throw new StepError(no.status, no.error, [no.message]);
           if (action === 'done') { const p = doneProblems(l.doc, v, l.now); if (p.length) throw new StepError(409, 'not_ready', p); }
           if (signer && b.contentHash !== stepHash(id, v)) throw new StepError(409, 'content_changed', ['The step changed since you opened it.']);
           let payload: Record<string, unknown> = {};
+          const uses: number[] = [];
           if (b.values) {
             const typed = await readValues(app, l.doc, key, b.values, l.now);
-            payload = { values: typed, results: evaluate(l.doc, l.events, key, { ...v.values, ...typed }) };
+            payload = { values: typed, results: evaluate(l.doc, l.events, key, { ...v.values, ...typed }, uses), uses };
           }
+          // Signed again after an input changed: the results worked out again, as shown, are stored with the signature.
+          if (action === 'done' && v.inputChanged.length) payload = { results: evaluate(l.doc, l.events, key, v.values, uses), uses };
           if (b.reason) payload.reason = b.reason;
           if (b.text) payload.text = b.text;
+          if (b.reference) payload.reference = b.reference;
           // 4. one event, and its signature
           const [ev] = await tx<{ id: number }[]>`
             insert into step_events (batch_id, stage, sub, step, round, kind, payload, person_id)

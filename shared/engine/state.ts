@@ -23,6 +23,10 @@ export interface Payload {
   results?: Record<string, Stored>;
   reason?: string;
   text?: string;
+  // A deviation note's reference (e.g. its Deviations number): it is then open until QA closes it.
+  reference?: string;
+  // The events of other steps the results were worked out from (values.ts, inputChanges).
+  uses?: number[];
   timer?: string;
   [k: string]: unknown;
 }

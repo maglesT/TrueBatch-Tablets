@@ -8,7 +8,10 @@ platform. Built the way the Medhanta Logbook is built: one app, plain SQL, a sma
 
 Status: sign-on through core, permissions, the audit trail, e-signatures and master-data reads are in place, with the
 calculation templates (`shared/templates/`), the step blocks (`shared/blocks/`), the master document and its checks
-(`shared/master/`) and the batch engine (`shared/engine/`, routes in `server/routes/`). No designer or floor screens yet.
+(`shared/master/`) and the batch engine (`shared/engine/`, routes in `server/routes/`). The engine also works out the
+batch status (production approval, QC approval, QA release or rejection, `shared/engine/release.ts`), marks a step
+"input changed" when a value it used was corrected later, and gives QA the review list (`GET /api/batches/:id/review`).
+No designer or floor screens yet.
 
 ## Develop
 Needs Node 22 and PostgreSQL 16.
