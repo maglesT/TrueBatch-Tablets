@@ -7,6 +7,7 @@ import { go, useRoute } from './api-floor.js';
 import { Masters } from './designer/Masters.js';
 import { ToReview } from './release/ToReview.js';
 import { ReleaseScreen } from './release/ReleaseScreen.js';
+import { product } from './product.js';
 
 type Page = 'home' | 'masters';
 
@@ -44,14 +45,14 @@ export function App() {
   return (
     <>
       <header className="bar">
-        <span className="brand"><img className="brand-mark" src="/truebatch-mark.svg" alt="TrueBatch" /><span><b>TrueBatch Tablets</b><small>by Medhanta</small></span></span>
+        <span className="brand"><img className="brand-mark" src="/truebatch-mark.svg" alt="TrueBatch" /><span><b>{product.name}</b><small>by Medhanta</small></span></span>
         <nav>
           <button className={page === 'home' && !route.batch && !release ? 'tab on' : 'tab'} onClick={() => { setPage('home'); go('#/'); }}>My work</button>
           {['qc.approve', 'qa.release'].some((c) => can(me, c)) && (
             <button className={release ? 'tab on' : 'tab'} onClick={() => { setPage('home'); go('#/release'); }}>To review</button>
           )}
           {['master.author', 'master.check', 'master.approve', 'view'].some((c) => can(me, c)) && (
-            <button className={page === 'masters' && !release ? 'tab on' : 'tab'} onClick={() => { setPage('masters'); go('#/'); }}>Master records</button>
+            <button className={page === 'masters' && !release ? 'tab on' : 'tab'} onClick={() => { setPage('masters'); go('#/'); }}>{product.packing ? 'Packing masters' : 'Master records'}</button>
           )}
         </nav>
         <span className="who">

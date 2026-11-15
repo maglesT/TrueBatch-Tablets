@@ -61,8 +61,9 @@ export function ReleaseScreen({ me, id }: { me: Me; id: number }) {
   const decided = d.batch.status === 'released' || d.batch.status === 'rejected';
   const yields = d.steps.filter((s) => s.results.yield?.ok);
   const openDevs = r.deviations.filter((x) => x.open);
-  const qcTurn = d.batch.status === 'production approved';
-  const qaTurn = d.batch.status === 'QC approved';
+  // A packing record has no QC approval: QA releases it after production approval.
+  const qcTurn = d.batch.qc && d.batch.status === 'production approved';
+  const qaTurn = d.batch.status === (d.batch.qc ? 'QC approved' : 'production approved');
   const blockers = [...openDevs.map((x) => `Deviation ${x.reference} (${name(x.step)}) is ${x.status ? `${x.status} in the Deviations system: it is closed there.` : 'open: close it first.'}`), ...d.batch.yieldOut.map(plain)];
   const handLabel = (step: string, field: string) => field === 'reference' ? 'deviation number' : fieldLabel(step, field);
 
@@ -158,7 +159,7 @@ export function ReleaseScreen({ me, id }: { me: Me; id: number }) {
             <button className="big soft-bad" disabled={!rejectWhy.trim() || openDevs.length > 0} onClick={() => setSigning({ meaning: 'rejected', action: 'reject' })}>Sign: rejected</button>
           </div>
         </>) : <p className="notice">The batch waits for QA release: it needs the QA release permission.</p>)}
-        {!qcTurn && !qaTurn && !decided && <p className="notice">The batch is {d.batch.status}: production approves it before QC and QA.</p>}
+        {!qcTurn && !qaTurn && !decided && <p className="notice">The batch is {d.batch.status}: production approves it before {d.batch.qc ? 'QC and QA' : 'QA'}.</p>}
       </section>
 
       {signing && (

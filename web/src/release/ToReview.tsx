@@ -1,3 +1,4 @@
+import { product } from '../product.js';
 import { useEffect, useState } from 'react';
 import { api, can, type Me } from '../api.js';
 import { go, plainClock, plainError, releaseLink } from '../api-floor.js';
@@ -23,7 +24,7 @@ export function ToReview({ me }: { me: Me }) {
   }, []);
 
   const groups = ([['QC', 'Waiting for QC approval', 'production approved; QC signs with the QC report number', can(me, 'qc.approve')],
-    ['QA', 'Waiting for QA release', 'QC approved; QA reviews the record and its audit trail, then releases or rejects', can(me, 'qa.release')]] as const)
+    ['QA', 'Waiting for QA release', `${product.packing ? 'production' : 'QC'} approved; QA reviews the record and its audit trail, then releases or rejects`, can(me, 'qa.release')]] as const)
     .filter(([, , , mine]) => mine);
   return (
     <div className="fl">

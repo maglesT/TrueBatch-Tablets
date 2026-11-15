@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { findBlock, type Block } from '../../../shared/blocks/index.js';
 import type { Stored, Value } from '../../../shared/engine/index.js';
 import type { Kind } from '../../../shared/templates/index.js';
-import { HEADER_VALUES, type Limit, type MasterDoc, type SettingValue, type Step } from '../../../shared/master/schema.js';
+import { HEADER_VALUES, materialLines, type Limit, type MasterDoc, type SettingValue, type Step } from '../../../shared/master/schema.js';
 import { usedFields, workedExample } from './example.js';
 import { earlierRefs, HEADER_LABEL, kindOfUnit, neededKind, unitLabel, unitsOf } from './model.js';
 import { sentence, slotsOf, type Part } from './sentences.js';
@@ -146,7 +146,7 @@ function Slot({ doc, si, ti, block, settings, name, onChange }: {
   }
   if (s.kind === 'material') {
     return <select className={cls} aria-label={s.label} value={typeof v === 'object' && 'formula' in v ? v.formula : ''} onChange={(e) => onChange(e.target.value ? { formula: e.target.value } : undefined)}>
-      <option value="">(choose a material)</option>{doc.formula.map((l) => <option key={l.key} value={l.key}>{l.code} {l.name}</option>)}</select>;
+      <option value="">(choose a material)</option>{materialLines(doc).map((l) => <option key={l.key} value={l.key}>{l.code} {l.name}</option>)}</select>;
   }
   if (s.kind === 'limit') {
     const field = block.fields.find((f) => f.kind === 'number' && f.unit && !f.unit.startsWith('$') && kindOfUnit(f.unit) === kind);

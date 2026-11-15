@@ -9,6 +9,7 @@ import { Alerts } from './BatchScreen.js';
 import { FieldInput } from './Fields.js';
 import { ReasonDialog } from './ReasonDialog.js';
 import { CERTIFICATE, fieldLabel, handEntered, LINK_OF } from '../../../shared/engine/links.js';
+import { materialLines } from '../../../shared/master/schema.js';
 
 type Dialog = { kind: 'done' | 'repeat' | 'check' | 'na' | 'send-back' | 'note' } | { kind: 'na-sign'; reason: string } | { kind: 'correct'; field: BlockField };
 const INVOLVING = ['started', 'value', 'done', 'corrected', 'not_applicable'];
@@ -44,7 +45,7 @@ export function StepScreen({ me, d, blocks, row, now, reload }: { me: Me; d: Bat
   // The block's fields and the label questions of what was entered by hand (a link absent or down).
   const fields = [...block.fields, ...row.handFields];
   const line = Object.values(st.settings).find((v): v is { formula: string } => typeof v === 'object' && 'formula' in v);
-  const material = line && doc.formula.find((l) => l.key === line.formula)?.materialItemId;
+  const material = line && materialLines(doc).find((l) => l.key === line.formula)?.materialItemId;
   const lots = useLinked<{ lotNumber: string }>(block.fields.some((f) => f.kind === 'lot') && material ? `/api/mms/lots?material=${encodeURIComponent(material)}` : null, 'lots');
   const deviationPicks = useLinked<{ number: string; title: string | null }>(`/api/batches/${d.batch.id}/deviations`, 'deviations');
   const lotField = block.fields.find((f) => f.kind === 'lot');

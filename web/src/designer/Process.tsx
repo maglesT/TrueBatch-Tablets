@@ -34,7 +34,7 @@ export function Process({ doc, onChange, md, place, onPlace, editable }: {
     setSteps(steps); select(si, at); setLibrary(false); setQ('');
   };
   const roles = [...new Set(doc.stages.map((s) => s.role).filter(Boolean)
-    .concat(['Production operator', 'Granulation operator', 'Compression operator', 'Coating operator', 'Warehouse officer']))];
+    .concat(['Production operator', 'Granulation operator', 'Compression operator', 'Coating operator', 'Packing operator', 'Packing supervisor', 'Warehouse officer']))];
   const machineTypes = [...new Set(md.equipment.filter((e) => e.active && e.type).map((e) => e.type!))].sort();
   const areas = [...new Set(md.rooms.filter((r) => r.active && r.area).map((r) => r.area!))].sort();
 
