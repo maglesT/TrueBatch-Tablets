@@ -5,32 +5,32 @@ ID, e.g. `TB-08 the person who performed a step cannot check it`. `npm run trace
 CI (`npm run traceability -- --check`) fails when a rule has no test, unless its feature comes later (marked
 "later" in the Tests column, with the feature it waits for).
 
-Clauses: EU GMP Part I (chapter.paragraph) and Annex 11 (§), 21 CFR 211 and Part 11, Revised Schedule M (RSM).
+Clauses: the binding clauses each rule rests on (US: 21 CFR 211 and Part 11; EU: EudraLex Vol 4 Part I chapters C4, C5 and Annexes A11, A16; IN: Revised Schedule M Part I (SCHM) and Part VIII oral solids (SCHM-VIII)), checked against the official texts when the minimum register was made. QA should confirm them before validation.
 
 | Rule | Requirement | Clauses | Tests |
 |------|-------------|---------|-------|
-| TB-01 | A master is complete before it can be approved | EU GMP 4.14; 21 CFR 211.186; RSM master formula | `test/master-checks.test.ts` |
-| TB-02 | A master is checked by a second person and approved by QA; one effective version; a new version needs a change control number | EU GMP 4.3, 4.4; Annex 11 §10; 21 CFR 211.186(a), 211.100(a) | later: the designer's review and approval |
-| TB-03 | A batch is issued from the effective master, with a unique number never reused | EU GMP 4.20; 21 CFR 211.188(a) | `test/batches.test.ts` |
-| TB-04 | Entries are saved at once, with the person and the server time; late entries need a reason | EU GMP 4.8; Annex 11 §9; 21 CFR 211.100(b), 11.10(e) | `test/batches.test.ts`, `test/release.test.ts` |
-| TB-05 | TrueBatch keeps its own audit trail | Annex 11 §9; 21 CFR 11.10(e) | `test/batches.test.ts` |
-| TB-06 | A correction keeps the original value and its reason, and reaches the steps that used it; nothing is deleted | EU GMP 4.9; Annex 11 §9; 21 CFR 11.10(e) | `test/engine.test.ts`, `test/batches.test.ts` |
-| TB-07 | E-signatures carry the name, time and meaning, linked to what was signed | Annex 11 §14; 21 CFR 11.50, 11.70, 11.200 | `test/batches.test.ts` |
-| TB-08 | Significant steps have a second-person check; the checker is not the performer | Annex 11 §6; 21 CFR 211.101(c), (d), 211.188(b)(11) | `test/engine.test.ts`, `test/batches.test.ts`, `test/master-checks.test.ts` |
-| TB-09 | Steps are done in order; a departure needs a deviation note | EU GMP 5.15; 21 CFR 211.100(b), 211.192 | `test/engine.test.ts` |
-| TB-10 | Line clearance before each stage | EU GMP 5.35; 21 CFR 211.67 | later: the line clearance screen |
-| TB-11 | Equipment and rooms are fit for use | EU GMP 3.34-3.44; 21 CFR 211.63, 211.67, 211.182 | `test/batches.test.ts` (master data; the Logbook status comes with the link) |
-| TB-12 | Only released, in-date lots are used | EU GMP 5.31; 21 CFR 211.84, 211.87 | later: the MMS link (lot status and expiry) |
-| TB-13 | The dispensing target comes from the master, adjusted by assay and LOD | 21 CFR 211.101(a), 211.186(b); EU GMP 4.14 | `test/engine.test.ts`, `test/master-checks.test.ts` |
-| TB-14 | In-process checks against the master's limits; out of limits needs a deviation note | EU GMP 4.20; 21 CFR 211.110, 211.192 | `test/engine.test.ts` |
-| TB-15 | Compression: every station at the start, then a sample at least every 30 minutes | 21 CFR 211.110(a); RSM in-process controls | `test/engine.test.ts` |
-| TB-16 | Sieves, punches and dies are checked before and after use | 21 CFR 211.67; RSM tablets | `test/engine.test.ts` (screens; punches and dies come with the tooling block) |
-| TB-17 | Hold times run on the server clock; an overrun needs a deviation note | 21 CFR 211.111; EU GMP 4.20 | `test/engine.test.ts`, `test/batches.test.ts` |
-| TB-18 | Yield is calculated and verified; out of limits blocks release | 21 CFR 211.103, 211.192; EU GMP 5.39 | `test/engine.test.ts`, `test/release.test.ts` |
-| TB-19 | Rework only as a new batch issued from an approved master | EU GMP 5.62-5.64; 21 CFR 211.115 | `test/batches.test.ts` |
-| TB-20 | The record is complete before production signs | EU GMP 4.20; 21 CFR 211.188, 211.192 | `test/release.test.ts`, `test/batches.test.ts` |
-| TB-21 | QC approval, then QA review and release or rejection by e-signature; all changes and deviations shown; release blocked until linked deviations are closed | EU GMP 1.4(xv); Annex 11 §9, §15; Annex 16; 21 CFR 211.22, 211.192 | `test/release.test.ts`, `test/batches.test.ts` |
-| TB-22 | A complete copy (PDF) with its signatures and changes | Annex 11 §8; 21 CFR 11.10(b) | later: the PDF export |
+| TB-01 | A master is complete before it can be approved | US 211.186(a),(b); 211.101(a); 211.110(a); EU C4 4.17, 4.18; IN SCHM 17.3.6.1, 17.3.6.2(a)-(k); SCHM-VIII 2.3 | `test/master-checks.test.ts` |
+| TB-02 | A master is checked by a second person and approved by QA; one effective version; a new version needs a change control number | US 211.186(a); 211.100(a); 211.68(b); EU C4 4.3; A11 10; IN SCHM 17.2.4; 8.3; 17.3.6.1 | later: the designer's review and approval |
+| TB-03 | A batch is issued from the effective master, with a unique number never reused | US 211.188(a); 211.186(a); EU C4 4.2, 4.20 (lead-in); IN SCHM 17.3.8.1; 17.3.10.8-17.3.10.11; 14.32 (new number for rework) | `test/batches.test.ts` |
+| TB-04 | Entries are saved at once, with the person and the server time; late entries need a reason | US 211.100(b); 211.188(b)(1); 11.10(e); EU C4 4.8, 4.20(b); A11 12.4; IN SCHM 17.2.7; 17.3.8.3 (lead-in, (c)); 20.4 (omissions) | `test/batches.test.ts`, `test/release.test.ts` |
+| TB-05 | TrueBatch keeps its own audit trail | US 11.10(e); EU A11 9, 12.4; IN SCHM 20.4; 17.2.8 ("record of changes and deletions") | `test/batches.test.ts` |
+| TB-06 | A correction keeps the original value and its reason, and reaches the steps that used it; nothing is deleted | US 11.10(e); 211.180(a); EU C4 4.9, 4.11; A11 9; IN SCHM 17.2.6, 17.2.7 (retention: expiry + 1 year) | `test/engine.test.ts`, `test/batches.test.ts` |
+| TB-07 | E-signatures carry the name, time and meaning, linked to what was signed | US 11.50(a),(b); 11.70; 11.200(a); 211.186(a); 211.188(a); EU A11 14; C4 4.20(h),(i); IN SCHM 17.3.8.3 ("dated and signed"); 17.2.8 | `test/batches.test.ts` |
+| TB-08 | Significant steps have a second-person check; the checker is not the performer | US 211.188(b)(11); 211.101(c),(d); 211.103; 211.68(c); EU C4 4.20(c); C5 5.38; A11 6; IN SCHM 14.19; 17.2.8 ("critical data independently checked"); 17.3.8.3(e); 20.6 | `test/engine.test.ts`, `test/batches.test.ts`, `test/master-checks.test.ts` |
+| TB-09 | Steps are done in order; a departure needs a deviation note | US 211.100(b); 11.10(f); EU C5 5.15; C4 4.20(h); IN SCHM 18.2.2; 17.3.8.3(k) | `test/engine.test.ts` |
+| TB-10 | Line clearance before each stage | US 211.67(b)(6); 211.100(a); EU C4 4.18(c); C5 5.40, 5.14; IN SCHM 17.3.8.2; 18.4.1; 18.4.7 | later: the line clearance screen |
+| TB-11 | Equipment and rooms are fit for use | US 211.67; 211.68(a); 211.105(b); 211.160(b)(4); 211.188(b)(2); 211.42(c); EU C4 4.20(e); C5 5.9, 5.12; IN SCHM 18.4.3, 18.4.4, 18.4.9; 18.2.4; 17.3.6.2(e) | `test/batches.test.ts` (master data; the Logbook status comes with the link) |
+| TB-12 | Only released, in-date lots are used | US 211.84(a); 211.86; 211.87; 211.101(c)(1); EU C5 5.34; IN SCHM 14.14, 14.16, 14.17 | later: the MMS link (lot status and expiry) |
+| TB-13 | The dispensing target comes from the master, adjusted by assay and LOD | US 211.101(a),(b),(d); 211.188(b)(3),(4); EU C5 5.37, 5.39; C4 4.20(d), 4.8; IN SCHM 14.18, 14.20; 17.3.8.3(f); 7 (recalls) | `test/engine.test.ts`, `test/master-checks.test.ts` |
+| TB-14 | In-process checks against the master's limits; out of limits needs a deviation note | US 211.110(a)-(c); 211.188(b)(5),(10); 211.192; EU C4 4.18(d),(e), 4.20(f); C5 5.43; IN SCHM 17.3.6.2(g),(h); 17.3.8.3(i); 18.4.2; 19.7.5; SCHM-VIII 1.5, 2.3 | `test/engine.test.ts` |
+| TB-15 | Compression: every station at the start, then a sample at least every 30 minutes | US 211.110(a)(1),(2); EU C5 5.43; IN SCHM-VIII 3.3, 3.4, 3.5, 3.7, 3.8 | `test/engine.test.ts` |
+| TB-16 | Sieves, punches and dies are checked before and after use | IN SCHM-VIII 1.3, 1.4, 2.2, 2.5, 4.2, 6.1, 6.2; US 211.67, 211.113(a) (general); EU C5 5.11 (dust, general) | `test/engine.test.ts` (screens; punches and dies come with the tooling block) |
+| TB-17 | Hold times run on the server clock; an overrun needs a deviation note | US 211.111; EU C4 4.18(f); C5 5.41; IN SCHM 17.3.6.2(k); 17.3.8.3(h); 18.4.4 | `test/engine.test.ts`, `test/batches.test.ts` |
+| TB-18 | Yield is calculated and verified; out of limits blocks release | US 211.103; 211.186(b)(7); 211.188(b)(7); 211.192; EU C4 4.17(d), 4.20(g); C5 5.44; IN SCHM 17.3.6.2(d); 17.3.8.3(j); 18.2.3; 18.4.6 | `test/engine.test.ts`, `test/release.test.ts` |
+| TB-19 | Rework only as a new batch issued from an approved master | US 211.115(a),(b); EU C5 5.67, 5.68, 5.69; C4 4.20(d); IN SCHM 14.32, 14.33, 14.34; 17.3.8.3(f) | `test/batches.test.ts` |
+| TB-20 | The record is complete before production signs | US 211.188(b); EU C4 4.20(i); IN SCHM 17.3.8.3 (lead-in, (d)); 18.5.12 | `test/release.test.ts`, `test/batches.test.ts` |
+| TB-21 | QC approval, then QA review and release or rejection by e-signature; all changes and deviations shown; release blocked until linked deviations are closed | US 211.22(a); 211.192; 211.165(a); EU C4 4.27; A11 9, 15 (only if certifying here); IN SCHM 1 PQS (i); 11.3.6-11.3.9; 18.5.12; 19.8.1 | `test/release.test.ts`, `test/batches.test.ts` |
+| TB-22 | A complete copy (PDF) with its signatures and changes | US 11.10(b); 211.180(c); EU A11 8.1, 8.2; C4 4.27; IN SCHM 17.2.8 ("readily available") | later: the PDF export |
 
 ## Notes: safety rules built into the calculation templates
 
