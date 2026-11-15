@@ -3,12 +3,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ApiError, can, type Me } from '../api.js';
 import { getVersion, listMasters, loadMasterData, saveVersion, STATE_CHIP, STATE_LABEL, type MasterData, type MasterRow, type Version } from '../api-designer.js';
-import { masterChecks } from '../../../shared/master/checks.js';
+import { blocking, masterChecks } from '../../../shared/master/checks.js';
 import { masterSchema, type MasterDoc } from '../../../shared/master/schema.js';
-import { CheckPanel } from './CheckPanel.js';
+import { CheckPanel, type OnAnswer } from './CheckPanel.js';
 import { FormulaTable } from './Formula.js';
 import { HeaderFields } from './Header.js';
-import { placeOf, type Place } from './model.js';
+import { answerDoc, placeOf, type Place } from './model.js';
 import { Preview } from './Preview.js';
 import { Process } from './Process.js';
 import { Review } from './Review.js';
@@ -73,7 +73,8 @@ export function Designer({ me, versionId, onBack, onOpen }: { me: Me; versionId:
   if (error) return <><button className="link dark" onClick={onBack}>← Master records</button><p className="notice">{error}</p></>;
   if (!v || !doc || !md) return <div className="skel skel-block tall" />;
   const others = rows.filter((r) => r.id !== v.id);
-  const blocked = problems === null || problems.some((p) => p.level === 'error');
+  const blocked = problems === null || problems.some(blocking);
+  const onAnswer: OnAnswer | undefined = editable ? (p, choice, reason) => change(answerDoc(doc, p, choice, reason)) : undefined;
   return (
     <div className="designer-page">
       <div className="d-top">
@@ -95,13 +96,13 @@ export function Designer({ me, versionId, onBack, onOpen }: { me: Me; versionId:
         <div className="d-main">
           <fieldset className="plain" disabled={!editable}>
             {tab === 'header' && <div className="card"><HeaderFields header={doc.header} products={md.products} onChange={(header) => change({ ...doc, header })} /></div>}
-            {tab === 'formula' && <FormulaTable doc={doc} onChange={change} md={md} masters={others} selected={place.line} onSelect={(line) => setPlace({ tab: 'formula', line })} problems={problems ?? []} />}
+            {tab === 'formula' && <FormulaTable doc={doc} onChange={change} md={md} masters={others} selected={place.line} onSelect={(line) => setPlace({ tab: 'formula', line })} problems={problems ?? []} onAnswer={onAnswer} />}
             {tab === 'process' && <Process doc={doc} onChange={change} md={md} place={place} onPlace={setPlace} editable={!!editable} />}
           </fieldset>
           {tab === 'preview' && <Preview doc={doc} />}
           {tab === 'review' && <Review me={me} version={v} doc={doc} blocked={blocked} onChanged={load} onOpen={onOpen} onGo={go} />}
         </div>
-        <CheckPanel doc={doc} problems={problems} invalid={parsed && !parsed.success ? issueText(doc, parsed.error.issues[0]!.path, parsed.error.issues[0]!.message) : undefined} onGo={go} />
+        <CheckPanel doc={doc} problems={problems} invalid={parsed && !parsed.success ? issueText(doc, parsed.error.issues[0]!.path, parsed.error.issues[0]!.message) : undefined} onGo={go} onAnswer={onAnswer} />
       </div>
     </div>
   );
