@@ -1,0 +1,20 @@
+{
+  "product": "truebatch",
+  "database": "truebatch",
+  "permissions": [
+    {"code": "truebatch.master.author", "label": "Write master batch record versions"},
+    {"code": "truebatch.master.check", "label": "Check a master batch record version written by another person"},
+    {"code": "truebatch.master.approve", "label": "Approve a checked master batch record version (QA)"},
+    {"code": "truebatch.batch.issue", "label": "Issue a batch record from an approved master version"},
+    {"code": "truebatch.batch.operate", "label": "Record and sign steps of a batch as performed"},
+    {"code": "truebatch.batch.check", "label": "Check steps performed by another person (second person)"},
+    {"code": "truebatch.batch.supervise", "label": "Production approval of a completed batch record"},
+    {"code": "truebatch.qc.approve", "label": "QC approval of the results used for release"},
+    {"code": "truebatch.qa.release", "label": "QA review and release of bulk tablets"},
+    {"code": "truebatch.view", "label": "View batch records and master versions"}
+  ],
+  "signon": { "backchannel_logout": "/backchannel-logout" },
+  "publishes": [],
+  "reads": { "master_data": ["equipment_v1", "instrument_v1", "room_v1", "material_v1", "product_v1"] },
+  "source": { "repo": "https://github.com/maglesT/TrueBatch-Tablets", "commit": "<full commit id at bundling>" }
+}
