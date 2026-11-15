@@ -237,6 +237,9 @@ describe('a packing batch from a released bulk batch', () => {
     // TB-22 for packing: the packing record PDF, with the pack, the bulk and the packing materials.
     const pdf = JSON.stringify(batchRecordDoc(await recordInput(t.sql, (await loadBatch(t.sql, id))!), 'QA'));
     for (const text of ['Packing record TP', 'TrueBatch Tablets Packing', 'batch TB260001', 'expiry 10/2028', 'QC report QC-26-0101', 'Packing materials', 'Lot FOIL-1: 1250 m', '1176 m used']) expect(pdf).toContain(text);
+    // A check's line that states its own question says it once.
+    expect(pdf).toContain('Packing finished: ');
+    expect(pdf).not.toMatch(/Packing finished: Packing finished/i);
     const res = await as('qa1', 'GET', `/api/batches/${id}/pdf`);
     expect(res.headers['content-type']).toContain('application/pdf');
 

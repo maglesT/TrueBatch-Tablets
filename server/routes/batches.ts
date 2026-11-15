@@ -426,7 +426,7 @@ export function batchRoutes(app: FastifyInstance, sql: Sql) {
     const id = parseId(req.params.id);
     const l = id === null ? null : await loadBatch(sql, id);
     if (!l) return reply.code(404).send({ error: 'not_found' });
-    const def = batchRecordDoc({ ...await recordInput(sql, l), deviationsRead: (await deviationsRead(app, l)).read }, req.user!.fullName);
+    const def = batchRecordDoc({ ...await recordInput(sql, l), deviationsRead: (await deviationsRead(app, l)).read }, req.user!.fullName, new Date(), app.demo);
     return sendPdf(reply, `${l.doc.pack ? 'packing' : 'batch'}-record-${l.batch.batchNo}`, await render(def));
   });
 

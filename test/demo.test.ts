@@ -109,6 +109,11 @@ describe('demo skip through the server', () => {
     expect(review.demoSkips).toMatchObject([{ kind: 'demo_wait_skipped', personName: 'ASHA' }]);
     const pdf = JSON.stringify(batchRecordDoc(await recordInput(t.sql, (await loadBatch(t.sql, b.id))!), 'QA'));
     expect(pdf).toMatch(/DEMO: wait skipped by ASHA at \d+ \w+ 2026, \d\d:\d\d IST/);
+    // A demo installation's PDF says DEMO in the header and footer of every page; any other's does not.
+    const page = (demo: boolean) => { const d = batchRecordDoc({ ...input }, 'QA', new Date(), demo); return JSON.stringify([d.header, typeof d.footer === 'function' ? d.footer(2, 3, { width: 0, height: 0 } as never) : d.footer]); };
+    const input = await recordInput(t.sql, (await loadBatch(t.sql, b.id))!);
+    expect(page(true)).toMatch(/"text":"DEMO · ".*DEMO installation, not a GMP record/);
+    expect(page(false)).not.toContain('DEMO');
     const [a] = await t.owner<{ action: string }[]>`select action from audit_log where action = 'step.demo_wait_skipped' and object_id = ${String(b.id)}`;
     expect(a).toEqual({ action: 'step.demo_wait_skipped' });
   });
