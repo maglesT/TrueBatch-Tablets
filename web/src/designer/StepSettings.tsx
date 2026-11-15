@@ -112,6 +112,10 @@ function Slot({ doc, si, ti, block, settings, name, onChange }: {
   const missing = v === undefined && !s.optional;
   const cls = missing ? 'missing' : '';
   if (s.kind === 'number') return <Decimal label={s.label} placeholder="set" value={typeof v === 'string' ? v : ''} onChange={(x) => onChange(x || undefined)} width={5} />;
+  if (s.kind === 'text' && s.options) {
+    return <select className={cls} aria-label={s.label} value={typeof v === 'string' ? v : '?'} onChange={(e) => onChange(e.target.value === '?' ? undefined : e.target.value)}>
+      <option value="?">(choose)</option>{s.options.map((o) => <option key={o} value={o}>{o}</option>)}</select>;
+  }
   if (s.kind === 'text') {
     // A text setting that is a field's unit is picked from the unit list.
     if (block.fields.some((f) => f.unit === `$${name}`)) {
