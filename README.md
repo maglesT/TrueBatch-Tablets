@@ -25,7 +25,7 @@ name and master version, 0008), `equipment_use_v1`, `deviation_note_v1` (`db/mig
 ## TrueBatch Tablets Packing
 The packing batch record is a separate product on the platform, built from this repository on the same engine and
 screens: `docs/packing-design.md`, its rules TB-P1 to TB-P9 in `docs/rules.md`. Its own parts are in `packing/` (entry
-points, migrations, the view it publishes) and `ops/packing.*`.
+points, migrations, the views it publishes) and `ops/packing.*`.
 
 ```sh
 export DATABASE_URL=postgres://truebatch_owner:dev@localhost:5432/truebatch_packing_dev DB_APP_ROLE=truebatch_packing_app
