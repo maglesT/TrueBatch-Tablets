@@ -4,13 +4,14 @@
 import type { Content, TDocumentDefinitions } from 'pdfmake/interfaces.js';
 import { findBlock, type Block } from '../shared/blocks/index.js';
 import type { MasterDoc, Step } from '../shared/master/schema.js';
-import { batchView, deviations, lateItems, lineQuantity, openSteps, type EventKind, type Stored, type StepView, type Value } from '../shared/engine/index.js';
+import { batchView, deviations, handFields, lateItems, lineQuantity, openSteps, PROVIDER_NAME, type DeviationStatus, type EventKind, type Source, type Stored, type StepView, type Value } from '../shared/engine/index.js';
 import type { LoadedBatch } from './routes/batches.js';
 import { pageFrame, plant, runs } from './pdf.js';
 
 // A signature of the batch; `step` is the step instance of a step signature.
 export interface Signature { objectType: string; objectId: number; printedName: string; meaning: string; signedAt: Date; step: string | null }
-export interface RecordInput extends LoadedBatch { versionNo: number; issuedByName: string; signatures: Signature[] }
+// deviationsRead: the deviations as the Deviations system has them now (null without the link).
+export interface RecordInput extends LoadedBatch { versionNo: number; issuedByName: string; signatures: Signature[]; deviationsRead?: ReadonlyMap<string, DeviationStatus> | null }
 
 const MEANING: Record<string, string> = {
   issued: 'Issued', performed: 'Performed', verified: 'Verified (second person)', released: 'Released', rejected: 'Rejected',
@@ -47,7 +48,7 @@ const table = (widths: (number | string)[], head: string[], rows: Content[][], e
 export function batchRecordDoc(r: RecordInput, by: string, printedAt = new Date()): TDocumentDefinitions {
   const { doc, events, batchEvents, now } = r;
   const h = doc.header;
-  const view = batchView(doc, events, batchEvents, now);
+  const view = batchView(doc, events, batchEvents, now, r.deviationsRead);
   const { steps } = openSteps(doc, events, now);
   const names = new Map(events.map((e) => [e.person, e.personName]));
   const who = (id: number | null) => (id === null ? 'server' : names.get(id) ?? `person ${id}`);
@@ -116,13 +117,13 @@ export function batchRecordDoc(r: RecordInput, by: string, printedAt = new Date(
   ])));
 
   // Deviation notes with their status (a note with a deviation number is open until QA closes it).
-  const devs = deviations(events, batchEvents);
+  const devs = deviations(events, batchEvents, r.deviationsRead);
   content.push(heading('Deviation notes'));
   content.push(table([70, 170, '*', 110, 170], ['Deviation', 'Step', 'Note', 'Written', 'Status'], events.filter((e) => e.kind === 'note').map((e) => {
     const d = devs.find((x) => x.note === e.id);
     const closed = d?.closed && batchEvents.find((b) => b.id === d.closed!.id);
     return [small(e.payload.reference ?? '—'), small(stepLabel(`${e.stage}.${e.sub}.${e.step}.${e.round}`)), small(e.payload.text ?? ''), small(`${who(e.person)}, ${plant(e.at)}`),
-      small(!d ? 'note (no deviation number)' : d.open ? 'OPEN' : `closed by ${closed?.personName ?? ''}, ${plant(closed?.at)}: ${closed?.payload.reason ?? ''}`, d?.open ? { color: RED } : {})];
+      small(!d ? 'note (no deviation number)' : d.status ? `${d.open ? 'OPEN: ' : ''}${d.status} in the Deviations system${d.closedAt ? `, ${plant(d.closedAt)}` : ''}` : d.open ? 'OPEN' : `closed by ${closed?.personName ?? ''}, ${plant(closed?.at)}: ${closed?.payload.reason ?? ''}`, d?.open ? { color: RED } : {})];
   })));
 
   // Every signature of the batch with its meaning.
@@ -152,9 +153,9 @@ function title(doc: MasterDoc, st: Step): string {
 
 /** The recorded values; a corrected value shows the original struck through, the reason, the person and the time. */
 function valueLines(block: Block, v: StepView, who: (id: number | null) => string): Content[] {
-  return block.fields.filter((f) => v.values[f.name] !== undefined || v.replaced.some((x) => x.field === f.name)).map((f) => {
+  return [...block.fields, ...handFields(block.fields, v.source)].filter((f) => v.values[f.name] !== undefined || v.replaced.some((x) => x.field === f.name)).map((f) => {
     const changes = v.replaced.filter((x) => x.field === f.name);
-    const now = runs(`${f.label}: ${valueText(v.values[f.name])}`);
+    const now = runs(`${f.label}: ${valueText(v.values[f.name])}${sourceText(v.source[f.name])}`);
     if (!changes.length) return { text: now, fontSize: 7.5 };
     return { stack: [
       { text: [...now, { text: '  CHANGED', bold: true, color: RED }], fontSize: 7.5 },
@@ -163,6 +164,9 @@ function valueLines(block: Block, v: StepView, who: (id: number | null) => strin
     ] } as Content;
   });
 }
+
+// Where a value came from: pulled through a link (as read), or typed by hand while the link was off or down.
+const sourceText = (s: Source | undefined) => (!s ? '' : s.from === 'hand' ? ` (BY HAND: ${PROVIDER_NAME[s.link]} ${s.state === 'down' ? 'link down' : 'not linked'})` : ` (${s.shown})`);
 
 /** The worked calculation lines, with the limits and pass or fail. */
 function resultLines(block: Block, st: Step, v: StepView, who: (id: number | null) => string): Content[] {

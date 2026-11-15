@@ -1,0 +1,87 @@
+import type { FastifyInstance } from 'fastify';
+import type { MasterEquipment, MasterRoom } from './master.js';
+import type { Block, BlockField } from '../shared/blocks/index.js';
+import type { FormulaLine, MasterDoc, Step } from '../shared/master/schema.js';
+import { CERTIFICATE, PROVIDER_NAME, type Provider, type Source, type Value } from '../shared/engine/index.js';
+import { LOT_USABLE } from './links.js';
+
+// What a link gives a step value at write time (owner 15 Nov 2026, TB-11, TB-12): the value as read now, or a
+// refusal in plain words; when the link is absent or down, the value is typed by hand (its questions in
+// shared/engine/links.ts). Nothing read is kept but what the record keeps (PL-07).
+
+export interface Pulled { source: Source; values: Record<string, Value>; sources: Record<string, Source>; problems: string[] }
+const hand = (link: Provider, state: 'absent' | 'down'): Pulled => ({ source: { from: 'hand', link, state }, values: {}, sources: {}, problems: [] });
+// A refusal: nothing is stored, so its source is never used.
+const refused = (...problems: string[]): Pulled => ({ source: { from: 'hand', link: 'mms', state: 'absent' }, values: {}, sources: {}, problems });
+
+/** The formula line a step works on (its setting that names one). */
+export function lineOf(doc: MasterDoc, st: Step): FormulaLine | undefined {
+  const s = Object.values(st.settings).find((v): v is { formula: string } => typeof v === 'object' && 'formula' in v);
+  return s && doc.formula.find((l) => l.key === s.formula);
+}
+
+/** TB-11: a machine or room the Logbook says is fit for use, and not in use by another batch. Line clearance: its facts. */
+export async function pullItem(app: FastifyInstance, block: Block, f: BlockField, item: MasterEquipment | MasterRoom, batchNo: string): Promise<Pulled> {
+  const r = await app.links.logbook.status(item.itemId);
+  if (r.state !== 'ok' || r.value === 'stale') return hand('logbook', r.state === 'absent' ? 'absent' : 'down');
+  const s = r.value;
+  if (!s) return refused(`${item.code} is not in the Logbook, so it cannot be used.`);
+  if (!s.fitForUse) return refused(`${item.code} is not fit for use (Logbook): ${s.blockers.join('; ') || s.state}.`);
+  if (s.inUseBatch && s.inUseBatch !== batchNo) return refused(`${item.code} is in use by batch ${s.inUseBatch} (Logbook).`);
+  const source: Source = { from: 'logbook', asOf: s.checkedAt, shown: [`${item.code}: ${s.state}`, ...s.warnings].join('; ') };
+  const out: Pulled = { source, values: {}, sources: {}, problems: [] };
+  // The line clearance facts the Logbook has: clean (it is fit for use), when and by whom it was cleaned.
+  if (f.kind === 'room' && block.gmp === 'line-clearance') {
+    const facts: [string, string | null][] = [['clean', 'yes'], ['cleanedOn', s.cleanedAt], ['cleanedBy', s.cleanedBy]];
+    for (const [name, v] of facts) if (v && block.fields.some((x) => x.name === name)) { out.values[name] = v; out.sources[name] = source; }
+  }
+  return out;
+}
+
+const plantDay = (now: Date, tz: string) => now.toLocaleDateString('en-CA', { timeZone: tz });
+
+/** TB-12: a lot MMS has, of this step's material, released and in date; its certificate numbers come with it (TB-13). */
+export async function pullLot(app: FastifyInstance, doc: MasterDoc, st: Step, block: Block, lot: string, was: Record<string, Value>, now: Date, tz: string): Promise<Pulled> {
+  const r = await app.links.mms.lot(lot);
+  if (r.state !== 'ok') return hand('mms', r.state);
+  const l = r.value;
+  if (!l) return refused(`Lot ${lot} is not in MMS.`);
+  const line = lineOf(doc, st);
+  const today = plantDay(now, tz);
+  const problems: string[] = [];
+  if (line && l.materialMasterId !== line.materialItemId) problems.push(`Lot ${lot} is ${l.materialCode ?? 'another material'} in MMS, not ${line.code} ${line.name}.`);
+  if (!LOT_USABLE.includes(l.status)) problems.push(`Lot ${lot} is ${l.status} in MMS: only a released lot may be used.`);
+  if (l.expiryDate && l.expiryDate < today) problems.push(`Lot ${lot} expired on ${l.expiryDate}.`);
+  if (l.retestDate && l.retestDate < today) problems.push(`Lot ${lot} is past its retest date ${l.retestDate}.`);
+  const source: Source = { from: 'mms', asOf: l.dataAsOf, shown: `MMS lot ${lot}: ${l.status}, expiry ${l.expiryDate ?? '—'}, retest ${l.retestDate ?? '—'}, QC report ${l.qcReportRef ?? '—'}` };
+  const out: Pulled = { source, values: {}, sources: {}, problems };
+  for (const [name, test] of Object.entries(CERTIFICATE)) {
+    const f = block.fields.find((x) => x.name === name);
+    if (!f) continue;
+    const t = l.tests.find((x) => x.test.toLowerCase() === test);
+    if (!t?.value) {
+      // A value of the previous lot must not stay with this one.
+      if (was[name] !== undefined) problems.push(`MMS has no ${f.label.toLowerCase()} for lot ${lot}; the step holds one of another lot: correct the lot back, or raise a deviation.`);
+      continue;
+    }
+    if (t.unit !== '%') { problems.push(`MMS gives the ${test} of lot ${lot} in ${t.unit ?? 'no unit'}, not in %.`); continue; }
+    const basis = line?.adjust?.potency?.basis;
+    if (name === 'assay' && basis && t.basis?.toLowerCase() !== basis) problems.push(`MMS gives the assay of lot ${lot} ${t.basis ? `on the ${t.basis} basis` : 'without its basis'}; the master's line is on the ${basis} basis.`);
+    out.values[name] = { value: t.value, unit: '%' };
+    out.sources[name] = { from: 'mms', asOf: l.dataAsOf, shown: `${test} ${t.value} %${t.basis ? ` (${t.basis})` : ''}, report ${t.reportRef ?? l.qcReportRef ?? '—'}` };
+  }
+  return out;
+}
+
+/** The answer to a hand question: yes to every label question, a date in date for the lot. */
+export function handProblem(f: BlockField, v: string, now: Date, tz: string): string | null {
+  if (f.kind === 'yes-no' && v !== 'yes') return `${f.label}: if not, do not use it; use another, or raise a deviation.`;
+  if (f.name.endsWith('.expiry')) {
+    const d = new Date(`${v}T00:00:00Z`);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(v) || Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== v) return `${f.label}: type the date as YYYY-MM-DD.`;
+    if (v < plantDay(now, tz)) return `The lot expired or passed its retest date on ${v}: it may not be used.`;
+  }
+  return null;
+}
+
+export const pulledWords = (s: Source) => (s.from === 'hand' ? '' : `comes from ${PROVIDER_NAME[s.from]} and cannot be typed over`);

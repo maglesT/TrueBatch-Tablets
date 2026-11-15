@@ -13,6 +13,7 @@ import { masterRoutes } from './routes/masters.js';
 import { batchRoutes } from './routes/batches.js';
 import type { SignOn } from './signon.js';
 import { ConnectionOff, NotUsable, type Master } from './master.js';
+import { links as noLinks, type Links } from './links.js';
 
 export const VERSION = '0.1.0';
 
@@ -25,6 +26,8 @@ export interface AppOptions {
   proofKey?: Buffer;
   // Master data read live from master_data's views; tests pass a stand-in.
   master: Master;
+  // The optional links to Deviations, QMS, Logbook and MMS; absent by default.
+  links?: Links;
   logger?: boolean;
   webRoot?: string;
   // Secure flag on the session cookie; off only for plain-HTTP development.
@@ -33,11 +36,12 @@ export interface AppOptions {
   batchPrefix?: string;
 }
 
-export async function buildApp({ sql, signOn, master, proofKey = randomBytes(32), logger = false, webRoot, cookieSecure = true, batchPrefix = 'TB' }: AppOptions): Promise<FastifyInstance> {
+export async function buildApp({ sql, signOn, master, links = noLinks(), proofKey = randomBytes(32), logger = false, webRoot, cookieSecure = true, batchPrefix = 'TB' }: AppOptions): Promise<FastifyInstance> {
   const app = Fastify({ logger, trustProxy: true });
   app.decorate('cookieSecure', cookieSecure);
   app.decorate('proofKey', proofKey);
   app.decorate('master', master);
+  app.decorate('links', links);
   app.decorate('batchPrefix', batchPrefix);
   // A cut master-data link stops the feature with one message (platform D-02, PL-08); an unknown or inactive item is
   // refused at write time (PL-08).
@@ -90,5 +94,6 @@ declare module 'fastify' {
     cookieSecure: boolean;
     proofKey: Buffer;
     master: Master;
+    links: Links;
   }
 }

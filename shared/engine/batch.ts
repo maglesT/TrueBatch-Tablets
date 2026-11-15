@@ -6,6 +6,7 @@ import { findBlock } from '../blocks/index.js';
 import type { MasterDoc, Step } from '../master/schema.js';
 import { keyId, stepState, type EventKind, type State, type StepEvent, type StepKey } from './state.js';
 import { currentValues, evaluate, failed, inputChanges, type Current } from './values.js';
+import { handEntered, handFields } from './links.js';
 
 export interface StepView extends Current {
   key: StepKey;
@@ -120,7 +121,8 @@ export function openSteps(doc: MasterDoc, events: readonly StepEvent[], now: Dat
           const evs = byKey.get(keyId(key)) ?? [];
           const c = currentValues(evs);
           const inputChanged = inputChanges(events, c.uses);
-          let { state, needsResign } = stepState(evs, st.checker);
+          // A value entered by hand (a link absent or down) needs a second-person check (owner 15 Nov 2026).
+          let { state, needsResign } = stepState(evs, st.checker || handEntered(c.source));
           if (inputChanged.length) {
             c.results = evaluate(doc, events, key, c.values);
             if (state === 'done' || state === 'done_awaiting_check' || state === 'checked') [state, needsResign] = ['in_progress', true];
@@ -147,7 +149,7 @@ export function doneProblems(doc: MasterDoc, v: StepView, now: Date): string[] {
   const block = st && findBlock(st.block);
   if (!st || !block) return ['This step has no block'];
   const p: string[] = [];
-  for (const f of block.fields) if (!f.optional && v.values[f.name] === undefined) p.push(`${f.label} is not recorded`);
+  for (const f of [...block.fields, ...handFields(block.fields, v.source)]) if (!f.optional && v.values[f.name] === undefined) p.push(`${f.label} is not recorded`);
   for (const r of Object.values(v.results)) if (!r.ok) p.push(r.message);
   const stop = stopName(st);
   const out = block.calcs.filter((c) => c.name !== stop && failed(v.results[c.name])).map((c) => c.label);

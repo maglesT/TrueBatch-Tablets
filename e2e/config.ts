@@ -8,6 +8,8 @@ export const USERS: Record<string, Permission[]> = {
   op1: ['truebatch.batch.operate'],
   chk1: ['truebatch.batch.check'],
   qa1: ['truebatch.qa.release', 'truebatch.master.approve'],
+  // Makes a version effective when the change control was typed by hand (no QMS link).
+  qa2: ['truebatch.master.approve'],
   // The release journey: production supervisor and QC.
   sup1: ['truebatch.batch.supervise'],
   qc1: ['truebatch.qc.approve'],

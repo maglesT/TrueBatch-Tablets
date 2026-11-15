@@ -2,12 +2,13 @@ import { useEffect, useState } from 'react';
 import { api, type Me } from '../api.js';
 import { SignDialog } from '../components/SignDialog.js';
 import {
-  blockOf, changed, go, headline, plainClock, plainError, rawOf, STATE_LABEL, stepLink, stepOf, stepTitle, timeLeft, tone, unitOf, valueText, words,
+  blockOf, changed, go, headline, plainClock, plainError, rawOf, sourceWords, STATE_LABEL, stepLink, stepOf, stepTitle, timeLeft, tone, unitOf, useLinked, valueText, words,
   type BatchDetail, type Block, type BlockField, type FloorEvent, type History, type PickItem, type Step, type StepRow, type Stored,
 } from '../api-floor.js';
 import { Alerts } from './BatchScreen.js';
 import { FieldInput } from './Fields.js';
 import { ReasonDialog } from './ReasonDialog.js';
+import { CERTIFICATE, handEntered, LINK_OF } from '../../../shared/engine/links.js';
 
 type Dialog = { kind: 'done' | 'repeat' | 'check' | 'na' | 'send-back' | 'note' } | { kind: 'na-sign'; reason: string } | { kind: 'correct'; field: BlockField };
 const INVOLVING = ['started', 'value', 'done', 'corrected', 'not_applicable'];
@@ -40,6 +41,14 @@ export function StepScreen({ me, d, blocks, row, now, reload }: { me: Me; d: Bat
   const [busy, setBusy] = useState(false);
   const [picks, setPicks] = useState<Record<'machine' | 'room', PickItem[]>>({ machine: [], room: [] });
   const last = row.events.at(-1)?.id ?? 0;
+  // The block's fields and the label questions of what was entered by hand (a link absent or down).
+  const fields = [...block.fields, ...row.handFields];
+  const line = Object.values(st.settings).find((v): v is { formula: string } => typeof v === 'object' && 'formula' in v);
+  const material = line && doc.formula.find((l) => l.key === line.formula)?.materialItemId;
+  const lots = useLinked<{ lotNumber: string }>(block.fields.some((f) => f.kind === 'lot') && material ? `/api/mms/lots?material=${encodeURIComponent(material)}` : null, 'lots');
+  const deviationPicks = useLinked<{ number: string; title: string | null }>(`/api/batches/${d.batch.id}/deviations`, 'deviations');
+  const lotField = block.fields.find((f) => f.kind === 'lot');
+  const lotPulled = lotField && row.source[lotField.name] && row.source[lotField.name]!.from !== 'hand';
 
   useEffect(() => {
     let live = true;
@@ -115,10 +124,16 @@ export function StepScreen({ me, d, blocks, row, now, reload }: { me: Me; d: Bat
   const fieldView = (f: BlockField) => {
     const v = row.values[f.name];
     const unit = unitOf(f, st);
-    if (can('record') || (v === undefined && row.state === 'open') || (f.count && v !== undefined)) {
+    const src = row.source[f.name];
+    // Pulled through a link: shown, never typed over. Certificate values come only with an MMS lot.
+    const pulled = (src && src.from !== 'hand' && !LINK_OF[f.kind]) || (lotPulled && CERTIFICATE[f.name] !== undefined);
+    if (pulled && v === undefined) return null;
+    if (!pulled && (can('record') || (v === undefined && row.state === 'open') || (f.count && v !== undefined))) {
       return (
         <div key={f.name}>
-          <FieldInput f={f} unit={unit} saved={v} picks={picks[f.kind as 'machine'] ?? []} disabled={!can('record')} out={outOf(f)} onSave={can('record') ? (raw) => record(f.name, raw) : undefined} />
+          <FieldInput f={f} unit={unit} saved={v} picks={picks[f.kind as 'machine'] ?? []} options={f.kind === 'lot' ? lots.map((l) => l.lotNumber) : []}
+            disabled={!can('record')} out={outOf(f)} onSave={can('record') ? (raw) => record(f.name, raw) : undefined} />
+          {src && <p className="muted small">{sourceWords(src)}</p>}
           {!can('record') && can('correct') && <button className="big" onClick={() => setDialog({ kind: 'correct', field: f })}>Correct {f.label.toLowerCase()}</button>}
           <Replaced h={history} field={f.name} names={names} />
         </div>
@@ -132,8 +147,9 @@ export function StepScreen({ me, d, blocks, row, now, reload }: { me: Me; d: Bat
         <div className="recorded">
           <span>{valueText(v)}</span>
           {e && <span className="by">{e.personName}, {plainClock(e.at)}</span>}
-          {can('correct') && v !== undefined && <button className="big" onClick={() => setDialog({ kind: 'correct', field: f })}>Correct</button>}
+          {can('correct') && v !== undefined && !pulled && <button className="big" onClick={() => setDialog({ kind: 'correct', field: f })}>Correct</button>}
         </div>
+        {src && <p className="muted small">{sourceWords(src)}</p>}
         <Replaced h={history} field={f.name} names={names} />
       </div>
     );
@@ -174,16 +190,17 @@ export function StepScreen({ me, d, blocks, row, now, reload }: { me: Me; d: Bat
             <section className="dash-panel" aria-label="What was recorded">
               <div className="panel-head"><h2>What was recorded</h2>{lastDone && <span className="muted">performed by {lastDone.personName}, {plainClock(lastDone.at)}</span>}</div>
               <table className="recorded-table"><thead><tr><th>Field</th><th>Value</th><th>Recorded by</th></tr></thead>
-                <tbody>{block.fields.filter((f) => row.values[f.name] !== undefined).map((f) => (
-                  <tr key={f.name}><td>{f.label}</td><td className="v">{valueText(row.values[f.name])}</td><td>{by[f.name] ? `${by[f.name]!.personName}, ${plainClock(by[f.name]!.at)}` : '—'}</td></tr>
+                <tbody>{fields.filter((f) => row.values[f.name] !== undefined).map((f) => (
+                  <tr key={f.name}><td>{f.label}<small className="muted"> {sourceWords(row.source[f.name])}</small></td><td className="v">{valueText(row.values[f.name])}</td><td>{by[f.name] ? `${by[f.name]!.personName}, ${plainClock(by[f.name]!.at)}` : '—'}</td></tr>
                 ))}</tbody></table>
-              {block.fields.filter((f) => row.values[f.name] !== undefined).map((f) => <Replaced key={f.name} h={history} field={f.name} names={names} label={f.label} />)}
+              {handEntered(row.source) && <p className="notice warn">Entered by hand because a link is off or down: check each value against the status label, the lot label and the QC report.</p>}
+              {fields.filter((f) => row.values[f.name] !== undefined).map((f) => <Replaced key={f.name} h={history} field={f.name} names={names} label={f.label} />)}
               {!can('check') && <p className="notice info">{involved ? 'You performed or recorded this step: a second person checks it on their own device.' : 'Waiting for a second person to check this step.'}</p>}
             </section>
           ) : (
             <section className="dash-panel" aria-label="Record">
               <div className="panel-head"><h2>Record</h2>{can('record') && <span className="muted">each value is saved when you leave the field</span>}</div>
-              {block.fields.map(fieldView)}
+              {fields.map(fieldView)}
             </section>
           )}
         </div>
@@ -249,7 +266,7 @@ export function StepScreen({ me, d, blocks, row, now, reload }: { me: Me; d: Bat
           onSubmit={async (reason) => { await post('send-back', { reason }); setDialog(null); await reload(); }} />
       )}
       {dialog?.kind === 'note' && (
-        <ReasonDialog title="Deviation note" label="What happened" reference submit="Add the note" hint={outCalcs.length ? `Out of limits: ${outCalcs.map((c) => c.label).join(', ')}.` : undefined}
+        <ReasonDialog title="Deviation note" label="What happened" reference options={deviationPicks} submit="Add the note" hint={outCalcs.length ? `Out of limits: ${outCalcs.map((c) => c.label).join(', ')}.` : undefined}
           onCancel={() => setDialog(null)} onSubmit={async (text, reference) => { await post('note', { text, ...(reference ? { reference } : {}) }); setDialog(null); await reload(); }} />
       )}
       {dialog?.kind === 'na' && (

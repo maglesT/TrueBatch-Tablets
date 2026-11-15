@@ -3,7 +3,7 @@ import type { Content, TDocumentDefinitions } from 'pdfmake/interfaces.js';
 import { batchRecordDoc } from '../server/batch-record.js';
 import { recordLate } from '../server/late.js';
 import { loadBatch, recordInput } from '../server/routes/batches.js';
-import { call, freshApp, login, proofFor, seedUser, type TestApp } from './helpers.js';
+import { call, freshApp, handLabels, login, proofFor, seedUser, type TestApp } from './helpers.js';
 import { small, tablet } from './engine-fixture.js';
 
 // Master versions (draft, locked once out of draft), issuing a batch from an effective version (TB-03), walking a
@@ -145,7 +145,7 @@ describe('walking a stage', () => {
   it('TB-07 start → record (the templates compute) → done (signed performed) → checked by another person (signed verified)', async () => {
     expect((await act('asha', id, '0.1.0.1', 'start')).statusCode).toBe(200);
     // 10.0 mg × 100 000 = 1.000 kg target; 1.350 − 0.350 = 1.000 kg net.
-    const rec = await act('asha', id, '0.1.0.1', 'record', { values: { lot: 'PVP-2611', balance: 'eq-bal', gross: '1.350', tare: '0.350' } });
+    const rec = await act('asha', id, '0.1.0.1', 'record', { values: { lot: 'PVP-2611', ...handLabels('lot', 'lot'), balance: 'eq-bal', ...handLabels('balance', 'machine'), gross: '1.350', tare: '0.350' } });
     expect(rec.statusCode).toBe(200);
     const s = await stepOf(id, '0.1.0.1');
     expect(s.results.net).toMatchObject({ ok: true, value: '1' });
@@ -163,7 +163,7 @@ describe('walking a stage', () => {
 
   it('a mix cannot be done before its minimum time; after it, the preparation closes and the next stage opens', async () => {
     expect((await act('asha', id, '0.1.1.1', 'start')).statusCode).toBe(200);
-    await act('asha', id, '0.1.1.1', 'record', { values: { machine: 'eq-str', speed: '300' } });
+    await act('asha', id, '0.1.1.1', 'record', { values: { machine: 'eq-str', ...handLabels('machine', 'machine'), speed: '300' } });
     const early = await sign('asha', id, '0.1.1.1', 'done');
     expect(early.statusCode).toBe(409);
     expect(early.json().problems[0]).toMatch(/^The minimum time is 10 min/);
@@ -171,6 +171,9 @@ describe('walking a stage', () => {
     await t.owner`insert into step_events (batch_id, stage, sub, step, round, kind, person_id, at)
       select ${id}, 0, 1, 1, 1, 'started', person_id, now() - interval '11 minutes' from step_events where batch_id = ${id} and kind = 'started' limit 1`;
     expect((await sign('asha', id, '0.1.1.1', 'done')).statusCode).toBe(200);
+    // The stirrer was entered by hand (no Logbook link): a second person checks the step.
+    expect((await stepOf(id, '0.1.1.1')).state).toBe('done_awaiting_check');
+    expect((await sign('ravi', id, '0.1.1.1', 'check')).statusCode).toBe(200);
     const b = await batch(id);
     expect(b.stages[0]).toMatchObject({ key: 'binder', closed: true });
     expect(b.steps.find((s) => s.id === '1.1.0.1')!.state).toBe('open');
@@ -186,7 +189,7 @@ describe('walking a stage', () => {
     await act('asha', id, '1.1.0.1', 'start');
     const press = await act('asha', id, '1.1.0.1', 'record', { values: { balance: 'eq-prs', gross: 'heavy' } });
     expect(press.json()).toMatchObject({ error: 'invalid_values', problems: ['PRS-01 is not one of the machine types this stage allows (balance, granulator, dryer, mill)', 'Gross weight: type a number, e.g. "50.300"'] });
-    await act('asha', id, '1.1.0.1', 'record', { values: { lot: 'API-2611', balance: 'eq-bal', assay: '99.0', lod: '0.5', gross: '11.000', tare: '0.850' } });
+    await act('asha', id, '1.1.0.1', 'record', { values: { lot: 'API-2611', ...handLabels('lot', 'lot'), balance: 'eq-bal', ...handLabels('balance', 'machine'), assay: '99.0', lod: '0.5', gross: '11.000', tare: '0.850' } });
     const stale = await act('asha', id, '1.1.0.1', 'done', { proof: proofFor('asha'), contentHash: '0'.repeat(64) });
     expect(stale.json()).toMatchObject({ error: 'content_changed' });
   });
@@ -230,7 +233,7 @@ describe('walking a stage', () => {
 
   it('TB-06 a correction reaches the step that used the value: it shows the new result and who changed it, and is signed and checked again', async () => {
     expect((await act('asha', id, '1.1.1.1', 'start')).statusCode).toBe(200);
-    await act('asha', id, '1.1.1.1', 'record', { values: { lot: 'LAC-2611', balance: 'eq-bal', gross: '12.700', tare: '0.850' } });
+    await act('asha', id, '1.1.1.1', 'record', { values: { lot: 'LAC-2611', ...handLabels('lot', 'lot'), balance: 'eq-bal', ...handLabels('balance', 'machine'), gross: '12.700', tare: '0.850' } });
     expect((await sign('asha', id, '1.1.1.1', 'done')).statusCode).toBe(200);
     expect((await sign('ravi', id, '1.1.1.1', 'check')).statusCode).toBe(200);
     const before = (await stepOf(id, '1.1.1.1')).results as unknown as { target: { value: string } };

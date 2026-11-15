@@ -5,21 +5,24 @@ import type { Block, BlockField } from '../../shared/blocks/format.js';
 import type { MasterDoc, Step } from '../../shared/master/schema.js';
 import type { Action, EventKind, Payload, State, StepKey } from '../../shared/engine/state.js';
 import type { Stored, Value } from '../../shared/engine/values.js';
+import { PROVIDER_NAME, type Source } from '../../shared/engine/links.js';
 
-export type { Block, BlockField, MasterDoc, Step, Action, State, StepKey, Stored, Value };
+export type { Block, BlockField, MasterDoc, Step, Action, State, StepKey, Stored, Value, Source };
 
 export interface FloorEvent extends StepKey { id: number; kind: EventKind; payload: Payload; person: number | null; personName: string | null; at: string }
 export interface StepRow {
   key: StepKey; id: string; stageKey: string; stepKey: string; state: State; needsResign: boolean; blocked?: string;
   values: Record<string, Value>; results: Record<string, Stored>; inputChanged: FloorEvent[]; events: FloorEvent[];
   contentHash: string; actions: Action[]; problems: string[];
+  // Where values came from (a link, or by hand) and the label questions of what was entered by hand.
+  source: Record<string, Source>; handFields: BlockField[];
 }
 export interface TimerRow { id: string; kind: 'hold' | 'periodic' | 'minimum'; key: StepKey; label: string; from: string; at: string; state: 'running' | 'due soon' | 'due' | 'late' }
 export interface StageRow { index: number; key: string; name: string; open: boolean; blocked?: string; closed: boolean }
-export interface Deviation { note: number; step: string; reference: string; text: string; open: boolean }
+export interface Deviation { note: number; step: string; reference: string; text: string; open: boolean; status?: string; closedAt?: string | null }
 export interface BatchDetail {
   now: string;
-  batch: { id: number; batchNo: string; issuedAt: string; status: string; open: string[]; late: string[]; deviations: Deviation[]; yieldOut: string[]; contentHash: string; actions: string[] };
+  batch: { id: number; batchNo: string; issuedAt: string; status: string; open: string[]; late: string[]; deviations: Deviation[]; yieldOut: string[]; contentHash: string; actions: string[]; deviationsLink: string };
   master: { id: number; versionNo: number; doc: MasterDoc };
   stages: StageRow[]; timers: TimerRow[]; steps: StepRow[];
 }
@@ -30,6 +33,23 @@ export interface WorkItem {
   current: { step: string; stage: string; title: string; state: State } | null; badges: WorkBadge[];
 }
 export interface PickItem { itemId: string; code: string; name: string; active: boolean; type?: string | null; area?: string | null }
+
+/** Where a value came from, in plain words. */
+export const sourceWords = (s: Source | undefined) => (!s ? '' : s.from === 'hand'
+  ? `Typed by hand: ${PROVIDER_NAME[s.link]} ${s.state === 'down' ? 'link is down' : 'is not linked'}. A second person checks it.`
+  : `From ${PROVIDER_NAME[s.from]}: ${s.shown}`);
+
+/** A pick list read through a link (pull, don't type): empty when the link is absent or down, and then the value is typed. */
+export function useLinked<T>(url: string | null, list: string): T[] {
+  const [items, setItems] = useState<T[]>([]);
+  useEffect(() => {
+    if (!url) return;
+    let live = true;
+    void api<Record<string, T[]>>('GET', url).then((r) => live && setItems(r[list] ?? []), () => {});
+    return () => { live = false; };
+  }, [url, list]);
+  return items;
+}
 
 // ---- routes: #/ (My work), #/batch/12, #/batch/12/step/0.1.0.1, #/batch/12/approve, #/release (To review), #/release/12 ----
 export interface Route { batch?: number; step?: string; approve?: boolean; release?: number | 'list' }

@@ -126,8 +126,9 @@ describe('master review and approval', () => {
   });
 
   it('TB-02 one effective version: making a new version effective retires the previous one', async () => {
+    // Without QMS the change control number is typed by hand: a second person makes the version effective.
     const v1 = await approved();
-    expect((await as('quality', 'POST', `/api/master-versions/${v1.id}/make-effective`, {})).statusCode).toBe(200);
+    expect((await as('qachecker', 'POST', `/api/master-versions/${v1.id}/make-effective`, {})).statusCode).toBe(200);
     expect(await state(v1.id)).toBe('effective');
     const next = await as('author', 'POST', `/api/masters/${v1.masterId}/versions`, {});
     const v2 = (next.json() as { id: number }).id;
@@ -136,7 +137,7 @@ describe('master review and approval', () => {
     await act('checker', v2, 'pass');
     await act('quality', v2, 'approve', { changeControl: 'CC-2026-020' });
     expect((await as('checker', 'POST', `/api/master-versions/${v2}/make-effective`, {})).statusCode).toBe(403);
-    expect((await as('quality', 'POST', `/api/master-versions/${v2}/make-effective`, {})).statusCode).toBe(200);
+    expect((await as('qachecker', 'POST', `/api/master-versions/${v2}/make-effective`, {})).statusCode).toBe(200);
     expect([await state(v1.id), await state(v2)]).toEqual(['retired', 'effective']);
     const effective = await t.owner`select id from master_versions where master_id = ${v1.masterId} and state = 'effective'`;
     expect(effective).toHaveLength(1);
