@@ -44,7 +44,17 @@ answering) or **ok**.
   Tablets Packing reads; readers of Batchwright's columns select them by name and are not affected. `0008` adds
   `product_name` and `master_version` at the end (family_code is the master version's number) and publishes
   `material_use_v1`: per signed weighing step its lot, material and net quantity (status dispensed, or corrected with
-  the corrected quantity); MMS reduces the lot's stock by reading it (owner decision), nothing is sent.
+  the corrected quantity); MMS reduces the lot's stock by reading it (owner decision), nothing is sent. `0011`: a
+  machine or room is in use by its **stage**, not its step: `equipment_use_v1` has one row per batch, stage, sub-batch
+  and machine or room, from the first start of a step of the stage that names it to the moment the stage closed (the
+  batch event `stage_closed`, recorded once by the action that closes it, `0010`), so the Logbook marks it dirty after
+  the stage; a machine in two stages has two uses. Both views add `step_name` at the end ("Granulation › Granulate to
+  an end point", kept with the step's start); `step` stays the keys. `material_use_v1` gives the quantity in the
+  material's unit in master data, read when the step is signed done (g and mg exactly in kg for a kg material).
+- **Where machines are**: a stage that works machines or names a room chooses the rooms it may run in (master check,
+  TB-11); the floor is offered the machines of the field's type standing in those rooms. A balance is offered where
+  the weighing is done: in a dispensing or weighing area, or in a room the stage allows, never in a QC or laboratory
+  area (master data's room `area`, `shared/engine/picks.ts`, the same rule on the server and the screen).
 
 ## Rules and where they are enforced
 - 22 TrueBatch GMP rules (EU GMP Part I and Annex 11, 21 CFR 211 and Part 11, Revised Schedule M), listed in
