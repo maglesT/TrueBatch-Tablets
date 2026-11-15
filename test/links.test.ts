@@ -1,7 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { connect, type Sql } from '../server/db.js';
 import { links, type Links } from '../server/links.js';
-import { batchRefusal, batchView, type BatchEvent } from '../shared/engine/index.js';
+import { findBlock } from '../shared/blocks/index.js';
+import { batchRefusal, batchView, fieldLabel, handFields, type BatchEvent } from '../shared/engine/index.js';
 import { call, freshApp, handLabels, login, proofFor, seedUser, TEST_DATABASE_URL, type TestApp } from './helpers.js';
 import { at, ev, small, tablet } from './engine-fixture.js';
 
@@ -133,6 +134,19 @@ describe('the link client: absent, down (refused or not answering) and ok', () =
     const nowhere = connect('postgres://truebatch_app:x@127.0.0.1:1/x', { link: true });
     expect((await Promise.all(reads(links({ deviations: nowhere, qms: nowhere, logbook: nowhere, mms: nowhere })))).map((r) => r.state)).toEqual(['down', 'down', 'down', 'down']);
     await nowhere.end();
+  });
+});
+
+describe('the labels people saw', () => {
+  it('a label question shows its label, not its name, wherever it is listed, and whether the link is back or not', () => {
+    const weigh = findBlock({ id: 'weigh', version: 1 })!.fields;
+    expect(fieldLabel(weigh, 'balance')).toBe('Balance');
+    expect(fieldLabel(weigh, 'balance.inService')).toBe('Balance: not tagged out of service, maintenance in date');
+    expect(fieldLabel(weigh, 'lot.expiry')).toBe('Lot: expiry or retest date on the label, whichever is first (YYYY-MM-DD)');
+    // The same text as the question the operator answered.
+    const hand = handFields(weigh, { balance: { from: 'hand', link: 'logbook', state: 'down' }, lot: { from: 'hand', link: 'mms', state: 'absent' } });
+    for (const q of hand) expect(fieldLabel(weigh, q.name)).toBe(q.label);
+    expect(fieldLabel(weigh, 'balance.unknown')).toBe('balance.unknown');
   });
 });
 

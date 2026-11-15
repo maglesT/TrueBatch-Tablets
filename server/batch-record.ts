@@ -4,7 +4,7 @@
 import type { Content, TDocumentDefinitions } from 'pdfmake/interfaces.js';
 import { findBlock, type Block } from '../shared/blocks/index.js';
 import type { MasterDoc, Step } from '../shared/master/schema.js';
-import { batchView, deviations, handFields, lateItems, lineQuantity, openSteps, PROVIDER_NAME, type DeviationStatus, type EventKind, type Source, type Stored, type StepView, type Value } from '../shared/engine/index.js';
+import { batchView, deviations, fieldLabel, handFields, lateItems, lineQuantity, openSteps, PROVIDER_NAME, type DeviationStatus, type EventKind, type Source, type Stored, type StepView, type Value } from '../shared/engine/index.js';
 import type { LoadedBatch } from './routes/batches.js';
 import { pageFrame, plant, runs } from './pdf.js';
 
@@ -153,9 +153,11 @@ function title(doc: MasterDoc, st: Step): string {
 
 /** The recorded values; a corrected value shows the original struck through, the reason, the person and the time. */
 function valueLines(block: Block, v: StepView, who: (id: number | null) => string): Content[] {
-  return [...block.fields, ...handFields(block.fields, v.source)].filter((f) => v.values[f.name] !== undefined || v.replaced.some((x) => x.field === f.name)).map((f) => {
-    const changes = v.replaced.filter((x) => x.field === f.name);
-    const now = runs(`${f.label}: ${valueText(v.values[f.name])}${sourceText(v.source[f.name])}`);
+  // Label answers typed while a link was off stay in the record when the link gives the value again.
+  const names = new Set([...block.fields, ...handFields(block.fields, v.source)].map((f) => f.name).concat(Object.keys(v.values), v.replaced.map((x) => x.field)));
+  return [...names].filter((name) => v.values[name] !== undefined || v.replaced.some((x) => x.field === name)).map((name) => {
+    const changes = v.replaced.filter((x) => x.field === name);
+    const now = runs(`${fieldLabel(block.fields, name)}: ${valueText(v.values[name])}${sourceText(v.source[name])}`);
     if (!changes.length) return { text: now, fontSize: 7.5 };
     return { stack: [
       { text: [...now, { text: '  CHANGED', bold: true, color: RED }], fontSize: 7.5 },
