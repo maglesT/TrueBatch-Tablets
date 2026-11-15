@@ -8,6 +8,8 @@ import { SignError, authenticateSigner, contentHash, sign, type Meaning } from '
 import { BLOCKS } from '../../shared/blocks/index.js';
 import { blocking, masterChecks } from '../../shared/master/checks.js';
 import { masterSchema, type MasterDoc, type MasterState } from '../../shared/master/schema.js';
+import { isHand, type Source } from '../../shared/engine/links.js';
+import { CHANGE_STEPS, approvedChange } from '../links.js';
 
 // Master versions: the model, the table, the draft routes, and the review and approval workflow (TB-02). A version
 // leaves draft only through that workflow (or, in tests, the database owner).
@@ -134,7 +136,7 @@ export const REVIEW_ACTIONS = {
 export type ReviewAction = keyof typeof REVIEW_ACTIONS;
 const REVIEW_NAMES = Object.keys(REVIEW_ACTIONS) as ReviewAction[];
 
-interface MasterEvent { id: number; kind: string; payload: Record<string, string>; person: number; personName: string; at: Date }
+interface MasterEvent { id: number; kind: string; payload: { reason?: string; changeControl?: string; source?: { changeControl?: Source } }; person: number; personName: string; at: Date }
 interface Loaded { v: VersionRow; events: MasterEvent[]; authors: number[] }
 
 async function loadReview(q: Sql | Tx, id: number, lock = false): Promise<Loaded | null> {
@@ -180,7 +182,27 @@ export function reviewRefusal(action: ReviewAction, l: Loaded, user: SessionUser
     if (!passed) return no(409, 'not_checked', 'A second person checks the version before QA approves it.');
     if (author || passed.person === user.id) return no(403, 'author_cannot_approve', 'QA approval is by a person who neither wrote nor checked this version.');
   }
+  if (action === 'make-effective') {
+    // TB-02: a change control number typed by hand at approval (QMS absent or down) is confirmed by a second person.
+    const approved = l.events.filter((e) => e.kind === 'approved').at(-1);
+    if (isHand(approved?.payload.source?.changeControl) && approved!.person === user.id) {
+      return no(403, 'same_person', 'The change control number was typed by hand at approval: another person makes the version effective, after checking the number and its QA approval in QMS or its paper record.');
+    }
+  }
   return null;
+}
+
+/**
+ * TB-02: while QMS answers, the change control must be one of its change controls, approved by QA (CHANGE_STEPS);
+ * its title and approval are kept with the approval (PL-07). Otherwise the number is typed by hand.
+ */
+async function changeControlSource(app: FastifyInstance, number: string): Promise<Source> {
+  const r = await app.links.qms.change(number);
+  if (r.state !== 'ok') return { from: 'hand', link: 'qms', state: r.state };
+  const c = r.value;
+  if (!c) throw new ReviewError(409, 'unknown_change_control', [`${number} is not a change control in QMS.`]);
+  if (!approvedChange(c)) throw new ReviewError(409, 'change_not_approved', [`${number} is ${c.status} in QMS${c.qaApprovedAt ? '' : ', not approved by QA'}: only a QA-approved change control (${CHANGE_STEPS.join(', ')}) can carry a new version.`]);
+  return { from: 'qms', asOf: c.qaApprovedAt, shown: `${c.number}: ${c.title ?? ''} (${c.status}, QA approved ${c.qaApprovedAt})${c.products ? `; products: ${c.products}` : ''}` };
 }
 
 class ReviewError extends Error {
@@ -217,6 +239,12 @@ function reviewRoutes(app: FastifyInstance, sql: Sql) {
     };
   });
 
+  // QA-approved change controls in QMS, for the approval's pick list (pull, don't type).
+  app.get('/api/change-controls', reviewer, async () => {
+    const r = await app.links.qms.approved();
+    return { link: r.state, changes: r.state === 'ok' ? r.value : [] };
+  });
+
   app.post<{ Params: { id: string } }>('/api/master-versions/:id/comments', reviewer, async (req, reply) => {
     const id = parseId(req.params.id);
     const b = z.object({ text: z.string().trim().min(1).max(2000), path: z.string().regex(/^[a-zA-Z0-9_.[\]]{1,120}$/).optional() }).safeParse(req.body);
@@ -242,6 +270,7 @@ function reviewRoutes(app: FastifyInstance, sql: Sql) {
       const user = req.user!;
       try {
         const signer = rule.meaning ? await authenticateSigner(sql, app.proofKey, user, { proof: b.proof! }, { objectType: 'master_version', objectId: id, meaning: rule.meaning }) : null;
+        const source = b.changeControl ? await changeControlSource(app, b.changeControl) : null;
         return await sql.begin(async (tx) => {
           await tx`select pg_advisory_xact_lock(${-id}::bigint)`;
           // 1. read
@@ -252,7 +281,7 @@ function reviewRoutes(app: FastifyInstance, sql: Sql) {
           if (no) throw new ReviewError(no.status, no.error, [no.message]);
           if (signer && b.contentHash !== versionHash(l)) throw new ReviewError(409, 'content_changed', ['The version changed since you opened it.']);
           // 3. insert the event; the state follows
-          const payload = { ...(b.reason ? { reason: b.reason } : {}), ...(b.changeControl ? { changeControl: b.changeControl } : {}) };
+          const payload = { ...(b.reason ? { reason: b.reason } : {}), ...(b.changeControl ? { changeControl: b.changeControl } : {}), ...(source ? { source: { changeControl: source } } : {}) };
           const [ev] = await tx<{ id: number }[]>`
             insert into master_events (version_id, kind, payload, person_id) values (${id}, ${rule.event}, ${tx.json(payload)}, ${user.id}) returning id::int`;
           const retired: number[] = [];
