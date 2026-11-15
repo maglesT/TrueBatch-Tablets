@@ -18,7 +18,7 @@ Clauses: the binding clauses each rule rests on (US: 21 CFR 211 and Part 11; EU:
 | TB-07 | E-signatures carry the name, time and meaning, linked to what was signed | US 11.50(a),(b); 11.70; 11.200(a); 211.186(a); 211.188(a); EU A11 14; C4 4.20(h),(i); IN SCHM 17.3.8.3 ("dated and signed"); 17.2.8 | `test/batches.test.ts` |
 | TB-08 | Significant steps have a second-person check; the checker is not the performer | US 211.188(b)(11); 211.101(c),(d); 211.103; 211.68(c); EU C4 4.20(c); C5 5.38; A11 6; IN SCHM 14.19; 17.2.8 ("critical data independently checked"); 17.3.8.3(e); 20.6 | `test/engine.test.ts`, `test/batches.test.ts`, `test/master-checks.test.ts`, `test/mywork.test.ts` |
 | TB-09 | Steps are done in order; a departure needs a deviation note | US 211.100(b); 11.10(f); EU C5 5.15; C4 4.20(h); IN SCHM 18.2.2; 17.3.8.3(k) | `test/engine.test.ts` |
-| TB-10 | Line clearance before each stage | US 211.67(b)(6); 211.100(a); EU C4 4.18(c); C5 5.40, 5.14; IN SCHM 17.3.8.2; 18.4.1; 18.4.7 | later: the line clearance screen |
+| TB-10 | Line clearance before each stage | US 211.67(b)(6); 211.100(a); EU C4 4.18(c); C5 5.40, 5.14; IN SCHM 17.3.8.2; 18.4.1; 18.4.7 | `test/master-checks.test.ts`, `test/engine.test.ts`, `test/designer.test.ts` (the cleaning status is typed from the room's label; the Logbook status comes with the link) |
 | TB-11 | Equipment and rooms are fit for use | US 211.67; 211.68(a); 211.105(b); 211.160(b)(4); 211.188(b)(2); 211.42(c); EU C4 4.20(e); C5 5.9, 5.12; IN SCHM 18.4.3, 18.4.4, 18.4.9; 18.2.4; 17.3.6.2(e) | `test/batches.test.ts` (master data; the Logbook status comes with the link) |
 | TB-12 | Only released, in-date lots are used | US 211.84(a); 211.86; 211.87; 211.101(c)(1); EU C5 5.34; IN SCHM 14.14, 14.16, 14.17 | later: the MMS link (lot status and expiry) |
 | TB-13 | The dispensing target comes from the master, adjusted by assay and LOD | US 211.101(a),(b),(d); 211.188(b)(3),(4); EU C5 5.37, 5.39; C4 4.20(d), 4.8; IN SCHM 14.18, 14.20; 17.3.8.3(f); 7 (recalls) | `test/engine.test.ts`, `test/master-checks.test.ts` |
@@ -30,7 +30,7 @@ Clauses: the binding clauses each rule rests on (US: 21 CFR 211 and Part 11; EU:
 | TB-19 | Rework only as a new batch issued from an approved master | US 211.115(a),(b); EU C5 5.67, 5.68, 5.69; C4 4.20(d); IN SCHM 14.32, 14.33, 14.34; 17.3.8.3(f) | `test/batches.test.ts` |
 | TB-20 | The record is complete before production signs | US 211.188(b); EU C4 4.20(i); IN SCHM 17.3.8.3 (lead-in, (d)); 18.5.12 | `test/release.test.ts`, `test/batches.test.ts` |
 | TB-21 | QC approval, then QA review and release or rejection by e-signature; all changes and deviations shown; release blocked until linked deviations are closed | US 211.22(a); 211.192; 211.165(a); EU C4 4.27; A11 9, 15 (only if certifying here); IN SCHM 1 PQS (i); 11.3.6-11.3.9; 18.5.12; 19.8.1 | `test/release.test.ts`, `test/batches.test.ts` |
-| TB-22 | A complete copy (PDF) with its signatures and changes | US 11.10(b); 211.180(c); EU A11 8.1, 8.2; C4 4.27; IN SCHM 17.2.8 ("readily available") | later: the PDF export |
+| TB-22 | A complete copy (PDF) with its signatures and changes | US 11.10(b); 211.180(c); EU A11 8.1, 8.2; C4 4.27; IN SCHM 17.2.8 ("readily available") | `test/batches.test.ts`, `e2e/release.spec.ts` |
 
 ## Notes: safety rules built into the calculation templates
 
