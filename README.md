@@ -11,7 +11,8 @@ calculation templates (`shared/templates/`), the step blocks (`shared/blocks/`),
 (`shared/master/`) and the batch engine (`shared/engine/`, routes in `server/routes/`). The engine also works out the
 batch status (production approval, QC approval, QA release or rejection, `shared/engine/release.ts`), marks a step
 "input changed" when a value it used was corrected later, and gives QA the review list (`GET /api/batches/:id/review`).
-Screens: the master designer with review and QA approval (`web/src/designer/`), the shop floor (`web/src/floor/`) and
+Screens: the master designer with review and QA approval (`web/src/designer/`), issuing a batch from an effective
+master (`web/src/floor/IssueDialog.tsx`), the shop floor (`web/src/floor/`) and
 the QC and QA release screens with the audit-trail review (`web/src/release/`). The batch record PDF
 (`GET /api/batches/:id/pdf`, `server/batch-record.ts`) is made with pdfmake and embedded Noto fonts, as the Logbook
 makes its copies. Line clearance is a standard block; the process skeletons start every stage with it. The links to
