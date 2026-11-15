@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { MasterEquipment, MasterRoom } from './master.js';
 import type { Block, BlockField } from '../shared/blocks/index.js';
-import type { FormulaLine, MasterDoc, Step } from '../shared/master/schema.js';
+import { materialLines, type FormulaLine, type MasterDoc, type PackMaterial, type Step } from '../shared/master/schema.js';
 import { CERTIFICATE, PROVIDER_NAME, type Provider, type Source, type Value } from '../shared/engine/index.js';
 import { LOT_USABLE } from './links.js';
 
@@ -14,10 +14,10 @@ const hand = (link: Provider, state: 'absent' | 'down'): Pulled => ({ source: { 
 // A refusal: nothing is stored, so its source is never used.
 const refused = (...problems: string[]): Pulled => ({ source: { from: 'hand', link: 'mms', state: 'absent' }, values: {}, sources: {}, problems });
 
-/** The formula line a step works on (its setting that names one). */
-export function lineOf(doc: MasterDoc, st: Step): FormulaLine | undefined {
+/** The formula line (or packing material) a step works on (its setting that names one). */
+export function lineOf(doc: MasterDoc, st: Step): FormulaLine | PackMaterial | undefined {
   const s = Object.values(st.settings).find((v): v is { formula: string } => typeof v === 'object' && 'formula' in v);
-  return s && doc.formula.find((l) => l.key === s.formula);
+  return s && materialLines(doc).find((l) => l.key === s.formula);
 }
 
 /** TB-11: a machine or room the Logbook says is fit for use, and not in use by another batch. Line clearance: its facts. */
@@ -65,11 +65,26 @@ export async function pullLot(app: FastifyInstance, doc: MasterDoc, st: Step, bl
       continue;
     }
     if (t.unit !== '%') { problems.push(`MMS gives the ${test} of lot ${lot} in ${t.unit ?? 'no unit'}, not in %.`); continue; }
-    const basis = line?.adjust?.potency?.basis;
+    const basis = line && 'adjust' in line ? line.adjust?.potency?.basis : undefined;
     if (name === 'assay' && basis && t.basis?.toLowerCase() !== basis) problems.push(`MMS gives the assay of lot ${lot} ${t.basis ? `on the ${t.basis} basis` : 'without its basis'}; the master's line is on the ${basis} basis.`);
     out.values[name] = { value: t.value, unit: '%' };
     out.sources[name] = { from: 'mms', asOf: l.dataAsOf, shown: `${test} ${t.value} %${t.basis ? ` (${t.basis})` : ''}, report ${t.reportRef ?? l.qcReportRef ?? '—'}` };
   }
+  return out;
+}
+
+/** Packing: a bulk batch TrueBatch Tablets has RELEASED, of this pack's bulk product; its date of manufacture comes with it. */
+export async function pullBulk(app: FastifyInstance, doc: MasterDoc, block: Block, batchNo: string): Promise<Pulled> {
+  const r = await app.links.truebatch.batch(batchNo);
+  if (r.state !== 'ok') return hand('truebatch', r.state);
+  const b = r.value;
+  if (!b) return refused(`Bulk batch ${batchNo} is not in TrueBatch Tablets.`);
+  const problems: string[] = [];
+  if (doc.pack && b.productCode !== doc.pack.bulkCode) problems.push(`Bulk batch ${batchNo} is ${b.productCode ?? 'another product'} in TrueBatch Tablets, not ${doc.pack.bulkCode} ${doc.pack.bulkName}.`);
+  if (!b.released) problems.push(`Bulk batch ${batchNo} is ${b.status.toLowerCase().replaceAll('_', ' ')} in TrueBatch Tablets: only a released bulk batch may be packed.`);
+  const source: Source = { from: 'truebatch', asOf: b.dataAsOf, shown: `TrueBatch Tablets batch ${batchNo}: ${b.status}, ${b.productCode ?? '—'}, manufactured ${b.mfgDate}` };
+  const out: Pulled = { source, values: {}, sources: {}, problems };
+  if (block.fields.some((x) => x.name === 'mfgDate')) { out.values.mfgDate = b.mfgDate; out.sources.mfgDate = source; }
   return out;
 }
 

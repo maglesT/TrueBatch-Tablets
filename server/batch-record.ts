@@ -3,7 +3,7 @@
 // is struck through and kept with the reason, the person and the time.
 import type { Content, TDocumentDefinitions } from 'pdfmake/interfaces.js';
 import { findBlock, type Block } from '../shared/blocks/index.js';
-import type { MasterDoc, Step } from '../shared/master/schema.js';
+import { materialLines, type MasterDoc, type Step } from '../shared/master/schema.js';
 import { batchView, deviations, fieldLabel, handFields, lateItems, lineQuantity, openSteps, PROVIDER_NAME, type DeviationStatus, type EventKind, type Source, type Stored, type StepView, type Value } from '../shared/engine/index.js';
 import type { LoadedBatch } from './routes/batches.js';
 import { pageFrame, plant, runs } from './pdf.js';
@@ -62,19 +62,32 @@ export function batchRecordDoc(r: RecordInput, by: string, printedAt = new Date(
   const byId = new Map(steps.map((v) => [v.id, v]));
   const stepLabel = (id: string) => { const v = byId.get(id); return v ? `${doc.stages[v.key.stage]!.name} · ${stepName(v)}` : id; };
 
+  const record = doc.pack ? 'Packing record' : 'Batch record';
+  const facts = doc.pack ? steps.find((v) => v.id === '0.1.0.1') : undefined;
   const content: Content[] = [
-    { text: runs(`Batch record ${r.batch.batchNo}`), fontSize: 16, bold: true },
+    { text: runs(`${record} ${r.batch.batchNo}`), fontSize: 16, bold: true },
     { text: runs(`${h.productCode} · ${h.productName}`), fontSize: 11, margin: [0, 2, 0, 8] },
     { table: { widths: [90, '*', 90, '*', 90, '*'], body: [
       [th('Product'), small(`${h.productCode} · ${h.productName}`), th('Batch no.'), small(r.batch.batchNo, { bold: true }), th('Status'), small(view.status, { bold: true })],
-      [th('Batch size'), small(`${Number(h.batchSize).toLocaleString('en-IN')} tablets`), th('Core tablet weight'), small(`${h.coreWeightMg} mg${h.coatedWeightMg ? ` (coated ${h.coatedWeightMg} mg)` : ''}`), th('Master version'), small(`version ${r.versionNo}`)],
+      doc.pack ? [th('Pack'), small(`${doc.pack.type}, ${doc.pack.unitsPerPack} tablets per pack, ${doc.pack.packsPerCarton} packs per carton; ${doc.pack.destination}${doc.pack.mrp ? `, MRP Rs. ${doc.pack.mrp}` : ''}`),
+        th('Bulk'), small(`${doc.pack.bulkCode} · batch ${valueText(facts?.values.bulk)} · ${valueText(facts?.values.tablets)} issued · line ${valueText(facts?.values.line)}${facts?.results.expiry?.ok ? ` · ${facts.results.expiry.shown}` : ''}`),
+        th('Master version'), small(`version ${r.versionNo}`)]
+        : [th('Batch size'), small(`${Number(h.batchSize).toLocaleString('en-IN')} tablets`), th('Core tablet weight'), small(`${h.coreWeightMg} mg${h.coatedWeightMg ? ` (coated ${h.coatedWeightMg} mg)` : ''}`), th('Master version'), small(`version ${r.versionNo}`)],
       [th('Issued'), small(`${r.issuedByName}, ${plant(r.batch.issuedAt)}`), th('Times'), small('plant time (IST)'), th('Changed values'), small('marked CHANGED; the original is struck through, with the reason', { color: RED })],
     ] }, layout: 'lightHorizontalLines' },
   ];
 
+  // Packing: the packing materials, with the lots and quantities issued and their reconciliation.
+  const naming = (v: StepView, key: string, block: string) => stepOf(v).block.id === block && Object.values(stepOf(v).settings).some((x) => typeof x === 'object' && 'formula' in x && x.formula === key);
+  if (doc.pack) content.push(heading('Packing materials'), table([150, 70, 60, '*', '*'], ['Material', 'Kind', 'Per pack', 'Lots and quantities issued', 'Reconciliation'], doc.pack.materials.map((m) => [
+    small(`${m.code} · ${m.name}`), small(`${m.kind}${m.printed ? ', printed' : ''}${m.coded ? ', coded' : ''}`), small(`${m.perPack} ${m.unit}`),
+    small(steps.filter((v) => naming(v, m.key, 'pack-material-issue')).map((v) => `Lot ${valueText(v.values.lot)}: ${valueText(v.values.issued)} · ${stepName(v)}`).join('\n') || 'not issued yet'),
+    small(steps.filter((v) => naming(v, m.key, 'printed-reconciliation')).map((v) => (v.results.reconciliation?.ok ? v.results.reconciliation.shown : 'not reconciled yet')).join('\n') || (m.printed ? 'not reconciled yet' : '—')),
+  ])));
+
   // The formula, with the lots and the quantities dispensed (the weighing steps that name the line).
-  content.push(heading('Formula'));
-  content.push(table([150, 90, 55, 80, '*'], ['Material', 'Role · place', 'mg per tablet', 'Batch quantity', 'Lots and dispensed quantities'], doc.formula.map((l) => {
+  if (!doc.pack) content.push(heading('Formula'));
+  if (!doc.pack) content.push(table([150, 90, 55, 80, '*'], ['Material', 'Role · place', 'mg per tablet', 'Batch quantity', 'Lots and dispensed quantities'], doc.formula.map((l) => {
     const q = lineQuantity(doc, [], { stage: 0, sub: 1, step: 0, round: 1 }, l, false, {});
     const weighed = steps.filter((v) => Object.values(stepOf(v).settings).some((s) => typeof s === 'object' && 'formula' in s && s.formula === l.key && findBlock(stepOf(v).block)?.gmp === 'weighing'));
     return [small(`${l.code} · ${l.name}`), small(`${l.role} · ${l.place}`), small(l.mgPerTablet), small(endOf(q)),
@@ -142,12 +155,12 @@ export function batchRecordDoc(r: RecordInput, by: string, printedAt = new Date(
     : { text: `No decision yet: the batch is ${view.status}.`, italics: true, fontSize: 9 });
   if (view.status !== 'released' && view.status !== 'rejected') content.push(small(`This copy was made while the batch is ${view.status}: it is not a released record.`, { color: RED, margin: [0, 4, 0, 0] }));
 
-  return pageFrame(`TrueBatch Tablets · Batch record ${r.batch.batchNo} · ${h.productCode} ${h.productName}`, by, content, printedAt);
+  return pageFrame(`${doc.pack ? 'TrueBatch Tablets Packing' : 'TrueBatch Tablets'} · ${record} ${r.batch.batchNo} · ${h.productCode} ${h.productName}`, by, content, printedAt);
 }
 
 function title(doc: MasterDoc, st: Step): string {
   const line = Object.values(st.settings).find((v): v is { formula: string } => typeof v === 'object' && 'formula' in v);
-  const what = line ? doc.formula.find((l) => l.key === line.formula)?.name : typeof st.settings.what === 'string' ? st.settings.what : undefined;
+  const what = line ? materialLines(doc).find((l) => l.key === line.formula)?.name : typeof st.settings.what === 'string' ? st.settings.what : undefined;
   return [findBlock(st.block)?.name ?? st.key, what].filter(Boolean).join(': ');
 }
 
