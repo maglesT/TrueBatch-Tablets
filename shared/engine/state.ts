@@ -6,7 +6,7 @@ import type { Permission } from '../../server/auth.js';
 import type { Stored, Value } from './values.js';
 import type { Source } from './links.js';
 
-export const EVENT_KINDS = ['started', 'value', 'done', 'checked', 'sent_back', 'corrected', 'not_applicable', 'late', 'qa_released_hold', 'note'] as const;
+export const EVENT_KINDS = ['started', 'value', 'done', 'checked', 'sent_back', 'corrected', 'not_applicable', 'late', 'qa_released_hold', 'note', 'demo_wait_skipped'] as const;
 export type EventKind = (typeof EVENT_KINDS)[number];
 
 /** Stage and step are positions in the master (from 0); sub-batch and round are numbers people see (from 1). */

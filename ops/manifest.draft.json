@@ -11,7 +11,8 @@
     {"code": "truebatch.batch.supervise", "label": "Production approval of a completed batch record"},
     {"code": "truebatch.qc.approve", "label": "QC approval of the results used for release"},
     {"code": "truebatch.qa.release", "label": "QA review and release of bulk tablets"},
-    {"code": "truebatch.view", "label": "View batch records and master versions"}
+    {"code": "truebatch.view", "label": "View batch records and master versions"},
+    {"code": "truebatch.demo.skip", "label": "Skip a running wait (demo installations only)"}
   ],
   "signon": { "backchannel_logout": "/backchannel-logout" },
   "publishes": ["batch_fact_v1", "equipment_use_v1", "deviation_note_v1", "material_use_v1"],

@@ -69,6 +69,8 @@ export interface Timer {
   from: Date;
   at: Date;
   state: 'running' | 'due soon' | 'due' | 'late';
+  // Demo installations only (server/demo.ts): the wait was ended at once by this person; `at` is then the skip.
+  skipped?: { person: number | null; at: Date };
 }
 
 const MINUTE = 60_000;
@@ -81,6 +83,13 @@ const earliest = (events: readonly StepEvent[], kind: EventKind) =>
 const latest = (events: readonly StepEvent[], kinds: EventKind[]) => events.filter((e) => kinds.includes(e.kind)).at(-1)?.at;
 const noteAfter = (events: readonly StepEvent[], t: Date | undefined) => events.some((e) => e.kind === 'note' && (!t || e.at > t));
 const plus = (t: Date, minutes: number) => new Date(t.getTime() + minutes * MINUTE);
+// Demo only: a 'demo_wait_skipped' event satisfies its timer's wait: the timer is due from the skip and never late.
+const skipOf = (events: readonly StepEvent[], id: string) => events.find((e) => e.kind === 'demo_wait_skipped' && e.payload.timer === id);
+const skipped = (e: StepEvent | undefined) => (e ? { skipped: { person: e.person, at: e.at } } : {});
+/** Demo only: a wait that can be skipped now (running and not skipped yet). */
+export const skippable = (t: { state: Timer['state']; skipped?: unknown }) => !t.skipped && (t.state === 'running' || t.state === 'due soon');
+/** Demo only: the step a skip is recorded on: the step that waits (a periodic check: the round that started it). */
+export const skipKey = (t: Pick<Timer, 'kind' | 'key'>): StepKey => (t.kind === 'periodic' ? { ...t.key, round: t.key.round - 1 } : t.key);
 
 const stopName = (st: Step) => (st.flow.kind === 'repeat-until' ? st.flow.stop ?? findBlock(st.block)?.stop : undefined);
 const maxRounds = (st: Step) => (st.flow.kind === 'repeat-until' ? st.flow.maxRounds ?? 1 : 1);
@@ -123,10 +132,12 @@ export function holdTimers(doc: MasterDoc, events: readonly StepEvent[], now: Da
       if (!p?.produces || !hours) continue;
       const from = earliest(events.filter((e) => e.stage === pi && e.step === p.steps.length - 1), 'done');
       if (!from) continue;
-      const at = plus(from, hours * 60);
+      const id = `hold:${pi}:${si}`;
+      const skip = skipOf(events, id);
+      const at = skip?.at ?? plus(from, hours * 60);
       const started = earliest(events.filter((e) => e.stage === si), 'started');
-      const state = started ? (started > at ? 'late' : null) : phase(from, at, now);
-      if (state) out.push({ id: `hold:${pi}:${si}`, kind: 'hold', key: { stage: si, sub: 1, step: 0, round: 1 }, label: `Hold time of ${p.produces.name} (${hours} h) before ${s.name}`, from, at, state });
+      const state = started ? (started > at && !skip ? 'late' : null) : skip ? 'due' : phase(from, at, now);
+      if (state) out.push({ id, kind: 'hold', key: { stage: si, sub: 1, step: 0, round: 1 }, label: `Hold time of ${p.produces.name} (${hours} h) before ${s.name}`, from, at, state, ...skipped(skip) });
     }
   });
   return out;
@@ -207,7 +218,7 @@ export function doneProblems(doc: MasterDoc, v: StepView, now: Date): string[] {
   const since = [...v.events.filter((e) => e.kind === 'value' || e.kind === 'corrected'), ...v.inputChanged].map((e) => e.at).sort((a, b) => a.getTime() - b.getTime()).at(-1);
   if (out.length && !noteAfter(v.events, since)) p.push(`Out of limits: ${out.join(', ')}. Add a deviation note first.`);
   const started = earliest(v.events, 'started');
-  if (st.minMinutes && started && now < plus(started, st.minMinutes)) {
+  if (st.minMinutes && started && now < plus(started, st.minMinutes) && !skipOf(v.events, `min:${v.id}`)) {
     p.push(`The minimum time is ${st.minMinutes} min: the step can be finished from ${plus(started, st.minMinutes).toISOString()}`);
   }
   return p;
@@ -222,8 +233,10 @@ export function timers(doc: MasterDoc, events: readonly StepEvent[], now: Date):
     const started = earliest(v.events, 'started');
     if (!started) continue;
     if (st.minMinutes && v.state === 'in_progress' && !v.events.some((e) => e.kind === 'done')) {
-      const at = plus(started, st.minMinutes);
-      out.push({ id: `min:${v.id}`, kind: 'minimum', key: v.key, label: `Minimum time of “${stepTitle(doc, st)}” (${st.minMinutes} min)`, from: started, at, state: now >= at ? 'due' : 'running' });
+      const skip = skipOf(v.events, `min:${v.id}`);
+      const at = skip?.at ?? plus(started, st.minMinutes);
+      out.push({ id: `min:${v.id}`, kind: 'minimum', key: v.key, label: `Minimum time of “${stepTitle(doc, st)}” (${st.minMinutes} min)`, from: started, at,
+        state: skip || now >= at ? 'due' : 'running', ...skipped(skip) });
     }
     if (st.everyMinutes) {
       const key = { ...v.key, round: v.key.round + 1 };
@@ -234,10 +247,12 @@ export function timers(doc: MasterDoc, events: readonly StepEvent[], now: Date):
       const firstStart = first && earliest(first.events, 'started');
       const later = st.everyMinutesLater && firstStart && started >= plus(firstStart, st.everyMinutesLater.afterMinutes);
       const every = later ? st.everyMinutesLater!.everyMinutes : st.everyMinutes;
-      const at = plus(started, every);
-      const t = { id: `every:${keyId(key)}`, kind: 'periodic' as const, key, label: `Check ${key.round} of “${stepTitle(doc, st)}” (every ${every} min)`, from: started, at };
-      if (nextStart) { if (nextStart > at) out.push({ ...t, state: 'late' }); }
-      else if (!stopPassed(v, st) && v.key.round < maxRounds(st)) out.push({ ...t, state: phase(started, at, now) });
+      const id = `every:${keyId(key)}`;
+      const skip = skipOf(v.events, id);
+      const at = skip?.at ?? plus(started, every);
+      const t = { id, kind: 'periodic' as const, key, label: `Check ${key.round} of “${stepTitle(doc, st)}” (every ${every} min)`, from: started, at, ...skipped(skip) };
+      if (nextStart) { if (nextStart > at && !skip) out.push({ ...t, state: 'late' }); }
+      else if (!stopPassed(v, st) && v.key.round < maxRounds(st)) out.push({ ...t, state: skip ? 'due' : phase(started, at, now) });
     }
   }
   return out;

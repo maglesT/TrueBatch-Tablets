@@ -364,13 +364,14 @@ function History_({ h, block }: { h: History | null; block: Block }) {
     started: 'Started', value: `Recorded ${fields(e)}`, done: 'Signed: performed', checked: 'Signed: verified (second person)', sent_back: `Sent back: “${e.payload.reason}”`,
     corrected: `Corrected ${fields(e)}: “${e.payload.reason}”`, not_applicable: `Not applicable: “${e.payload.reason}”`, late: 'Ran over its time (recorded by the server)',
     note: `Deviation note${e.payload.reference ? ` ${e.payload.reference}` : ''}: “${e.payload.text}”`, qa_released_hold: 'QA released the hold',
+    demo_wait_skipped: `DEMO: wait skipped by ${e.personName ?? '—'} at ${plainClock(e.at)}: ${String(e.payload.label ?? '')}`,
   })[e.kind];
   return (
     <section className="dash-panel" aria-label="History">
       <div className="panel-head"><h2>History</h2><span className="muted">who did what, on the server clock</span></div>
       {h.events.length === 0 ? <p className="muted">Nothing recorded yet.</p> : (
         <ol className="timeline">{h.events.map((e) => (
-          <li key={e.id} className={e.kind === 'note' ? 'note' : undefined}><time>{plainClock(e.at)}</time><span>{what(e)}{e.personName && <> · <b>{e.personName}</b></>}</span></li>
+          <li key={e.id} className={e.kind === 'note' ? 'note' : undefined}><time>{plainClock(e.at)}</time><span>{what(e)}{e.personName && e.kind !== 'demo_wait_skipped' && <> · <b>{e.personName}</b></>}</span></li>
         ))}</ol>
       )}
     </section>

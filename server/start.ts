@@ -6,6 +6,7 @@ import { oidcSignOn } from './signon.js';
 import { sqlMaster } from './master.js';
 import { scheduleLate } from './late.js';
 import { links } from './links.js';
+import { isDemo } from './demo.js';
 import type { Product } from './product.js';
 
 /** Starts one product's server (server/index.ts for TrueBatch Tablets, packing/server/index.ts for packing). */
@@ -22,7 +23,7 @@ export async function start(product: Product, webRoot?: string) {
   const providers = { deviations: linked(config.DEVIATIONS_DATABASE_URL), qms: linked(config.QMS_DATABASE_URL),
     logbook: linked(config.LOGBOOK_DATABASE_URL), mms: linked(config.MMS_DATABASE_URL), truebatch: linked(config.TRUEBATCH_LINK_URL) };
   const app = await buildApp({ sql, signOn, proofKey, master: sqlMaster(md), links: links(providers), logger: true, cookieSecure: config.COOKIE_SECURE,
-    batchPrefix: config.BATCH_PREFIX, product, webRoot });
+    batchPrefix: config.BATCH_PREFIX, product, webRoot, demo: isDemo() });
 
   await app.listen({ port: config.PORT, host: config.HOST });
   // A hold time or periodic check that ran over is recorded once (server/late.ts).

@@ -11,6 +11,7 @@ import { authRoutes } from './routes/auth.js';
 import { masterDataRoutes } from './routes/masterdata.js';
 import { masterRoutes } from './routes/masters.js';
 import { batchRoutes } from './routes/batches.js';
+import { demoRoutes } from './demo.js';
 import type { SignOn } from './signon.js';
 import { ConnectionOff, NotUsable, type Master } from './master.js';
 import { links as noLinks, type Links } from './links.js';
@@ -37,10 +38,12 @@ export interface AppOptions {
   batchPrefix?: string;
   // Which product this server is: TrueBatch Tablets (default) or TrueBatch Tablets Packing (server/product.ts).
   product?: Product;
+  // A demo installation (TRUEBATCH_DEMO=1, server/demo.ts): the screens say DEMO and waits may be skipped.
+  demo?: boolean;
 }
 
 export async function buildApp({ sql, signOn: core, master, links = noLinks(), proofKey = randomBytes(32), logger = false, webRoot, cookieSecure = true, product = TABLETS,
-  batchPrefix = product.batchPrefix }: AppOptions): Promise<FastifyInstance> {
+  batchPrefix = product.batchPrefix, demo = false }: AppOptions): Promise<FastifyInstance> {
   const app = Fastify({ logger, trustProxy: true });
   const signOn = productSignOn(core, product);
   app.decorate('product', product);
@@ -49,6 +52,7 @@ export async function buildApp({ sql, signOn: core, master, links = noLinks(), p
   app.decorate('master', master);
   app.decorate('links', links);
   app.decorate('batchPrefix', batchPrefix);
+  app.decorate('demo', demo);
   // A cut master-data link stops the feature with one message (platform D-02, PL-08); an unknown or inactive item is
   // refused at write time (PL-08).
   app.setErrorHandler((err, _req, reply) => {
@@ -72,7 +76,7 @@ export async function buildApp({ sql, signOn: core, master, links = noLinks(), p
   app.get('/api/health', async (_req, reply) => {
     try {
       const [row] = await sql<{ now: Date }[]>`select now() as now`;
-      return { status: 'ok', version: VERSION, db: 'ok', serverTime: row!.now.toISOString() };
+      return { status: 'ok', version: VERSION, db: 'ok', serverTime: row!.now.toISOString(), ...(app.demo ? { demo: true } : {}) };
     } catch {
       return reply.code(503).send({ status: 'error', version: VERSION, db: 'unreachable' });
     }
@@ -82,6 +86,7 @@ export async function buildApp({ sql, signOn: core, master, links = noLinks(), p
   masterDataRoutes(app);
   masterRoutes(app, sql);
   batchRoutes(app, sql);
+  demoRoutes(app, sql);
 
   // In production the built web UI is served from the same process.
   const root = webRoot ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../web');

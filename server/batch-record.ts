@@ -21,6 +21,7 @@ const MEANING: Record<string, string> = {
 const EVENT: Record<EventKind, string> = {
   started: 'Started', value: 'Recorded', done: 'Signed as done', checked: 'Checked', sent_back: 'Sent back', corrected: 'Corrected',
   not_applicable: 'Not applicable', late: 'Ran over (server timer)', qa_released_hold: 'QA released the hold', note: 'Deviation note',
+  demo_wait_skipped: 'DEMO: wait skipped',
 };
 const STATE: Record<string, string> = {
   waiting: 'not started', open: 'not started', in_progress: 'in progress', done_awaiting_check: 'waiting for check', done: 'done', checked: 'checked', not_applicable: 'not applicable',
@@ -114,6 +115,8 @@ export function batchRecordDoc(r: RecordInput, by: string, printedAt = new Date(
         { stack: block ? valueLines(block, v, who) : [] },
         { stack: block ? resultLines(block, st, v, who) : [] },
         { stack: v.events.filter((e) => e.kind !== 'value').map((e) => {
+          // Demo installations only (server/demo.ts).
+          if (e.kind === 'demo_wait_skipped') return small(`DEMO: wait skipped by ${who(e.person)} at ${plant(e.at)} · ${String(e.payload.label ?? '')}`, { color: RED, bold: true });
           const sig = sigOf.get(e.id);
           const extra = e.payload.reason ? ` · reason: ${e.payload.reason}` : e.payload.text ? ` · ${e.payload.reference ? `${e.payload.reference}: ` : ''}${e.payload.text}` : '';
           return small(`${EVENT[e.kind]}: ${who(e.person)}, ${plant(e.at)}${sig ? ` · signed "${MEANING[sig.meaning] ?? sig.meaning}"` : ''}${extra}`,
