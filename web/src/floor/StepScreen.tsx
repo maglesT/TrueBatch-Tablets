@@ -8,7 +8,7 @@ import {
 import { Alerts } from './BatchScreen.js';
 import { FieldInput } from './Fields.js';
 import { ReasonDialog } from './ReasonDialog.js';
-import { CERTIFICATE, handEntered, LINK_OF } from '../../../shared/engine/links.js';
+import { CERTIFICATE, fieldLabel, handEntered, LINK_OF } from '../../../shared/engine/links.js';
 
 type Dialog = { kind: 'done' | 'repeat' | 'check' | 'na' | 'send-back' | 'note' } | { kind: 'na-sign'; reason: string } | { kind: 'correct'; field: BlockField };
 const INVOLVING = ['started', 'value', 'done', 'corrected', 'not_applicable'];
@@ -326,7 +326,7 @@ function InputChanged({ e, d, blocks }: { e: FloorEvent; d: BatchDetail; blocks:
   const src = stepOf(doc, e);
   const b = blockOf(blocks, src);
   const what = `“${stepTitle(doc, blocks, src)}”`;
-  const fields = Object.keys(e.payload.values ?? {}).map((k) => b?.fields.find((f) => f.name === k)?.label ?? k).join(', ');
+  const fields = Object.keys(e.payload.values ?? {}).map((k) => fieldLabel(b?.fields ?? [], k)).join(', ');
   return (
     <div className="fl-alert warn">
       <span className="tag">Input changed</span>
@@ -353,7 +353,7 @@ function StageSummary({ d, blocks, row }: { d: BatchDetail; blocks: Block[]; row
 
 function History_({ h, block }: { h: History | null; block: Block }) {
   if (!h) return <section className="dash-panel"><div className="skel skel-line w30" /><div className="skel skel-line w60" /></section>;
-  const fields = (e: FloorEvent) => Object.keys(e.payload.values ?? {}).map((k) => block.fields.find((f) => f.name === k)?.label ?? k).join(', ');
+  const fields = (e: FloorEvent) => Object.keys(e.payload.values ?? {}).map((k) => fieldLabel(block.fields, k)).join(', ');
   const what = (e: FloorEvent) => ({
     started: 'Started', value: `Recorded ${fields(e)}`, done: 'Signed: performed', checked: 'Signed: verified (second person)', sent_back: `Sent back: “${e.payload.reason}”`,
     corrected: `Corrected ${fields(e)}: “${e.payload.reason}”`, not_applicable: `Not applicable: “${e.payload.reason}”`, late: 'Ran over its time (recorded by the server)',

@@ -263,6 +263,9 @@ describe('walking a stage', () => {
     expect(text).toContain('Tare weight: 0.849 kg  CHANGED');
     expect(text).toMatch(/was ~0\.850 kg~ · reason: Tare misread · ASHA, \d+ \w+ 2026, \d\d:\d\d IST/);
     expect(text).toContain('Net weight: 11.000 kg − 0.849 kg = 10.151 kg');
+    // The label questions typed by hand by their labels, never their names.
+    expect(text).toContain('Balance: the calibration label is in date: yes');
+    expect(text).not.toMatch(/\b(?:balance|lot|machine|room)\.[a-zA-Z]/);
     expect(text).toContain('limit ± 0.5 %: within limits');
     expect(text).toContain('FAIL: out of limits');
     expect(text).toContain('MAT-001 · Examplol | api · intragranular | 100.0 | 10.000 kg | Lot API-2611: 10.151 kg (target');

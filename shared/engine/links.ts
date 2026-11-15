@@ -44,5 +44,11 @@ const QUESTIONS: Partial<Record<BlockField['kind'], (f: BlockField) => BlockFiel
 export function handFields(fields: readonly BlockField[], source: Record<string, Source>): BlockField[] {
   return fields.filter((f) => isHand(source[f.name])).flatMap((f) => QUESTIONS[f.kind]?.(f) ?? []);
 }
+/** What people saw for a recorded name: a field's label, or a label question's ("machine.clean"), whatever the link is now. */
+export function fieldLabel(fields: readonly BlockField[], name: string): string {
+  const f = fields.find((x) => x.name === name) ?? fields.find((x) => name.startsWith(`${x.name}.`));
+  if (!f) return name;
+  return f.name === name ? f.label : QUESTIONS[f.kind]?.(f).find((q) => q.name === name)?.label ?? name;
+}
 /** A step with a value entered by hand needs a second-person check, whatever the master says. */
 export const handEntered = (source: Record<string, Source>) => Object.values(source).some(isHand);

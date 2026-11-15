@@ -5,7 +5,7 @@ import {
   blockOf, changed, go, headline, pdfLink, plainClock, plainError, stepOf, stepTitle, tone, useBlocks, valueText, words,
   type BatchDetail, type Block, type FloorEvent, type Source, type TimerRow, type Value,
 } from '../api-floor.js';
-import { PROVIDER_NAME } from '../../../shared/engine/links.js';
+import { fieldLabel as labelOf, PROVIDER_NAME } from '../../../shared/engine/links.js';
 import { BatchHeader } from '../floor/BatchScreen.js';
 import { ReasonDialog } from '../floor/ReasonDialog.js';
 import '../floor/floor.css';
@@ -64,7 +64,7 @@ export function ReleaseScreen({ me, id }: { me: Me; id: number }) {
   const qcTurn = d.batch.status === 'production approved';
   const qaTurn = d.batch.status === 'QC approved';
   const blockers = [...openDevs.map((x) => `Deviation ${x.reference} (${name(x.step)}) is ${x.status ? `${x.status} in the Deviations system: it is closed there.` : 'open: close it first.'}`), ...d.batch.yieldOut.map(plain)];
-  const handLabel = (step: string, field: string) => field === 'reference' ? 'deviation number' : field.includes('.') ? field : fieldLabel(step, field);
+  const handLabel = (step: string, field: string) => field === 'reference' ? 'deviation number' : fieldLabel(step, field);
 
   const sign = async ({ proof }: { proof: string }) => {
     if (!signing) return;
@@ -185,7 +185,7 @@ function blockFor(d: BatchDetail, blocks: Block[], step: string) {
   return s ? blockOf(blocks, stepOf(d.master.doc, s.key)) : undefined;
 }
 function fieldOf(d: BatchDetail, blocks: Block[], step: string, field: string) {
-  return blockFor(d, blocks, step)?.fields.find((f) => f.name === field)?.label ?? field;
+  return labelOf(blockFor(d, blocks, step)?.fields ?? [], field);
 }
 /** "Granulation › Weigh a material: Examplol (sub-batch 2, round 3)". */
 function stepName(d: BatchDetail, blocks: Block[], step: string): string {
