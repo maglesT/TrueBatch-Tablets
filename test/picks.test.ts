@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { findBlock } from '../shared/blocks/index.js';
-import { machineRefusal } from '../shared/engine/picks.js';
+import { machineRefusal, untypedNote } from '../shared/engine/picks.js';
 import { SKELETON_LIST, packingStages, skeletonStages } from '../web/src/designer/skeletons.js';
 import { pack } from './packing-fixture.js';
 
@@ -24,7 +24,8 @@ const OFFERS: Record<string, string[]> = {
 
 describe('machine pickers on the demo master-data types', () => {
   const header = { productItemId: 'p', productCode: 'P', productName: 'P', batchSize: '100000', coreWeightMg: '250.0' };
-  const stages = [...SKELETON_LIST.flatMap((s) => skeletonStages(s.id, header)), ...packingStages(pack())];
+  // The types alone: here every stage allows any room (the rooms are tested below).
+  const stages = [...SKELETON_LIST.flatMap((s) => skeletonStages(s.id, header)), ...packingStages(pack())].map((s) => ({ ...s, roomTypes: [] }));
 
   it('TB-11 every machine field of the skeletons and the packing skeleton offers the machines of its kind, never a QC lab balance', () => {
     const seen = new Set<string>();
@@ -42,5 +43,31 @@ describe('machine pickers on the demo master-data types', () => {
     const stage = stages[0]!;
     const balance = findBlock({ id: 'weigh', version: 1 })!.fields.find((f) => f.name === 'balance')!;
     expect(machineRefusal(stage, balance, { code: 'QC-BAL-1', type: 'Analytical balance', room: null }, [])).toBe('QC-BAL-1 is not a balance (master data: Analytical balance)');
+  });
+
+  // The demo's rooms and balances (master data, 15 Nov 2026): IN-BAL-03/04 stand in RM-101 (Dispensing), IN-BAL-05 in
+  // RM-105 (Compression), IN-BAL-01/02/06 in RM-110 (QC), INQ-BAL-07 in RM-601 (Microbiology).
+  const ROOMS = [{ code: 'RM-101', area: 'Dispensing' }, { code: 'RM-103', area: 'Granulation' }, { code: 'RM-105', area: 'Compression' },
+    { code: 'RM-107', area: 'Coating' }, { code: 'RM-108', area: 'Packing' }, { code: 'RM-110', area: 'QC' }, { code: 'RM-601', area: 'Microbiology' }];
+  const BALS = [['IN-BAL-03', 'RM-101'], ['IN-BAL-04', 'RM-101'], ['IN-BAL-05', 'RM-105'], ['IN-BAL-01', 'RM-110'], ['INQ-BAL-07', 'RM-601']].map(([code, room]) => ({ code: code!, type: 'Balance', room }));
+  const field = (block: string, name: string) => findBlock({ id: block, version: 1 })!.fields.find((f) => f.name === name)!;
+
+  it('TB-11 a balance of the dispensing area is offered in any stage, with those of its own rooms; never a QC or laboratory balance', () => {
+    const stage = { ...stages[0]!, roomTypes: ['Granulation', 'Coating'], machineTypes: ['Granulator', 'Coater'] };
+    const offered = (block: string, s = stage) => BALS.filter((b) => !machineRefusal(s, field(block, 'balance'), b, ROOMS)).map((b) => b.code);
+    expect(offered('weigh')).toEqual(['IN-BAL-03', 'IN-BAL-04']);
+    expect(offered('lubricate', { ...stage, roomTypes: ['Compression'] })).toEqual(['IN-BAL-03', 'IN-BAL-04', 'IN-BAL-05']);
+    expect(offered('weigh', { ...stage, roomTypes: [] })).toEqual(['IN-BAL-03', 'IN-BAL-04', 'IN-BAL-05']);
+    expect(machineRefusal(stage, field('weigh', 'balance'), BALS[3]!, ROOMS)).toBe('IN-BAL-01 stands in RM-110 (QC), a laboratory area: weigh with a balance of a dispensing area or of a room this stage allows');
+  });
+
+  it('TB-11 a packing line is offered only standing in a room the stage allows; one with no type is named in the note', () => {
+    const stage = { ...stages[0]!, roomTypes: ['Packing'] };
+    const line = field('pack-clearance', 'line');
+    const lines = [{ code: 'EQ-BLS-01', type: 'Blister packer', room: 'RM-108' }, { code: 'EQ-X', type: 'Blister packer', room: 'RM-107' },
+      { code: 'CFORM-01', type: 'Blister packer', room: null }, { code: 'CFORM-BL-01', type: null, room: 'RM-108' }];
+    expect(lines.map((m) => machineRefusal(stage, line, m, ROOMS))).toEqual([null, 'EQ-X stands in RM-107, not in a room this stage allows (Packing)',
+      'CFORM-01 stands in no room in master data, so it is not in a room this stage allows (Packing)', 'CFORM-BL-01 has no type in master data, so it is not offered as a packing line']);
+    expect(untypedNote(line, lines)).toBe('Not offered, because master data gives no type: CFORM-BL-01. Engineering sets the type (and the room) in master data.');
   });
 });

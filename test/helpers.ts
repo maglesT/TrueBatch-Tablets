@@ -59,10 +59,12 @@ export interface FakeMaster extends Master {
   rooms_: MasterRoom[];
   cut: boolean;
 }
+const ROOMS = [['DSP-01', 'Dispensing'], ['GRN-01', 'Granulation'], ['CMP-01', 'Compression'], ['COT-01', 'Coating'], ['PK-01', 'Packing'], ['PK-02', 'Packing']] as const;
 export function fakeMaster(): FakeMaster {
   const read = <T>(rows: () => T[]) => async () => { if (m.cut) throw new ConnectionOff(); return rows().map((r) => ({ ...r })); };
   const m: FakeMaster = {
-    products_: [], materials_: [], equipment_: [], rooms_: [], cut: false,
+    // The rooms the fixtures' machines stand in, by area (shared/engine/picks.ts); tests add their own.
+    products_: [], materials_: [], equipment_: [], rooms_: ROOMS.map(([code, area]) => ({ itemId: `room-${code}`, code, name: `${area} room`, version: 1, active: true, area, grade: 'D' })), cut: false,
     products: read(() => m.products_), materials: read(() => m.materials_), equipment: read(() => m.equipment_), rooms: read(() => m.rooms_),
   };
   return m;

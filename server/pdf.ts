@@ -41,16 +41,21 @@ export function runs(text: string): { text: string; font?: string }[] {
 export const plant = (d: Date | string | null | undefined) =>
   d ? `${new Date(d).toLocaleString('en-GB', { timeZone: PLANT_TZ, dateStyle: 'medium', timeStyle: 'short' })} IST` : '';
 
-/** The page frame of every PDF copy: the title on every page, generated-by footer with page X of Y. */
-export function pageFrame(title: string, by: string, content: Content[], now = new Date()): TDocumentDefinitions {
+const DEMO = { text: 'DEMO · ', bold: true, color: '#b3261e' };
+/**
+ * The page frame of every PDF copy: the title on every page, generated-by footer with page X of Y. A demo
+ * installation (server/demo.ts) says DEMO in the header and footer of every page.
+ */
+export function pageFrame(title: string, by: string, content: Content[], now = new Date(), demo = false): TDocumentDefinitions {
   return {
     pageOrientation: 'landscape',
     pageSize: 'A4',
     pageMargins: [28, 50, 28, 36],
     defaultStyle: { font: 'Noto', fontSize: 9 },
-    header: { text: runs(title), margin: [28, 20, 28, 0], fontSize: 9, bold: true },
+    header: { text: [...(demo ? [DEMO] : []), ...runs(title)], margin: [28, 20, 28, 0], fontSize: 9, bold: true },
     footer: (page, pages) => ({
-      text: `Generated ${plant(now)} by ${by} · true copy of the electronic record · page ${page} of ${pages}`,
+      text: [...(demo ? [{ ...DEMO, text: 'DEMO installation, not a GMP record · ' }] : []),
+        `Generated ${plant(now)} by ${by} · ${demo ? 'copy' : 'true copy'} of the electronic record · page ${page} of ${pages}`],
       margin: [28, 10, 28, 0],
       fontSize: 7,
     }),

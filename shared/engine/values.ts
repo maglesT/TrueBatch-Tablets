@@ -9,9 +9,9 @@ import { callTemplate } from './templates.js';
 import { keyId, type StepEvent, type StepKey } from './state.js';
 import type { Source } from './links.js';
 
-/** A recorded value: a number with its unit, a list of them, a text (yes/no, choice, lot, time) or a picked item (with its type and room). */
+/** A recorded value: a number with its unit, a list of them, a text (yes/no, choice, lot, time) or a picked item (with its type, room and the room's area). */
 export type Value = { value: string; unit: string } | { value: string; unit: string }[] | string
-  | { itemId: string; code: string; name: string; version: number; type?: string | null; room?: string | null };
+  | { itemId: string; code: string; name: string; version: number; type?: string | null; room?: string | null; area?: string | null };
 
 /** A template's outcome as stored in the event payload: decimals as full-precision text, with the worked line. */
 export type Stored = ({ ok: true; value: string; unit: string; shown: string; check?: { pass: boolean; level: string; shown: string } } & Record<string, unknown>) | { ok: false; message: string };

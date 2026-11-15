@@ -12,7 +12,7 @@ export const bulkIssue: Block = {
   fields: [
     { name: 'line', label: 'Packing line', kind: 'machine', types: PACKING_LINE },
     { name: 'bulk', label: 'Bulk batch no.', kind: 'bulk' },
-    { name: 'mfgDate', label: 'Date of manufacture of the bulk (YYYY-MM-DD)', kind: 'text' },
+    { name: 'mfgDate', label: 'Date of manufacture of the bulk', kind: 'text', date: true },
     { name: 'tablets', label: 'Bulk tablets issued', kind: 'number', unit: 'tablets' },
     { name: 'received', label: 'Containers closed and intact, labels show this bulk batch and RELEASED', kind: 'yes-no' },
   ],

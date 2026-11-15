@@ -44,7 +44,22 @@ answering) or **ok**.
   Tablets Packing reads; readers of Batchwright's columns select them by name and are not affected. `0008` adds
   `product_name` and `master_version` at the end (family_code is the master version's number) and publishes
   `material_use_v1`: per signed weighing step its lot, material and net quantity (status dispensed, or corrected with
-  the corrected quantity); MMS reduces the lot's stock by reading it (owner decision), nothing is sent.
+  the corrected quantity); MMS reduces the lot's stock by reading it (owner decision), nothing is sent. `0011`: a
+  machine or room is in use by its **batch**, not its step or stage (cleaning is due between batches, not between the
+  stages of one batch): `equipment_use_v1` has one row per batch and machine or room (sub-batches included), from the
+  first start of a step of the batch that names it until every stage of the batch that names it, or whose rooms allow
+  its room (by code or area), has closed (the batch event `stage_closed`, recorded once by the action that closes it,
+  `0010`), or the production approval or rejection if earlier. So the binder preparation and the granulation in RM-104
+  are one use, not dirty between them, and the Logbook marks it dirty after the last; another batch is another use. A
+  picked machine or room keeps its room's area for this. A weighing instrument (a balance, by the type rule of
+  `shared/engine/picks.ts`) is never a use: shared by the batches weighing on it, it is neither in use by a batch nor
+  dirty between weighings; the record keeps which balance was used and the Logbook checks its calibration as before. Both views add `step_name` at the end ("Granulation › Granulate to
+  an end point", kept with the step's start); `step` stays the keys. `material_use_v1` gives the quantity in the
+  material's unit in master data, read when the step is signed done (g and mg exactly in kg for a kg material).
+- **Where machines are**: a stage that works machines or names a room chooses the rooms it may run in (master check,
+  TB-11); the floor is offered the machines of the field's type standing in those rooms. A balance is offered where
+  the weighing is done: in a dispensing or weighing area, or in a room the stage allows, never in a QC or laboratory
+  area (master data's room `area`, `shared/engine/picks.ts`, the same rule on the server and the screen).
 
 ## Rules and where they are enforced
 - 22 TrueBatch GMP rules (EU GMP Part I and Annex 11, 21 CFR 211 and Part 11, Revised Schedule M), listed in

@@ -11,20 +11,30 @@ import { DemoSkip } from './DemoSkip.js';
 import { ReasonDialog } from './ReasonDialog.js';
 import { CERTIFICATE, fieldLabel, handEntered, LINK_OF } from '../../../shared/engine/links.js';
 import { notYetText } from '../../../shared/engine/batch.js';
+import { lineQuantity } from '../../../shared/engine/values.js';
 import { plantText } from '../../../shared/plant-time.js';
-import { machineRefusal, roomRefusal } from '../../../shared/engine/picks.js';
+import { machineRefusal, roomRefusal, untypedNote } from '../../../shared/engine/picks.js';
 import { materialLines } from '../../../shared/master/schema.js';
 
 type Dialog = { kind: 'done' | 'repeat' | 'check' | 'na' | 'send-back' | 'note' } | { kind: 'na-sign'; reason: string } | { kind: 'correct'; field: BlockField };
 const INVOLVING = ['started', 'value', 'done', 'corrected', 'not_applicable'];
 const same = (a: StepRow['key'], b: StepRow['key']) => a.stage === b.stage && a.sub === b.sub && a.step === b.step;
 
-/** The material, limits and values the master set for this step, in words. */
-function settingsText(doc: BatchDetail['master']['doc'], block: Block, st: Step): [string, string][] {
+// The value at the end of a worked line ("10.0 mg × 100000 tablets = 1.000 kg" → "1.000 kg").
+const endOf = (r: Stored) => (r.ok ? /=\s*([^=;]+)$/.exec(r.shown)?.[1]?.trim() ?? `${r.value} ${r.unit}` : '');
+
+/** The material, limits and values the master set for this step, in words; a quantity of a formula line with its amount. */
+function settingsText(doc: BatchDetail['master']['doc'], block: Block, st: Step, row: StepRow): [string, string][] {
   return block.settings.flatMap((s): [string, string][] => {
     const v = st.settings[s.name];
     const m = v && typeof v === 'object' && 'formula' in v ? materialLines(doc).find((l) => l.key === v.formula) : undefined;
-    if (m) return [[s.label, `${m.code} · ${m.name}${'perPack' in m ? ` (${m.kind}, ${m.perPack} ${m.unit} per pack)` : ''}`]];
+    const what = m && `${m.code} · ${m.name}${'perPack' in m ? ` (${m.kind}, ${m.perPack} ${m.unit} per pack)` : ''}`;
+    if (m && s.kind === 'quantity' && 'mgPerTablet' in m && typeof v === 'object' && 'formula' in v) {
+      // Worked out by the server once a value is recorded; before that, the batch quantity (an adjusted one needs the lot).
+      const r = row.results[s.name] ?? (v.adjusted ? undefined : lineQuantity(doc, [], row.key, m, false, {}));
+      return [[s.label, r?.ok ? `${endOf(r)} of ${what}` : `${what}: worked out with the lot's certificate values`]];
+    }
+    if (m) return [[s.label, what!]];
     if (typeof v === 'string') return v && s.kind !== 'text' ? [[s.label, v]] : [];
     if (!v || !('unit' in v)) return [];
     const u = v.unit ? ` ${v.unit}` : '';
@@ -137,7 +147,7 @@ export function StepScreen({ me, d, blocks, row, now, reload }: { me: Me; d: Bat
     if (!pulled && (can('record') || (v === undefined && row.state === 'open') || (f.count && v !== undefined))) {
       return (
         <div key={f.name}>
-          <FieldInput f={f} unit={unit} saved={v} picks={picksFor(f)} options={f.kind === 'lot' ? lots.map((l) => l.lotNumber) : []}
+          <FieldInput f={f} unit={unit} saved={v} picks={picksFor(f)} note={untypedNote(f, md.machine)} options={f.kind === 'lot' ? lots.map((l) => l.lotNumber) : []}
             disabled={!can('record')} out={outOf(f)} onSave={can('record') ? (raw) => record(f.name, raw) : undefined} />
           {src && <p className="muted small">{sourceWords(src)}</p>}
           {!can('record') && can('correct') && <button className="big" onClick={() => setDialog({ kind: 'correct', field: f })}>Correct {f.label.toLowerCase()}</button>}
@@ -191,7 +201,7 @@ export function StepScreen({ me, d, blocks, row, now, reload }: { me: Me; d: Bat
         <div>
           <section className="dash-panel" aria-label="Instruction">
             <p className="instr">{st.instruction || block.instruction}</p>
-            {settingsText(doc, block, st).length > 0 && <dl className="fields">{settingsText(doc, block, st).map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl>}
+            {settingsText(doc, block, st, row).length > 0 && <dl className="fields">{settingsText(doc, block, st, row).map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl>}
           </section>
           {checking ? (
             <section className="dash-panel" aria-label="What was recorded">

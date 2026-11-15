@@ -51,6 +51,16 @@ export function stepLabel(doc: MasterDoc, k: StepKey): string {
   return `${s.name} › ${stepTitle(doc, st)}${extra ? ` (${extra})` : ''}`;
 }
 
+/**
+ * A step as the other products read it (equipment_use_v1.step_name, material_use_v1.step_name): "Granulation ›
+ * Granulate to an end point", with the sub-batch, without the round. Kept with the step's "started" event.
+ */
+export function stepPlace(doc: MasterDoc, k: StepKey): string {
+  const s = doc.stages[k.stage];
+  const st = s?.steps[k.step];
+  return s && st ? `${s.name} › ${stepTitle(doc, st)}${s.kind === 'sub-batch' ? ` (sub-batch ${k.sub})` : ''}` : `step ${keyId(k)}`;
+}
+
 /** F4 by a rule of the master on a header value (e.g. the bag premix only for a batch of at most 50 kg); null when the step is in. */
 export function leftOutBy(doc: MasterDoc, st: Step): string | null {
   if (!st.onlyIf) return null;

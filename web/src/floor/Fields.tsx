@@ -7,8 +7,10 @@ type Raw = string | string[];
  * One field as the block describes it. Live (onSave): a typed value is saved when the person leaves the field, a tap
  * on yes/no, a choice or a machine saves at once (TB-04). In a dialog (onChange) it only reports the value.
  */
-export function FieldInput({ f, unit, saved, picks = [], options = [], disabled, out, onSave, onChange }: {
+export function FieldInput({ f, unit, saved, picks = [], note, options = [], disabled, out, onSave, onChange }: {
   f: BlockField; unit: string; saved?: Value; picks?: PickItem[]; disabled?: boolean;
+  // A machine: why some machines of master data are not offered (shared/engine/picks.ts, untypedNote).
+  note?: string | null;
   // A lot: the lots a link offers, to pick from (typing stays possible when the link is absent or down).
   options?: string[];
   // Readings out of their band (from the results), shown red.
@@ -72,22 +74,25 @@ export function FieldInput({ f, unit, saved, picks = [], options = [], disabled,
       </div>
     );
   } else if (f.kind === 'machine' || f.kind === 'room') {
-    input = picks.length === 0 ? <p className="muted">No {f.kind === 'room' ? 'room this stage allows' : `${f.label.toLowerCase()} of the types and rooms this stage allows`} is active in master data.</p> : (
-      <div className="picks" role="group" aria-label={f.label}>
-        {picks.map((p) => (
-          <button key={p.itemId} type="button" className={raw === p.itemId ? 'on' : ''} aria-pressed={raw === p.itemId} disabled={disabled} onClick={() => tap(p.itemId)}>
-            <b>{p.code}</b><small>{p.name}</small>
-          </button>
-        ))}
-      </div>
-    );
+    input = <>
+      {picks.length === 0 ? <p className="muted">No {f.kind === 'room' ? 'room this stage allows' : `${f.label.toLowerCase()} of the types and rooms this stage allows`} is active in master data.</p> : (
+        <div className="picks" role="group" aria-label={f.label}>
+          {picks.map((p) => (
+            <button key={p.itemId} type="button" className={raw === p.itemId ? 'on' : ''} aria-pressed={raw === p.itemId} disabled={disabled} onClick={() => tap(p.itemId)}>
+              <b>{p.code}</b><small>{p.name}</small>
+            </button>
+          ))}
+        </div>
+      )}
+      {note && <p className="muted small">{note}</p>}
+    </>;
   } else if (f.kind === 'timer') {
     input = onSave
       ? <div className="recorded">{saved !== undefined && <span>{valueText(saved)}</span>}<button type="button" className="big" disabled={disabled} onClick={() => void save('now')}>{saved === undefined ? 'Record the time now' : 'Record again'}</button></div>
       : <p className="muted">The server records the time when you save.</p>;
   } else {
     input = <>
-      <input id={id} className="text" autoComplete="off" value={raw as string} disabled={disabled} maxLength={f.kind === 'lot' ? 60 : 2000} list={options.length ? `${id}-list` : undefined}
+      <input id={id} className="text" type={f.date ? 'date' : 'text'} autoComplete="off" value={raw as string} disabled={disabled} maxLength={f.kind === 'lot' ? 60 : 2000} list={options.length ? `${id}-list` : undefined}
         placeholder={f.kind === 'lot' ? (options.length ? 'Pick the lot from MMS' : 'Type the lot number from the label') : undefined} onChange={(e) => set(e.target.value)} onBlur={blurSave} onKeyDown={enter} />
       {options.length > 0 && <datalist id={`${id}-list`}>{options.map((o) => <option key={o} value={o} />)}</datalist>}
     </>;

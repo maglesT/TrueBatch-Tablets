@@ -1,3 +1,4 @@
+import { plantDate } from '../shared/plant-time.js';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -44,7 +45,7 @@ beforeAll(async () => {
   }, PACKING);
   t.master.products_.push({ ...item('pk-1', 'PK-001', 'Examplol 100 mg tablets, 10 x 10 blister'), strength: '100 mg', dosageForm: 'tablet' },
     { ...item('prd-1', 'PRD-001', 'Examplol 100 mg tablets'), strength: '100 mg', dosageForm: 'tablet' });
-  for (const m of packing().pack!.materials) t.master.materials_.push({ ...item(m.materialItemId, m.code, m.name), category: 'packing', unit: m.unit });
+  for (const m of packing().pack!.materials) t.master.materials_.push({ ...item(m.materialItemId, m.code, m.name), category: 'packing', unit: m.unit === 'units' ? 'nos' : m.unit });
   t.master.equipment_.push({ ...item('ln-1', 'BL-01', 'Blister line 1'), kind: 'equipment', type: 'blister line', room: 'PK-01' },
     { ...item('ln-2', 'BL-02', 'Blister line 2'), kind: 'equipment', type: 'blister line', room: 'PK-02' });
   const people = {
@@ -92,7 +93,7 @@ describe('TrueBatch Tablets Packing: its own product on the platform', () => {
     expect([m.product, m.database]).toEqual(['truebatch_packing', 'truebatch_packing']);
     for (const p of m.permissions) expect(p.code).toMatch(/^truebatch_packing(\.[a-z0-9_]+)+$/);
     expect(m.reads.truebatch).toEqual(['batch_fact_v1']);
-    expect(m.publishes).toEqual(['packing_batch_v1', 'equipment_use_v1', 'material_use_v1']);
+    expect(m.publishes).toEqual(['packing_batch_v1', 'equipment_use_v1', 'material_use_v1', 'deviation_note_v1']);
   });
 
   it('PL-06 the packing app login keeps the step events and signatures insert-only', async () => {
@@ -121,7 +122,7 @@ describe('a packing batch from a released bulk batch', () => {
     expect(s.results.packs).toMatchObject({ ok: true, shown: '100000 tablets ÷ 10 tablets = 10000 units' });
     // The pulled date cannot be typed over.
     const r = await as('op1', 'POST', `/api/batches/${first}/steps/0.1.0.1/record`, { values: { mfgDate: '2026-11-01' } });
-    expect(r.json()).toMatchObject({ problems: ['Date of manufacture of the bulk (YYYY-MM-DD) comes from TrueBatch Tablets and cannot be typed over'] });
+    expect(r.json()).toMatchObject({ problems: ['Date of manufacture of the bulk comes from TrueBatch Tablets and cannot be typed over'] });
   });
 
   it('TB-P2 bulk must be released: a bulk batch not released, of another product, or unknown is refused', async () => {
@@ -146,9 +147,9 @@ describe('a packing batch from a released bulk batch', () => {
       const tomorrow = new Date(Date.now() + 86_400_000).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
       const future = await issue({ line: 'ln-2', bulk: 'TB260004', tablets: '50000', mfgDate: tomorrow, 'bulk.released': 'yes', 'bulk.product': 'yes' });
       expect(future.statusCode).toBe(400);
-      expect(future.json()).toMatchObject({ problems: [`The date of manufacture ${tomorrow} is in the future: type the date on the bulk labels.`] });
+      expect(future.json()).toMatchObject({ problems: [`The date of manufacture ${plantDate(tomorrow)} is in the future: give the date on the bulk labels.`] });
       expect((await issue({ line: 'ln-2', bulk: 'TB260004', tablets: '50000', mfgDate: '6/11/2026', 'bulk.released': 'yes', 'bulk.product': 'yes' })).json())
-        .toMatchObject({ problems: ['Date of manufacture of the bulk (YYYY-MM-DD): type the date as YYYY-MM-DD.'] });
+        .toMatchObject({ problems: ['Date of manufacture of the bulk: give a date, e.g. 2026-11-15.'] });
       const notReleased = await issue({ line: 'ln-2', bulk: 'TB260004', tablets: '50000', mfgDate: '2026-11-06', 'bulk.released': 'no', 'bulk.product': 'yes' });
       expect(notReleased.json()).toMatchObject({ problems: [expect.stringContaining('the bulk container labels say RELEASED (QA) for this batch number: if not, do not use it')] });
       const res = await issue({ line: 'ln-2', bulk: 'TB260004', tablets: '50000', mfgDate: '2026-11-06', 'bulk.released': 'yes', 'bulk.product': 'yes' });
@@ -200,6 +201,12 @@ describe('a packing batch from a released bulk batch', () => {
     await step('1.1.4.1', { vacuum: '500', tested: '20', leaking: '0', packingDone: 'yes' });
     await step('1.1.5.1', yes('appearance', 'complete', 'samplesKept', 'packingDone'));
     await step('1.1.6.1', { cartons: '10', ...yes('leaflet', 'count', 'coded', 'packingDone') });
+    // The packing stage is closed: the line stays in use by the batch (its reconciliation and line clearance run in the
+    // packing rooms, PK-01's area), not dirty before the batch is finished with it.
+    const lineUse = async () => (await t.owner.unsafe(`select ended_at is not null as ended from ${t.schema}_report.equipment_use_v1 where equipment_code = 'BL-01'
+      and batch_number = (select batch_no from batches where id = $1)`, [id]))[0];
+    expect(await t.owner`select 1 from batch_events where batch_id = ${id} and kind = 'stage_closed' and payload->>'stage' = '1'`).toHaveLength(1);
+    expect(await lineUse()).toEqual({ ended: false });
     const fg = await step('2.1.0.1', { packs: '9800', cartons: '980', samples: '40', returnedWeight: '0.375', rejectWeight: '0.125' });
     expect(fg.results.accountability).toMatchObject({ check: { pass: true } });
     await step('2.1.1.1', { used: '1176', destroyed: '20', returned: '54' });
@@ -236,6 +243,9 @@ describe('a packing batch from a released bulk batch', () => {
     // TB-22 for packing: the packing record PDF, with the pack, the bulk and the packing materials.
     const pdf = JSON.stringify(batchRecordDoc(await recordInput(t.sql, (await loadBatch(t.sql, id))!), 'QA'));
     for (const text of ['Packing record TP', 'TrueBatch Tablets Packing', 'batch TB260001', 'expiry 10/2028', 'QC report QC-26-0101', 'Packing materials', 'Lot FOIL-1: 1250 m', '1176 m used']) expect(pdf).toContain(text);
+    // A check's line that states its own question says it once.
+    expect(pdf).toContain('Packing finished: ');
+    expect(pdf).not.toMatch(/Packing finished: Packing finished/i);
     const res = await as('qa1', 'GET', `/api/batches/${id}/pdf`);
     expect(res.headers['content-type']).toContain('application/pdf');
 
@@ -247,19 +257,24 @@ describe('a packing batch from a released bulk batch', () => {
     // For the Logbook: the line used, as TrueBatch Tablets publishes its machines. For MMS: the packing materials issued,
     // per lot, in the material's unit, as TrueBatch Tablets publishes what it dispensed.
     const batchNo = (await loadBatch(t.sql, id))!.batch.batchNo;
-    const eq = await t.owner.unsafe(`select equipment_code, equipment_type, room_code, step from ${t.schema}_report.equipment_use_v1 where batch_number = $1 order by step`, [batchNo]);
-    expect(eq).toEqual(['issue/bulk', 'packing/clearance', 'end/clearance-after'].sort().map((step) => ({ equipment_code: 'BL-01', equipment_type: 'blister line', room_code: 'PK-01', step })));
+    // One use of the line, for its whole packing stage (not the line named at issue, nor the clearance after packing).
+    expect(await lineUse()).toEqual({ ended: true });
+    const eq = await t.owner.unsafe(`select equipment_code, equipment_type, room_code, step, step_name, ended_at is not null as ended from ${t.schema}_report.equipment_use_v1 where batch_number = $1`, [batchNo]);
+    expect(eq).toEqual([{ equipment_code: 'BL-01', equipment_type: 'blister line', room_code: 'PK-01', step: 'packing/clearance', step_name: 'Packing › Line clearance before packing', ended: true }]);
     const used = await t.owner.unsafe(`select lot_number, material_code, material_master_id, quantity::text, unit, step, status
       from ${t.schema}_report.material_use_v1 where batch_number = $1 order by step`, [batchNo]);
-    expect(used).toEqual([['CARTON-1', 'PM-103', 'pm-ctn', '1000', 'units', 'issue/issue-carton'], ['FOIL-1', 'PM-101', 'pm-foil', '1250', 'm', 'issue/issue-foil'],
-      ['LEAFLET-1', 'PM-104', 'pm-lft', '1000', 'units', 'issue/issue-leaflet'], ['PVC-1', 'PM-102', 'pm-pvc', '1250', 'm', 'issue/issue-pvc']]
+    // A count in master data's unit (nos).
+    expect(used).toEqual([['CARTON-1', 'PM-103', 'pm-ctn', '1000', 'nos', 'issue/issue-carton'], ['FOIL-1', 'PM-101', 'pm-foil', '1250', 'm', 'issue/issue-foil'],
+      ['LEAFLET-1', 'PM-104', 'pm-lft', '1000', 'nos', 'issue/issue-leaflet'], ['PVC-1', 'PM-102', 'pm-pvc', '1250', 'm', 'issue/issue-pvc']]
       .map(([lot_number, material_code, material_master_id, quantity, unit, step]) => ({ lot_number, material_code, material_master_id, quantity, unit, step, status: 'dispensed' })));
     const cols = async (v: string) => (await t.owner.unsafe(`select string_agg(column_name || ' ' || data_type, ', ' order by ordinal_position) as c from information_schema.columns
       where table_schema = $1 and table_name = $2`, [`${t.schema}_report`, v]))[0]!.c as string;
     expect(await cols('material_use_v1')).toBe('batch_number text, lot_number text, material_code text, material_master_id text, quantity numeric, unit text, '
-      + 'dispensed_at timestamp with time zone, step text, event_id bigint, status text, read_at timestamp with time zone, data_as_of timestamp with time zone');
+      + 'dispensed_at timestamp with time zone, step text, event_id bigint, status text, read_at timestamp with time zone, data_as_of timestamp with time zone, step_name text');
     expect(await cols('equipment_use_v1')).toBe('batch_number text, equipment_code text, equipment_type text, room_code text, step text, '
-      + 'started_at timestamp with time zone, ended_at timestamp with time zone, read_at timestamp with time zone, data_as_of timestamp with time zone');
+      + 'started_at timestamp with time zone, ended_at timestamp with time zone, read_at timestamp with time zone, data_as_of timestamp with time zone, step_name text');
+    expect(await cols('deviation_note_v1')).toBe('note_id bigint, source_ref text, batch_number text, product_code text, step text, note text, reference text, status text, '
+      + 'noted_at timestamp with time zone, read_at timestamp with time zone, data_as_of timestamp with time zone');
 
     // TB-P7: the line takes the next order once this one is finished.
     expect((await issue({ line: 'ln-1', bulk: 'TB260004', tablets: '50000' })).statusCode).toBe(200);

@@ -4,6 +4,7 @@ import type { Block, BlockField } from '../shared/blocks/index.js';
 import { materialLines, type FormulaLine, type MasterDoc, type PackMaterial, type Step } from '../shared/master/schema.js';
 import { CERTIFICATE, PROVIDER_NAME, type Provider, type Source, type Value } from '../shared/engine/index.js';
 import { LOT_USABLE } from './links.js';
+import { plantDate } from '../shared/plant-time.js';
 
 // What a link gives a step value at write time (owner 15 Nov 2026, TB-11, TB-12): the value as read now, or a
 // refusal in plain words; when the link is absent or down, the value is typed by hand (its questions in
@@ -26,7 +27,9 @@ export async function pullItem(app: FastifyInstance, block: Block, f: BlockField
   if (r.state !== 'ok' || r.value === 'stale') return hand('logbook', r.state === 'absent' ? 'absent' : 'down');
   const s = r.value;
   if (!s) return refused(`${item.code} is not in the Logbook, so it cannot be used.`);
-  if (!s.fitForUse) return refused(`${item.code} is not fit for use (Logbook): ${s.blockers.join('; ') || s.state}.`);
+  // The line clearance after packing clears the line this batch has just used (it may already be dirty: a stage that
+  // names no rooms does not keep the line in use, equipment_use_v1).
+  if (!s.fitForUse && block.id !== 'pack-clearance-after') return refused(`${item.code} is not fit for use (Logbook): ${s.blockers.join('; ') || s.state}.`);
   if (s.inUseBatch && s.inUseBatch !== batchNo) return refused(`${item.code} is in use by batch ${s.inUseBatch} (Logbook).`);
   const source: Source = { from: 'logbook', asOf: s.checkedAt, shown: [`${item.code}: ${s.state}`, ...s.warnings].join('; ') };
   const out: Pulled = { source, values: {}, sources: {}, problems: [] };
@@ -53,8 +56,8 @@ export async function pullLot(app: FastifyInstance, doc: MasterDoc, st: Step, bl
   const problems: string[] = [];
   if (line && l.materialMasterId !== line.materialItemId) problems.push(`Lot ${lot} is ${l.materialCode ?? 'another material'} in MMS, not ${line.code} ${line.name}.`);
   if (!LOT_USABLE.includes(l.status)) problems.push(`Lot ${lot} is ${LOT_WORDS[l.status] ?? l.status.replaceAll('_', ' ')} in MMS: only a released lot may be used.`);
-  if (l.expiryDate && l.expiryDate < today) problems.push(`Lot ${lot} expired on ${l.expiryDate}.`);
-  if (l.retestDate && l.retestDate < today) problems.push(`Lot ${lot} is past its retest date ${l.retestDate}.`);
+  if (l.expiryDate && l.expiryDate < today) problems.push(`Lot ${lot} expired on ${plantDate(l.expiryDate)}.`);
+  if (l.retestDate && l.retestDate < today) problems.push(`Lot ${lot} is past its retest date ${plantDate(l.retestDate)}.`);
   const source: Source = { from: 'mms', asOf: l.dataAsOf, shown: `MMS lot ${lot}: ${l.status}, expiry ${l.expiryDate ?? '—'}, retest ${l.retestDate ?? '—'}, QC report ${l.qcReportRef ?? '—'}` };
   const out: Pulled = { source, values: {}, sources: {}, problems };
   for (const [name, test] of Object.entries(CERTIFICATE)) {
@@ -97,8 +100,8 @@ export async function pullBulk(app: FastifyInstance, doc: MasterDoc, block: Bloc
 /** Packing: a date of manufacture typed from the bulk labels (no TrueBatch Tablets link): a real date, never in the future. */
 export function mfgDateProblem(f: BlockField, v: string, now: Date, tz: string): string | null {
   const d = new Date(`${v}T00:00:00Z`);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(v) || Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== v) return `${f.label}: type the date as YYYY-MM-DD.`;
-  if (v > plantDay(now, tz)) return `The date of manufacture ${v} is in the future: type the date on the bulk labels.`;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(v) || Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== v) return `${f.label}: give a date, e.g. 2026-11-15.`;
+  if (v > plantDay(now, tz)) return `The date of manufacture ${plantDate(v)} is in the future: give the date on the bulk labels.`;
   return null;
 }
 
@@ -107,8 +110,8 @@ export function handProblem(f: BlockField, v: string, now: Date, tz: string): st
   if (f.kind === 'yes-no' && v !== 'yes') return `${f.label}: if not, do not use it; use another, or raise a deviation.`;
   if (f.name.endsWith('.expiry')) {
     const d = new Date(`${v}T00:00:00Z`);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(v) || Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== v) return `${f.label}: type the date as YYYY-MM-DD.`;
-    if (v < plantDay(now, tz)) return `The lot expired or passed its retest date on ${v}: it may not be used.`;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(v) || Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== v) return `${f.label}: give a date, e.g. 2026-11-15.`;
+    if (v < plantDay(now, tz)) return `The lot expired or passed its retest date on ${plantDate(v)}: it may not be used.`;
   }
   return null;
 }

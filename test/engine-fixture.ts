@@ -57,6 +57,18 @@ export const tablet = (): MasterDoc => masterSchema.parse({
   ],
 });
 
+/**
+ * The fixture as a master names where its stages run (TB-10, TB-11): each stage allows the rooms of its own name as
+ * an area, and starts with line clearance. Most tests leave this out: their checks are filtered by `unplaced`.
+ */
+export function placed(doc: MasterDoc): MasterDoc {
+  const clearance = { key: 'clearance', block: { id: 'line-clearance', version: 1 }, settings: {}, checker: true, waitForCheck: false, critical: false, flow: { kind: 'none' as const } };
+  return { ...doc, stages: doc.stages.map((s) => ({ ...s, roomTypes: s.roomTypes.length ? s.roomTypes : [s.name],
+    steps: s.steps.some((t) => t.block.id === 'line-clearance') ? s.steps : [clearance, ...s.steps] })) };
+}
+/** Leaves out the problems of stages that name no rooms (TB-11, tested in master-checks.test.ts). */
+export const unplaced = <T extends { rule?: string; path: string }>(problems: T[]) => problems.filter((p) => !(p.rule === 'TB-11' && p.path.endsWith('.roomTypes')));
+
 /** A small master with the given stages; each step defaults to a "check a value" step without a checker. */
 export function small(stages: object[]): MasterDoc {
   return masterSchema.parse({

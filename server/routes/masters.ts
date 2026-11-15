@@ -146,7 +146,8 @@ export type ReviewAction = keyof typeof REVIEW_ACTIONS;
 const REVIEW_NAMES = Object.keys(REVIEW_ACTIONS) as ReviewAction[];
 
 interface MasterEvent { id: number; kind: string; payload: { reason?: string; changeControl?: string; source?: { changeControl?: Source } }; person: number; personName: string; at: Date }
-interface Loaded { v: VersionRow; events: MasterEvent[]; authors: number[] }
+// previous: the document of the version before this one of the same master (none for version 1).
+interface Loaded { v: VersionRow; events: MasterEvent[]; authors: number[]; previous?: { id: number; versionNo: number; state: MasterState; doc: MasterDoc } }
 
 async function loadReview(q: Sql | Tx, id: number, lock = false): Promise<Loaded | null> {
   const v = await masterVersion(q, id, lock);
@@ -159,7 +160,9 @@ async function loadReview(q: Sql | Tx, id: number, lock = false): Promise<Loaded
     select distinct actor_id::int as id from audit_log where object_type = 'master_version' and object_id = ${String(id)} and actor_id is not null
       and action in ('master.created', 'master.version_created', 'master.updated')`;
   const authors = [...new Set([v.createdBy, ...edited.map((r) => r.id), ...events.filter((e) => e.kind === 'submitted').map((e) => e.person)])];
-  return { v, events: [...events], authors };
+  const [previous] = await q<NonNullable<Loaded['previous']>[]>`
+    select id::int, version_no as "versionNo", state, doc from master_versions where master_id = ${v.masterId} and version_no < ${v.versionNo} order by version_no desc limit 1`;
+  return { v, events: [...events], authors, ...(previous ? { previous } : {}) };
 }
 
 // What a signer is shown: the version's document, as it stands, after its last event.
@@ -178,6 +181,10 @@ export function reviewRefusal(action: ReviewAction, l: Loaded, user: SessionUser
   const round = since < 0 ? [] : l.events.slice(since + 1);
   const passed = round.find((e) => e.kind === 'passed');
   const author = l.authors.includes(user.id);
+  // A new version that changes nothing has nothing to review.
+  if (action === 'submit' && l.previous && JSON.stringify(l.previous.doc) === JSON.stringify(l.v.doc)) {
+    return no(409, 'no_changes', `This version is the same as version ${l.previous.versionNo}: change what the new version is for, then send it for review.`);
+  }
   if (action === 'submit' || action === 'approve') {
     // TB-01, and the calculation checks: errors, and warnings that need an answer and have none.
     const open = masterChecks(l.v.doc).filter(blocking);
@@ -241,12 +248,9 @@ function reviewRoutes(app: FastifyInstance, sql: Sql) {
     const comments = await sql`
       select c.id::int, c.path, c.text, u.full_name as "personName", c.at from master_comments c join users u on u.id = c.person_id
       where c.version_id = ${l.v.id} order by c.id`;
-    const [previous] = await sql<{ id: number; versionNo: number; state: MasterState; doc: MasterDoc }[]>`
-      select id::int, version_no as "versionNo", state, doc from master_versions
-      where master_id = ${l.v.masterId} and version_no < ${l.v.versionNo} order by version_no desc limit 1`;
     const refusals = Object.fromEntries(REVIEW_NAMES.map((a) => [a, reviewRefusal(a, l, req.user!)?.message ?? null]));
     return {
-      events: l.events, comments, previous: previous ?? null, contentHash: versionHash(l),
+      events: l.events, comments, previous: l.previous ?? null, contentHash: versionHash(l),
       actions: REVIEW_NAMES.filter((a) => refusals[a] === null), refusals,
     };
   });

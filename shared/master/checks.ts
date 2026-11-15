@@ -9,6 +9,7 @@ import { decimalsOf } from '../templates/core.js';
 import { evaluate, lineQuantity } from '../engine/values.js';
 import { materialLines, type Answer, type FormulaLine, type Limit, type MasterDoc, type SettingValue } from './schema.js';
 import { packingChecks } from './packing.js';
+import { isBalance } from '../engine/picks.js';
 
 /** A warning the author answers: one of the options, with a reason when `needsReason`. */
 export interface Question { key: string; options: string[]; needsReason: boolean; answer?: Answer }
@@ -45,6 +46,10 @@ export function masterChecks(doc: MasterDoc): Problem[] {
     const clearance = s.steps.findIndex((t) => findBlock(t.block)?.gmp === 'line-clearance');
     if (s.roomTypes.length && clearance < 0) error(path, `Stage ${s.name} is worked in a room but has no line clearance step`, 'TB-10');
     if (clearance > 0 && !doc.pack) warn(`${path}.steps[${clearance}]`, `Line clearance is not the first step of ${s.name}`);
+    // TB-11: a stage that works machines (not balances, nor the line a packing batch is issued to) or names a room
+    // runs only in the rooms it allows (shared/engine/picks.ts).
+    const placed = s.steps.some((t) => { const b = findBlock(t.block); return !b?.atIssue && b?.fields.some((f) => f.kind === 'room' || (f.kind === 'machine' && !isBalance(f))); });
+    if (placed && !s.roomTypes.length) error(`${path}.roomTypes`, `Stage ${s.name}: choose the rooms this stage may run in (an area or a room of master data, in the stage settings)`, 'TB-11');
     for (const u of s.uses) {
       const pi = doc.stages.findIndex((x) => x.key === u);
       if (pi < 0 || pi >= si) error(`${path}.uses`, `${u} is not an earlier stage`);

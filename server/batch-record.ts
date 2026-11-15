@@ -46,7 +46,7 @@ const th = (text: string): Content => ({ text, fontSize: 8, bold: true, fillColo
 const table = (widths: (number | string)[], head: string[], rows: Content[][], empty = 'None.'): Content =>
   rows.length ? { table: { headerRows: 1, dontBreakRows: true, widths, body: [head.map(th), ...rows] }, layout: 'lightHorizontalLines' } : { text: empty, italics: true, fontSize: 8 };
 
-export function batchRecordDoc(r: RecordInput, by: string, printedAt = new Date()): TDocumentDefinitions {
+export function batchRecordDoc(r: RecordInput, by: string, printedAt = new Date(), demo = false): TDocumentDefinitions {
   const { doc, events, batchEvents, now } = r;
   const h = doc.header;
   const view = batchView(doc, events, batchEvents, now, r.deviationsRead);
@@ -158,7 +158,7 @@ export function batchRecordDoc(r: RecordInput, by: string, printedAt = new Date(
     : { text: `No decision yet: the batch is ${view.status}.`, italics: true, fontSize: 9 });
   if (view.status !== 'released' && view.status !== 'rejected') content.push(small(`This copy was made while the batch is ${view.status}: it is not a released record.`, { color: RED, margin: [0, 4, 0, 0] }));
 
-  return pageFrame(`${doc.pack ? 'TrueBatch Tablets Packing' : 'TrueBatch Tablets'} · ${record} ${r.batch.batchNo} · ${h.productCode} ${h.productName}`, by, content, printedAt);
+  return pageFrame(`${doc.pack ? 'TrueBatch Tablets Packing' : 'TrueBatch Tablets'} · ${record} ${r.batch.batchNo} · ${h.productCode} ${h.productName}`, by, content, printedAt, demo);
 }
 
 /** The recorded values; a corrected value shows the original struck through, the reason, the person and the time. */
@@ -189,8 +189,11 @@ function resultLines(block: Block, st: Step, v: StepView, who: (id: number | nul
     // A round whose stop check is not reached yet is not out of limits: the rounds go on.
     const notYet = name === v.notYet;
     const text = (t: string) => plantText(notYet ? notYetText(t) : t);
+    // A check's worked line may start with its own question ("Packing finished: no", "Line clear after packing: …"):
+    // the label is not said twice.
+    const shown = text(r.shown);
     return [
-      small(`${label(name)}: ${text(r.shown)}`),
+      small(shown.toLowerCase().startsWith(label(name).toLowerCase()) ? shown : `${label(name)}: ${shown}`),
       ...checks.filter(([, c]) => c.shown !== r.shown).map(([, c]) => small(text(c.shown), { margin: [8, 0, 0, 0] })),
       ...checks.map(([, c]) => small(c.pass ? 'PASS' : notYet ? 'NOT YET: the rounds go on' : 'FAIL: out of limits', { bold: true, color: c.pass ? '#1b6e3a' : notYet ? '#666666' : RED, margin: [8, 0, 0, 2] })),
     ];

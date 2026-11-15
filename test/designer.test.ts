@@ -7,7 +7,7 @@ import { dispensing, workedExample } from '../web/src/designer/example.js';
 import { answerDoc, earlierRefs, neededKind, scaleDoc, stepFrom } from '../web/src/designer/model.js';
 import { sentence, sentenceText } from '../web/src/designer/sentences.js';
 import { SKELETON_LIST, skeletonStages } from '../web/src/designer/skeletons.js';
-import { tablet } from './engine-fixture.js';
+import { tablet, unplaced } from './engine-fixture.js';
 
 // The designer's pure parts: sentences instead of formulas, inputs offered by kind, worked examples and the
 // calculation preview through the engine, skeletons, copying to a new batch size, and the changes view.
@@ -75,8 +75,12 @@ describe('master designer', () => {
     for (const s of SKELETON_LIST) {
       const doc = masterSchema.parse({ header, formula: [], stages: skeletonStages(s.id, header) });
       expect(doc.stages.every((st) => st.steps.every((t) => findBlock(t.block)))).toBe(true);
-      expect(masterChecks(doc).every((p) => /not set|no core materials/.test(p.message))).toBe(true);
+      expect(masterChecks(doc).every((p) => /not set|no core materials|choose the rooms/.test(p.message))).toBe(true);
     }
+    // The rooms: the usual areas where every plant has them; a preparation and blending are left for the author (TB-11).
+    const rooms = (id: string) => masterChecks(masterSchema.parse({ header, formula: [], stages: skeletonStages(id, header) })).filter((p) => p.rule === 'TB-11').map((p) => p.message.split(':')[0]);
+    expect(rooms('wet-granulation-film-coated')).toEqual(['Stage Binder solution', 'Stage Blending', 'Stage Coating suspension']);
+    expect(skeletonStages('wet-granulation-film-coated', header).map((s) => s.roomTypes.join())).toEqual(['', 'Granulation', '', 'Compression', '', 'Coating']);
     const dc = skeletonStages('direct-compression-uncoated', header);
     expect(dc.map((s) => s.steps.map((t) => t.block.id).join(' '))).toEqual(['line-clearance weigh sift dry-mix stage-yield',
       'line-clearance punch-die-check compress friability disintegration punch-die-check tablet-reconciliation']);
@@ -127,7 +131,7 @@ describe('master designer', () => {
     const next = answerDoc(prev, warning, 'as Examplol hydrochloride', 'The label for this market states the salt');
     expect(next.answers).toEqual({ 'label-basis/api': { about: warning.message, choice: 'as Examplol hydrochloride', reason: 'The label for this market states the salt' } });
     expect(masterSchema.parse(next).answers).toEqual(next.answers);
-    expect(masterChecks(next).filter(blocking)).toEqual([]);
+    expect(unplaced(masterChecks(next).filter(blocking))).toEqual([]);
     const line = describeMaster(next).at(-1)!.lines[0]!.text;
     expect(line).toMatch(/^Formula › Examplol hydrochloride: Label claim .* Answered: as Examplol hydrochloride\. Reason: The label for this market states the salt\.$/);
     expect(diffMasters(prev, next).flatMap((s) => s.lines.filter((l) => l.change !== 'same').map((l) => `${s.title} ${l.change}: ${l.text}`))).toEqual([`Calculation checks changed: ${line}`]);

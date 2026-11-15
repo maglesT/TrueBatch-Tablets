@@ -26,7 +26,7 @@ describe('master data', () => {
     expect((await call(t.app, cookie, 'GET', '/api/master/materials')).json().map((p: { code: string; active: boolean }) => [p.code, p.active]))
       .toEqual([['MAT-001', true], ['MAT-002', false]]);
     expect((await call(t.app, cookie, 'GET', '/api/master/equipment')).json()[0]).toMatchObject({ code: 'RMG-01', room: 'GRN-01' });
-    expect((await call(t.app, cookie, 'GET', '/api/master/rooms')).json()[0]).toMatchObject({ code: 'GRN-01', grade: 'D' });
+    expect((await call(t.app, cookie, 'GET', '/api/master/rooms')).json().find((r: { code: string }) => r.code === 'GRN-01')).toMatchObject({ code: 'GRN-01', grade: 'D' });
   });
 
   it('PL-08: with the link off every master-data read answers "connection off"', async () => {

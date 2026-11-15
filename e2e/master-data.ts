@@ -19,6 +19,8 @@ export function seedMasterData(m: FakeMaster) {
     { ...item('eq-bln', 'BLN-01', 'Bin blender 200 L'), kind: 'equipment', type: 'blender', room: 'BLN-01' },
     { ...item('eq-prs', 'PRS-01', 'Rotary tablet press'), kind: 'equipment', type: 'tablet press', room: 'CMP-01' },
   );
+  // These rooms only, not the fixtures' rooms of the server tests.
+  m.rooms_.splice(0);
   m.rooms_.push(
     { ...item('rm-dsp', 'DSP-01', 'Dispensing booth 1'), area: 'Dispensing', grade: 'D' },
     { ...item('rm-bln', 'BLN-01', 'Blending room 1'), area: 'Blending', grade: 'D' },
