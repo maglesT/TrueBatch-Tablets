@@ -8,6 +8,7 @@ import {
 import { fieldLabel as labelOf, PROVIDER_NAME } from '../../../shared/engine/links.js';
 import { BatchHeader } from '../floor/BatchScreen.js';
 import { ReasonDialog } from '../floor/ReasonDialog.js';
+import { product } from '../product.js';
 import '../floor/floor.css';
 import './release.css';
 
@@ -135,7 +136,7 @@ export function ReleaseScreen({ me, id }: { me: Me; id: number }) {
 
       <section className="dash-panel" aria-label="Decision">
         <div className="panel-head"><h2>{qcTurn ? 'QC approval' : 'QA release'}</h2>
-          <a className="button" href={pdfLink(id)} download>Batch record (PDF)</a></div>
+          <a className="button" href={pdfLink(id)} download>{product.packing ? 'Packing record' : 'Batch record'} (PDF)</a></div>
         {notice && <p className="notice info" role="status">{notice}</p>}
         {r.batchEvents.filter((b) => b.kind !== 'deviation_closed').map((b) => (
           <p key={b.id} className={b.kind === 'rejected' ? 'notice bad' : 'all-good'}><span aria-hidden="true">{b.kind === 'rejected' ? '✕' : '✓'}</span>
