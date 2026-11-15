@@ -6,6 +6,7 @@ import { batchRefusal, batchView, doneProblems, evaluate, openSteps, type BatchE
 import { c8PrintedData, c9SerialCodes, expiryMonth, gs1, printedMonth, t27Expiry } from '../shared/templates/index.js';
 import { at, ev, small } from './engine-fixture.js';
 import { code, GTIN, packing } from './packing-fixture.js';
+import { headline } from '../web/src/api-floor.js';
 
 // TrueBatch Tablets Packing: the packing master checks (TB-P1 to TB-P9), the packing blocks run by the shared engine,
 // the serialisation check (match, mismatch, duplicate, reconciliation), printed materials reconciled, the expiry from
@@ -116,6 +117,8 @@ describe('the packing blocks', () => {
     const r = results(d, [], '0.1.0.1', { mfgDate: '2026-11-03', tablets: { value: '100000', unit: 'tablets' } });
     expect(r.expiry).toMatchObject({ ok: true, expiry: '2028-10', shown: 'Manufactured 11/2026, shelf life 24 months (to the end of the month before): expiry 10/2028' });
     expect(r.packs).toMatchObject({ ok: true, value: '10000', unit: 'units' });
+    // The bulk step's figure is the expiry date, not the shelf life it is worked out from.
+    expect(headline(r.expiry!)).toBe('10/2028');
     // No packing block has an expiry to type: the coding check works it out from the shelf life.
     for (const id of ['bulk-issue', 'coding-check', 'serial-sample']) expect(findBlock({ id, version: 1 })!.fields.map((f) => f.name)).not.toContain('expiry');
     const coding = where(d, 'coding-check');
