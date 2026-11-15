@@ -133,7 +133,13 @@ describe('master review and approval', () => {
     const next = await as('author', 'POST', `/api/masters/${v1.masterId}/versions`, {});
     const v2 = (next.json() as { id: number }).id;
     expect((await review(v2)).previous?.versionNo).toBe(1);
-    await act('author', v2, 'submit');
+    // A new version that changes nothing cannot be sent for review.
+    expect((await review(v2, 'author')).refusals.submit).toBe('This version is the same as version 1: change what the new version is for, then send it for review.');
+    expect((await act('author', v2, 'submit')).json()).toMatchObject({ error: 'no_changes' });
+    const doc = placed(tablet());
+    doc.header.batchSize = '50000';
+    expect((await as('author', 'PUT', `/api/master-versions/${v2}`, { doc })).statusCode).toBe(200);
+    expect((await act('author', v2, 'submit')).statusCode).toBe(200);
     await act('checker', v2, 'pass');
     await act('quality', v2, 'approve', { changeControl: 'CC-2026-020' });
     expect((await as('checker', 'POST', `/api/master-versions/${v2}/make-effective`, {})).statusCode).toBe(403);
