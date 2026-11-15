@@ -109,6 +109,8 @@ const BATCH_BODIES: Record<BatchAction, z.ZodTypeAny> = {
   reject: signBody.extend({ reason }),
   'close-deviation': z.object({ note: z.number().int().positive(), reason }),
 };
+// GET /api/batches/:id shows the last few events of each step; the full history is per step.
+const LAST_EVENTS = 5;
 const NAMES = Object.keys(ACTIONS) as Action[];
 const BATCH_NAMES = Object.keys(BATCH_ACTIONS) as BatchAction[];
 const flowOf = (doc: MasterDoc, k: StepKey) => doc.stages[k.stage]!.steps[k.step]!.flow.kind;
@@ -159,12 +161,23 @@ export function batchRoutes(app: FastifyInstance, sql: Sql) {
     return {
       batch: { ...l.batch, ...bv, contentHash: batchHash(l), actions: BATCH_NAMES.filter((a) => a !== 'close-deviation' && !batchRefusal(a, bv, req.user!)) },
       master: { id: v!.id, masterId: v!.masterId, versionNo: v!.versionNo, doc: l.doc }, stages, timers: timers(l.doc, l.events, l.now),
-      steps: steps.map((s) => ({
-        ...s, contentHash: stepHash(l.batch.id, s),
-        actions: NAMES.filter((a) => !refusal(a, context(l.doc, s, req.user!))),
-        problems: s.state === 'in_progress' ? doneProblems(l.doc, s, l.now) : [],
-      })),
+      steps: steps.map((s) => {
+        const { events, replaced: _, ...current } = s;
+        return {
+          ...current, events: events.slice(-LAST_EVENTS), contentHash: stepHash(l.batch.id, s),
+          actions: NAMES.filter((a) => !refusal(a, context(l.doc, s, req.user!))),
+          problems: s.state === 'in_progress' ? doneProblems(l.doc, s, l.now) : [],
+        };
+      }),
     };
+  });
+
+  // The full history of one step, with every correction (the original value, the new one, the reason).
+  app.get<{ Params: { id: string; key: string } }>('/api/batches/:id/steps/:key/events', anyUser, async (req, reply) => {
+    const id = parseId(req.params.id);
+    const l = id === null ? null : await loadBatch(sql, id);
+    const s = l && openSteps(l.doc, l.events, l.now).steps.find((x) => x.id === req.params.key);
+    return s ? { events: s.events, replaced: s.replaced, inputChanged: s.inputChanged } : reply.code(404).send({ error: 'not_found' });
   });
 
   // TB-21: what QA reviews in the release screen: corrections, sent-backs, late items, values out of limits with

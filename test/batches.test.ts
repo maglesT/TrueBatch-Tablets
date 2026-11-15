@@ -197,10 +197,13 @@ describe('walking a stage', () => {
     expect((await act('asha', id, '1.1.0.1', 'record', { values: { tare: '0.849' } })).json()).toMatchObject({ error: 'wrong_state' });
     expect((await act('asha', id, '1.1.0.1', 'correct', { values: { tare: '0.849' } })).statusCode).toBe(400);
     expect((await act('asha', id, '1.1.0.1', 'correct', { values: { tare: '0.849' }, reason: 'Tare misread' })).statusCode).toBe(200);
-    const s = (await stepOf(id, '1.1.0.1')) as unknown as { needsResign: boolean; replaced: { field: string; reason: string }[]; results: Record<string, { value: string }> };
+    const s = (await stepOf(id, '1.1.0.1')) as unknown as { needsResign: boolean; replaced?: unknown; results: Record<string, { value: string }> };
     expect(s.needsResign).toBe(true);
-    expect(s.replaced).toMatchObject([{ field: 'tare', reason: 'Tare misread' }]);
+    expect(s.replaced).toBeUndefined();
     expect(s.results.net!.value).toBe('10.151');
+    const history = (await as('viewer', 'GET', `/api/batches/${id}/steps/1.1.0.1/events`)).json() as { events: { kind: string }[]; replaced: unknown };
+    expect(history.replaced).toMatchObject([{ field: 'tare', was: { value: '0.850' }, now: { value: '0.849' }, reason: 'Tare misread' }]);
+    expect(history.events.map((e) => e.kind)).toEqual(['started', 'value', 'done', 'sent_back', 'corrected']);
     expect((await sign('asha', id, '1.1.0.1', 'done')).statusCode).toBe(200);
     expect((await sign('ravi', id, '1.1.0.1', 'check')).statusCode).toBe(200);
   });
@@ -227,6 +230,14 @@ describe('walking a stage', () => {
     expect((await sign('ravi', id, '1.1.1.1', 'check')).statusCode).toBe(200);
     const after = (await stepOf(id, '1.1.1.1')) as unknown as { inputChanged: unknown[]; results: { target: { value: string } } };
     expect([after.inputChanged, after.results.target.value]).toEqual([[], s.results.target.value]);
+  });
+
+  it('GET /api/batches/:id shows each step\'s last events only', async () => {
+    const b = (await as('viewer', 'GET', `/api/batches/${id}`)).json() as { steps: { id: string; events: unknown[] }[] };
+    const all = (await as('viewer', 'GET', `/api/batches/${id}/steps/1.1.0.1/events`)).json() as { events: unknown[] };
+    expect(all.events.length).toBeGreaterThan(5);
+    expect(b.steps.find((x) => x.id === '1.1.0.1')!.events).toEqual(all.events.slice(-5));
+    expect((await as('viewer', 'GET', `/api/batches/${id}/steps/9.1.0.1/events`)).statusCode).toBe(404);
   });
 
   it('step events are insert-only: the app role cannot change or delete them, nor can the owner', async () => {
