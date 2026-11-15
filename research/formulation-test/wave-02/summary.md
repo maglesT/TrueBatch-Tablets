@@ -1,6 +1,6 @@
 # Wave 2 summary (F0101-F0200)
 
-Formulations with a usable source: **51** of 100. NO SOURCE: **42**. NOT RESEARCHED: **7** (F0194-F0200; the shared
+Formulations with a usable source: **51** of 100, plus **10** sourced later (`part-6-retries.md`: F0125, F0140, F0165, F0176, F0184, F0191, F0193, F0195, F0197, F0200; 728 checks, 693 FITS, 35 FITS WITH SETTING, 0 new, 0 gaps), so **61** counted. NO SOURCE: **42**. NOT RESEARCHED: **7** (F0194-F0200; the shared
 web-search allowance ran out; to be re-run with a single paced source finder).
 
 NO SOURCE: F0103, F0104, F0107, F0109, F0110, F0111, F0112, F0118 (part 1); F0124, F0125, F0128, F0129, F0134, F0138,
