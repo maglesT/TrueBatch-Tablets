@@ -57,7 +57,7 @@ describe('master review and approval', () => {
 
   it('calculation checks: a warning that needs an answer blocks "Send for review" until the author answers it in the master', async () => {
     const doc = tablet();
-    doc.formula[4]!.adjust = { content: { formulaQuantityIs: 'dry', contentSource: 'in-process result' } };
+    doc.formula[4]!.adjust = { content: { formulaQuantityIs: 'dry', contentSource: 'in-process result', resultType: 'content' } };
     const { id } = await draft(doc);
     const checks = (await as('author', 'GET', `/api/master-versions/${id}/checks`)).json() as { problems: { message: string; question?: { key: string } }[] };
     const q = checks.problems.find((p) => p.question?.key === 'double-adjustment/mcc')!;
