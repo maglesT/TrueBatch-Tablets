@@ -10,7 +10,7 @@ Clauses: the binding clauses each rule rests on (US: 21 CFR 211 and Part 11; EU:
 | Rule | Requirement | Clauses | Tests |
 |------|-------------|---------|-------|
 | TB-01 | A master is complete before it can be approved | US 211.186(a),(b); 211.101(a); 211.110(a); EU C4 4.17, 4.18; IN SCHM 17.3.6.1, 17.3.6.2(a)-(k); SCHM-VIII 2.3 | `test/master-checks.test.ts` |
-| TB-02 | A master is checked by a second person and approved by QA; one effective version; a new version needs a change control number | US 211.186(a); 211.100(a); 211.68(b); EU C4 4.3; A11 10; IN SCHM 17.2.4; 8.3; 17.3.6.1 | later: the designer's review and approval |
+| TB-02 | A master is checked by a second person and approved by QA; one effective version; a new version needs a change control number | US 211.186(a); 211.100(a); 211.68(b); EU C4 4.3; A11 10; IN SCHM 17.2.4; 8.3; 17.3.6.1 | `test/master-review.test.ts` |
 | TB-03 | A batch is issued from the effective master, with a unique number never reused | US 211.188(a); 211.186(a); EU C4 4.2, 4.20 (lead-in); IN SCHM 17.3.8.1; 17.3.10.8-17.3.10.11; 14.32 (new number for rework) | `test/batches.test.ts` |
 | TB-04 | Entries are saved at once, with the person and the server time; late entries need a reason | US 211.100(b); 211.188(b)(1); 11.10(e); EU C4 4.8, 4.20(b); A11 12.4; IN SCHM 17.2.7; 17.3.8.3 (lead-in, (c)); 20.4 (omissions) | `test/batches.test.ts`, `test/release.test.ts` |
 | TB-05 | TrueBatch keeps its own audit trail | US 11.10(e); EU A11 9, 12.4; IN SCHM 20.4; 17.2.8 ("record of changes and deletions") | `test/batches.test.ts` |
