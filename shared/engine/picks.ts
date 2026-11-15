@@ -1,7 +1,7 @@
 /**
  * The machines and rooms a step field offers and accepts (owner, 15 Nov 2026), from master data's type, room and area:
- * a machine of the stage's allowed types and of the type the field asks for (a balance field: balances only), standing
- * in a room the stage allows (not a QC lab balance); a room the stage allows by its area or by its own code.
+ * a machine of the stage's allowed types and of the type the field asks for (a balance field: balances only, never a
+ * QC lab analytical or micro balance), standing in a room the stage allows; a room the stage allows by its area or by its own code.
  */
 import type { BlockField } from '../blocks/format.js';
 import type { Stage } from '../master/schema.js';
@@ -19,7 +19,8 @@ export function roomRefusal(stage: Stage, r: PickRoom): string | null {
 /** Why a machine does not fit the field in this stage; null when it does. */
 export function machineRefusal(stage: Stage, f: BlockField, m: PickMachine, rooms: readonly PickRoom[]): string | null {
   if (stage.machineTypes.length && !among(stage.machineTypes, m.type)) return `${m.code} is not one of the machine types this stage allows (${stage.machineTypes.join(', ')})`;
-  if (f.types?.length && !f.types.some((w) => (m.type ?? '').toLowerCase().includes(w))) return `${m.code} is not a ${f.label.toLowerCase()} (master data: ${m.type ?? 'no type'})`;
+  const type = (m.type ?? '').toLowerCase();
+  if ((f.types?.length && !f.types.some((w) => type.includes(w))) || f.notTypes?.some((w) => type.includes(w))) return `${m.code} is not a ${f.label.toLowerCase()} (master data: ${m.type ?? 'no type'})`;
   const room = m.room ? rooms.find((r) => r.code === m.room) : undefined;
   if (room && roomRefusal(stage, room)) return `${m.code} stands in ${room.code}, not in a room this stage allows (${stage.roomTypes.join(', ')})`;
   return null;

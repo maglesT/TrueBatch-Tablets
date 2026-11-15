@@ -1,4 +1,4 @@
-import type { Block } from './format.js';
+import { PACKING_LINE, type Block } from './format.js';
 
 // Packing, TB-P2 and TB-P7: the batch facts, recorded when the packing batch is issued (server/routes/batches.ts): the
 // line (one active packing order per line), the RELEASED bulk batch of TrueBatch Tablets (pulled from its
@@ -10,7 +10,7 @@ export const bulkIssue: Block = {
   atIssue: ['line', 'bulk', 'mfgDate', 'tablets'],
   instruction: 'Receive the bulk tablets at the line. Check that each container is closed and intact and that its label shows this bulk batch number and RELEASED.',
   fields: [
-    { name: 'line', label: 'Packing line', kind: 'machine' },
+    { name: 'line', label: 'Packing line', kind: 'machine', types: PACKING_LINE },
     { name: 'bulk', label: 'Bulk batch no.', kind: 'bulk' },
     { name: 'mfgDate', label: 'Date of manufacture of the bulk (YYYY-MM-DD)', kind: 'text' },
     { name: 'tablets', label: 'Bulk tablets issued', kind: 'number', unit: 'tablets' },

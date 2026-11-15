@@ -7,7 +7,7 @@ export const weigh: Block = {
   instruction: 'Weigh the material for the lot shown. Record the gross and tare weights.',
   fields: [
     { name: 'lot', label: 'Lot', kind: 'lot' },
-    { name: 'balance', label: 'Balance', kind: 'machine', types: ['balance'] },
+    { name: 'balance', label: 'Balance', kind: 'machine', types: ['balance'], notTypes: ['analytical', 'micro'] },
     { name: 'assay', label: 'Assay (certificate)', kind: 'number', unit: '%', optional: true },
     { name: 'water', label: 'Water content (certificate)', kind: 'number', unit: '%', optional: true },
     { name: 'lod', label: 'Loss on drying (certificate)', kind: 'number', unit: '%', optional: true },
