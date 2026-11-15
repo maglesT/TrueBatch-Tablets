@@ -11,8 +11,19 @@ export function plantClock(t: string | Date, seconds = false): string {
   return `${s} IST`;
 }
 
-/** Every time stamp in a text in plant time (with seconds when the stamp has them). */
+// A calendar date on its own ("2029-10-31": a lot's expiry, a date of manufacture), not inside a code or a time stamp.
+const DATE = /(?<![\w-])(\d{4})-(\d{2})-(\d{2})(?![\w-]|[T ]\d{2}:)/g;
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** A calendar date as people read it: "31 Oct 2029" (the date itself, no time zone); anything else unchanged. */
+export function plantDate(date: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+  const month = m ? MONTHS[Number(m[2]) - 1] : undefined;
+  return m && month && Number(m[3]) >= 1 && Number(m[3]) <= 31 ? `${Number(m[3])} ${month} ${m[1]}` : date;
+}
+
+/** Every time stamp in a text in plant time (with seconds when the stamp has them), and every date as "31 Oct 2029". */
 export const plantText = (text: string) => text.replace(STAMP, (m) => {
   const d = new Date(m.replace(' ', 'T').replace(/([+-]\d{2})$/, '$1:00'));
   return Number.isNaN(d.getTime()) ? m : plantClock(d, /T?\d{2}:\d{2}:\d{2}/.test(m.slice(10)));
-});
+}).replace(DATE, (m) => plantDate(m));

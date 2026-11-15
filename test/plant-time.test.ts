@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { plantClock, plantText } from '../shared/plant-time.js';
+import { plantClock, plantDate, plantText } from '../shared/plant-time.js';
 import { valueText } from '../server/batch-record.js';
 
 // Times are shown in plant time (IST) everywhere, never as raw UTC or ISO text (owner, 15 Nov 2026).
@@ -9,10 +9,17 @@ describe('plant time', () => {
       .toBe('15 Nov 2026, 23:53:50 IST − 15 Nov 2026, 23:43:19 IST = 11 min');
   });
 
-  it('a time read from the Logbook as PostgreSQL text (cleaned on) reads in plant time; a plain date stays as it is', () => {
+  it('a time read from the Logbook as PostgreSQL text (cleaned on) reads in plant time; a plain date reads as a date, never ISO', () => {
     expect(plantText('2026-11-15 17:38:16.254+00')).toBe('15 Nov 2026, 23:08:16 IST');
-    expect(plantText('expiry 2029-08-31')).toBe('expiry 2029-08-31');
+    expect(plantText('MMS lot E26-0001: released, expiry 2029-10-31, retest 2027-04-01')).toBe('MMS lot E26-0001: released, expiry 31 Oct 2029, retest 1 Apr 2027');
+    expect(valueText('2026-11-15')).toBe('15 Nov 2026');
+    // A lot or batch code that holds a date-like part is left as it is.
+    expect(plantText('Lot A-2026-11-15, LOT2026-11-15X, expiry month 2028-10')).toBe('Lot A-2026-11-15, LOT2026-11-15X, expiry month 2028-10');
     expect(valueText('2026-11-15 17:38:16.254+00')).toBe('15 Nov 2026, 23:08:16 IST');
+  });
+
+  it('a date: 31 Oct 2029', () => {
+    expect(['2029-10-31', '2026-01-05', 'not a date'].map(plantDate)).toEqual(['31 Oct 2029', '5 Jan 2026', 'not a date']);
   });
 
   it('one instant, with or without seconds', () => {

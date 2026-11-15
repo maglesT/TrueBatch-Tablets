@@ -27,6 +27,8 @@ export const fieldSchema = z.object({
   // choice: the fixed list.
   options: z.array(z.string().min(1)).optional(),
   optional: z.boolean().optional(),
+  // text: a calendar date, picked from a date picker and kept as YYYY-MM-DD; shown as "31 Oct 2029".
+  date: z.boolean().optional(),
   // machine: words of master data's type it takes (any of them, without case), e.g. ["balance"]; none: any type. A type
   // with one of the notTypes words is not taken (a QC lab "Analytical balance" is not a dispensing balance).
   types: z.array(z.string().regex(/^[a-z][a-z ]*$/)).optional(),

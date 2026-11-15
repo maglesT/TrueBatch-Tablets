@@ -36,7 +36,7 @@ const QUESTIONS: Partial<Record<BlockField['kind'], (f: BlockField) => BlockFiel
   ],
   lot: (f) => [
     yes(`${f.name}.released`, `${f.label}: the label says RELEASED (approved by QC)`),
-    { name: `${f.name}.expiry`, label: `${f.label}: expiry or retest date on the label, whichever is first (YYYY-MM-DD)`, kind: 'text' },
+    { name: `${f.name}.expiry`, label: `${f.label}: expiry or retest date on the label, whichever is first`, kind: 'text', date: true },
     { name: `${f.name}.report`, label: `${f.label}: QC report or certificate number of the values typed`, kind: 'text', optional: true },
   ],
   bulk: (f) => [

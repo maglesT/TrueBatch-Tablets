@@ -1,3 +1,4 @@
+import { plantDate } from '../shared/plant-time.js';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -121,7 +122,7 @@ describe('a packing batch from a released bulk batch', () => {
     expect(s.results.packs).toMatchObject({ ok: true, shown: '100000 tablets ÷ 10 tablets = 10000 units' });
     // The pulled date cannot be typed over.
     const r = await as('op1', 'POST', `/api/batches/${first}/steps/0.1.0.1/record`, { values: { mfgDate: '2026-11-01' } });
-    expect(r.json()).toMatchObject({ problems: ['Date of manufacture of the bulk (YYYY-MM-DD) comes from TrueBatch Tablets and cannot be typed over'] });
+    expect(r.json()).toMatchObject({ problems: ['Date of manufacture of the bulk comes from TrueBatch Tablets and cannot be typed over'] });
   });
 
   it('TB-P2 bulk must be released: a bulk batch not released, of another product, or unknown is refused', async () => {
@@ -146,9 +147,9 @@ describe('a packing batch from a released bulk batch', () => {
       const tomorrow = new Date(Date.now() + 86_400_000).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
       const future = await issue({ line: 'ln-2', bulk: 'TB260004', tablets: '50000', mfgDate: tomorrow, 'bulk.released': 'yes', 'bulk.product': 'yes' });
       expect(future.statusCode).toBe(400);
-      expect(future.json()).toMatchObject({ problems: [`The date of manufacture ${tomorrow} is in the future: type the date on the bulk labels.`] });
+      expect(future.json()).toMatchObject({ problems: [`The date of manufacture ${plantDate(tomorrow)} is in the future: give the date on the bulk labels.`] });
       expect((await issue({ line: 'ln-2', bulk: 'TB260004', tablets: '50000', mfgDate: '6/11/2026', 'bulk.released': 'yes', 'bulk.product': 'yes' })).json())
-        .toMatchObject({ problems: ['Date of manufacture of the bulk (YYYY-MM-DD): type the date as YYYY-MM-DD.'] });
+        .toMatchObject({ problems: ['Date of manufacture of the bulk: give a date, e.g. 2026-11-15.'] });
       const notReleased = await issue({ line: 'ln-2', bulk: 'TB260004', tablets: '50000', mfgDate: '2026-11-06', 'bulk.released': 'no', 'bulk.product': 'yes' });
       expect(notReleased.json()).toMatchObject({ problems: [expect.stringContaining('the bulk container labels say RELEASED (QA) for this batch number: if not, do not use it')] });
       const res = await issue({ line: 'ln-2', bulk: 'TB260004', tablets: '50000', mfgDate: '2026-11-06', 'bulk.released': 'yes', 'bulk.product': 'yes' });

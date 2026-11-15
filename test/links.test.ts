@@ -146,7 +146,7 @@ describe('the labels people saw', () => {
     const weigh = findBlock({ id: 'weigh', version: 1 })!.fields;
     expect(fieldLabel(weigh, 'balance')).toBe('Balance');
     expect(fieldLabel(weigh, 'balance.inService')).toBe('Balance: not tagged out of service, maintenance in date');
-    expect(fieldLabel(weigh, 'lot.expiry')).toBe('Lot: expiry or retest date on the label, whichever is first (YYYY-MM-DD)');
+    expect(fieldLabel(weigh, 'lot.expiry')).toBe('Lot: expiry or retest date on the label, whichever is first');
     // The same text as the question the operator answered.
     const hand = handFields(weigh, { balance: { from: 'hand', link: 'logbook', state: 'down' }, lot: { from: 'hand', link: 'mms', state: 'absent' } });
     for (const q of hand) expect(fieldLabel(weigh, q.name)).toBe(q.label);
@@ -228,8 +228,8 @@ describe('TB-12 MMS: only released, in-date lots of the material; certificate va
     ['NOPE', 'Lot NOPE is not in MMS.'],
     ['LAC-1', 'Lot LAC-1 is MAT-002 in MMS, not MAT-001 Examplol.'],
     ['API-Q', 'Lot API-Q is in quarantine in MMS: only a released lot may be used.'],
-    ['API-EXP', 'Lot API-EXP expired on 2020-01-31.'],
-    ['API-RT', 'Lot API-RT is past its retest date 2021-06-30.'],
+    ['API-EXP', 'Lot API-EXP expired on 31 Jan 2020.'],
+    ['API-RT', 'Lot API-RT is past its retest date 30 Jun 2021.'],
     ['API-ASIS', "MMS gives the assay of lot API-ASIS on the as is basis; the master's line is on the dried basis."],
   ])('TB-12 lot %s is refused: %s', async (lot, why) => {
     expect(await problems(record(b.id, '0.1.0.1', { lot }))).toContain(why);
@@ -261,7 +261,7 @@ describe('TB-12 MMS: only released, in-date lots of the material; certificate va
     try {
       const charge = { lot: 'API-OK', machine: 'eq-rmg', allCharged: 'yes' };
       expect(await problems(record(b.id, '0.1.1.1', { ...charge, 'lot.released': 'yes', 'lot.expiry': '2020-01-31' })))
-        .toEqual(['The lot expired or passed its retest date on 2020-01-31: it may not be used.']);
+        .toEqual(['The lot expired or passed its retest date on 31 Jan 2020: it may not be used.']);
       expect(await problems(record(b.id, '0.1.1.1', { ...charge, 'lot.released': 'no', 'lot.expiry': '2099-01-31' })))
         .toEqual(['Lot charged: the label says RELEASED (approved by QC): if not, do not use it; use another, or raise a deviation.']);
       expect((await record(b.id, '0.1.1.1', { ...charge, ...handLabels('lot', 'lot') })).statusCode).toBe(200);
