@@ -136,7 +136,7 @@ const tablets = (doc: MasterDoc) => `${doc.header.batchSize} tablets`;
 const perBatch = (mg: string, doc: MasterDoc) => callTemplate('T8', { mode: 'per unit', perUnit: `${mg} mg`, count: tablets(doc), unit: 'kg' });
 
 /** A header value: as written, or the batch weight (T8: weight per tablet × batch size). */
-function headerValue(doc: MasterDoc, h: 'batchSize' | 'coreWeight' | 'coatedWeight' | 'coreBatch' | 'coatedBatch'): string | Stored {
+export function headerValue(doc: MasterDoc, h: 'batchSize' | 'coreWeight' | 'coatedWeight' | 'coreBatch' | 'coatedBatch'): string | Stored {
   const { coreWeightMg: core, coatedWeightMg: coated } = doc.header;
   if (h === 'batchSize') return tablets(doc);
   if (h === 'coreWeight') return `${core} mg`;

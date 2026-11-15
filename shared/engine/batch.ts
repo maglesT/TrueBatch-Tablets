@@ -5,7 +5,8 @@
 import { findBlock } from '../blocks/index.js';
 import type { MasterDoc, Step } from '../master/schema.js';
 import { keyId, stepState, type EventKind, type State, type StepEvent, type StepKey } from './state.js';
-import { currentValues, evaluate, failed, inputChanges, type Current } from './values.js';
+import { c1WithinLimits } from '../templates/index.js';
+import { currentValues, evaluate, failed, headerValue, inputChanges, type Current } from './values.js';
 import { handEntered, handFields } from './links.js';
 
 export interface StepView extends Current {
@@ -21,6 +22,17 @@ export interface StepView extends Current {
   // The changes to inputs from other steps since the results were worked out: the results shown are worked out
   // again (not stored), and the step must be signed again (and checked again).
   inputChanged: StepEvent[];
+  // F4 by rule: the master's rule left this step out (it is not applicable without an operator's choice).
+  leftOut?: string;
+}
+
+/** F4 by a rule of the master on a header value (e.g. the bag premix only for a batch of at most 50 kg); null when the step is in. */
+export function leftOutBy(doc: MasterDoc, st: Step): string | null {
+  if (!st.onlyIf) return null;
+  const h = headerValue(doc, st.onlyIf.header);
+  const value = typeof h === 'string' ? h : h.ok ? { value: h.value, unit: h.unit } : undefined;
+  const r = value === undefined ? undefined : c1WithinLimits({ value, limit: st.onlyIf.limit });
+  return r?.ok && r.check?.pass ? null : `Left out by the master's rule: only when the ${st.onlyIf.header === 'batchSize' ? 'batch size' : 'core batch weight'} is ${r?.ok ? r.check?.shown ?? '' : 'within its limit'}`;
 }
 export interface StageView { index: number; key: string; name: string; open: boolean; blocked?: string; closed: boolean }
 export interface Timer {
@@ -123,12 +135,14 @@ export function openSteps(doc: MasterDoc, events: readonly StepEvent[], now: Dat
           const inputChanged = inputChanges(events, c.uses);
           // A value entered by hand (a link absent or down) needs a second-person check (owner 15 Nov 2026).
           let { state, needsResign } = stepState(evs, st.checker || handEntered(c.source));
+          const leftOut = leftOutBy(doc, st);
+          if (leftOut) state = 'not_applicable';
           if (inputChanged.length) {
             c.results = evaluate(doc, events, key, c.values);
             if (state === 'done' || state === 'done_awaiting_check' || state === 'checked') [state, needsResign] = ['in_progress', true];
           }
           last = { key, id: keyId(key), stageKey: s.key, stepKey: st.key, state: state === 'waiting' && gate === null ? 'open' : state, needsResign,
-            ...(state === 'waiting' && gate !== null ? { blocked: gate } : {}), events: evs, ...c, inputChanged };
+            ...(state === 'waiting' && gate !== null ? { blocked: gate } : {}), events: evs, ...c, inputChanged, ...(leftOut ? { leftOut } : {}) };
           steps.push(last);
           // A round that has events is always shown (an earlier round may be back in progress after a correction).
           if (!byKey.has(keyId({ ...key, round: round + 1 })) && (st.flow.kind !== 'repeat-until' || !finished(last, st.waitForCheck) || stopPassed(last, st) || round >= maxRounds(st))) break;
@@ -179,8 +193,13 @@ export function timers(doc: MasterDoc, events: readonly StepEvent[], now: Date):
       const key = { ...v.key, round: v.key.round + 1 };
       const next = steps.find((x) => x.id === keyId(key));
       const nextStart = next && earliest(next.events, 'started');
-      const at = plus(started, st.everyMinutes);
-      const t = { id: `every:${keyId(key)}`, kind: 'periodic' as const, key, label: `Check ${key.round} of step ${st.key} (every ${st.everyMinutes} min)`, from: started, at };
+      // F6 with a changing interval: after the set time from the first round's start, the later interval (F0030).
+      const first = steps.find((x) => x.id === keyId({ ...v.key, round: 1 }));
+      const firstStart = first && earliest(first.events, 'started');
+      const later = st.everyMinutesLater && firstStart && started >= plus(firstStart, st.everyMinutesLater.afterMinutes);
+      const every = later ? st.everyMinutesLater!.everyMinutes : st.everyMinutes;
+      const at = plus(started, every);
+      const t = { id: `every:${keyId(key)}`, kind: 'periodic' as const, key, label: `Check ${key.round} of step ${st.key} (every ${every} min)`, from: started, at };
       if (nextStart) { if (nextStart > at) out.push({ ...t, state: 'late' }); }
       else if (!stopPassed(v, st) && v.key.round < maxRounds(st)) out.push({ ...t, state: phase(started, at, now) });
     }
