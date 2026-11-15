@@ -190,7 +190,7 @@ describe('walking a stage', () => {
     expect((await act('asha', id, '9.1.0.1', 'start')).json()).toMatchObject({ error: 'no_such_step' });
     await act('asha', id, '1.1.0.1', 'start');
     const press = await act('asha', id, '1.1.0.1', 'record', { values: { balance: 'eq-prs', gross: 'heavy' } });
-    expect(press.json()).toMatchObject({ error: 'invalid_values', problems: ['PRS-01 is not one of the machine types this stage allows (balance, granulator, dryer, mill)', 'Gross weight: type a number, e.g. "50.300"'] });
+    expect(press.json()).toMatchObject({ error: 'invalid_values', problems: ['PRS-01 is not a balance (master data: tablet press)', 'Gross weight: type a number, e.g. "50.300"'] });
     await act('asha', id, '1.1.0.1', 'record', { values: { lot: 'API-2611', ...handLabels('lot', 'lot'), balance: 'eq-bal', ...handLabels('balance', 'machine'), assay: '99.0', lod: '0.5', gross: '11.000', tare: '0.850' } });
     const stale = await act('asha', id, '1.1.0.1', 'done', { proof: proofFor('asha'), contentHash: '0'.repeat(64) });
     expect(stale.json()).toMatchObject({ error: 'content_changed' });
@@ -207,10 +207,13 @@ describe('walking a stage', () => {
     const balance = findBlock({ id: 'weigh', version: 1 })!.fields.find((f) => f.name === 'balance')!;
     const rooms = [{ code: 'GRN-01', area: 'Granulation' }, { code: 'DSP-01', area: 'Dispensing' }, { code: 'QCL-02', area: 'QC laboratory' }, { code: 'BL-GRN', area: 'Beta-lactam' }];
     const m = (code: string, type: string, room: string | null) => machineRefusal(stage, balance, { code, type, room }, rooms);
-    expect([m('BAL-01', 'Balance', 'DSP-01'), m('BAL-02', 'balance', null)]).toEqual([null, null]);
+    expect([m('BAL-01', 'Balance', 'DSP-01'), m('BAL-03', 'balance', 'GRN-01')]).toEqual([null, null]);
+    expect(m('BAL-02', 'balance', null)).toBe('BAL-02 stands in no room in master data, so it is not in a room this stage allows (Granulation, DSP-01)');
     expect(m('SPV-01', 'Vessel', 'GRN-01')).toBe('SPV-01 is not a balance (master data: Vessel)');
-    expect(m('BAL-06', 'Balance', 'QCL-02')).toBe('BAL-06 stands in QCL-02, not in a room this stage allows (Granulation, DSP-01)');
-    expect(m('PRS-01', 'Tablet press', 'GRN-01')).toBe('PRS-01 is not one of the machine types this stage allows (Balance, Vessel)');
+    expect(m('BAL-06', 'Balance', 'QCL-02')).toBe('BAL-06 stands in QCL-02 (QC laboratory), a laboratory area: weigh with a balance of a dispensing area or of a room this stage allows');
+    expect(m('BAL-07', 'Balance', 'BL-GRN')).toBe('BAL-07 stands in BL-GRN, neither in a dispensing or weighing area nor in a room this stage allows (Granulation, DSP-01)');
+    const press = findBlock({ id: 'compress', version: 1 })!.fields.find((f) => f.name === 'machine')!;
+    expect(machineRefusal(stage, press, { code: 'PRS-01', type: 'Tablet press', room: 'GRN-01' }, rooms)).toBe('PRS-01 is not one of the machine types this stage allows (Balance, Vessel)');
     expect(rooms.map((r) => roomRefusal(stage, r))).toEqual([null, null, 'QCL-02 is not one of the rooms this stage allows (Granulation, DSP-01)', 'BL-GRN is not one of the rooms this stage allows (Granulation, DSP-01)']);
   });
 

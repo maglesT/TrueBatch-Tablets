@@ -1,7 +1,9 @@
 /**
  * The machines and rooms a step field offers and accepts (owner, 15 Nov 2026), from master data's type, room and area:
  * a machine of the stage's allowed types and of the type the field asks for (a balance field: balances only, never a
- * QC lab analytical or micro balance), standing in a room the stage allows; a room the stage allows by its area or by its own code.
+ * QC lab analytical or micro balance), standing in a room the stage allows; a room the stage allows by its area or by
+ * its own code. A balance is not one of the stage's process machines: it is offered where the weighing is done, in a
+ * dispensing or weighing area or in a room the stage allows, never in a QC or laboratory area.
  */
 import type { BlockField } from '../blocks/format.js';
 import type { Stage } from '../master/schema.js';
@@ -9,6 +11,10 @@ import type { Stage } from '../master/schema.js';
 export interface PickMachine { code: string; type?: string | null; room?: string | null }
 export interface PickRoom { code: string; area?: string | null }
 const among = (list: readonly string[], x: string | null | undefined) => list.some((a) => a.toLowerCase() === (x ?? '').toLowerCase());
+// Master data's room areas (the demo has Dispensing, Sterile dispensing, Liquid dispensing; QC, Microbiology, Wet chemistry, Stability).
+const WEIGHING_AREA = /dispens|weigh/i;
+const LAB_AREA = /\bqc\b|quality control|laborator|\blab\b|microbiolog|chemistry|stability/i;
+export const isBalance = (f: BlockField) => !!f.types?.includes('balance');
 
 /** Why a room is not one the stage allows; null when it is. */
 export function roomRefusal(stage: Stage, r: PickRoom): string | null {
@@ -18,10 +24,24 @@ export function roomRefusal(stage: Stage, r: PickRoom): string | null {
 
 /** Why a machine does not fit the field in this stage; null when it does. */
 export function machineRefusal(stage: Stage, f: BlockField, m: PickMachine, rooms: readonly PickRoom[]): string | null {
-  if (stage.machineTypes.length && !among(stage.machineTypes, m.type)) return `${m.code} is not one of the machine types this stage allows (${stage.machineTypes.join(', ')})`;
+  const balance = isBalance(f);
+  if (!balance && stage.machineTypes.length && !among(stage.machineTypes, m.type)) return `${m.code} is not one of the machine types this stage allows (${stage.machineTypes.join(', ')})`;
   const type = (m.type ?? '').toLowerCase();
+  if (!type && f.types?.length) return `${m.code} has no type in master data, so it is not offered as a ${f.label.toLowerCase()}`;
   if ((f.types?.length && !f.types.some((w) => type.includes(w))) || f.notTypes?.some((w) => type.includes(w))) return `${m.code} is not a ${f.label.toLowerCase()} (master data: ${m.type ?? 'no type'})`;
   const room = m.room ? rooms.find((r) => r.code === m.room) : undefined;
-  if (room && roomRefusal(stage, room)) return `${m.code} stands in ${room.code}, not in a room this stage allows (${stage.roomTypes.join(', ')})`;
+  if (balance && room && LAB_AREA.test(room.area ?? '')) return `${m.code} stands in ${room.code} (${room.area}), a laboratory area: weigh with a balance of a dispensing area or of a room this stage allows`;
+  if (!stage.roomTypes.length || (balance && room && WEIGHING_AREA.test(room.area ?? ''))) return null;
+  if (!room) return `${m.code} stands in no room in master data, so it is not in a room this stage allows (${stage.roomTypes.join(', ')})`;
+  if (roomRefusal(stage, room)) return `${m.code} stands in ${room.code}, ${balance ? 'neither in a dispensing or weighing area nor' : 'not'} in a room this stage allows (${stage.roomTypes.join(', ')})`;
   return null;
+}
+
+/** What the picker says of the active machines it leaves out for having no type in master data (they cannot be matched to the field). */
+export function untypedNote(f: BlockField, machines: readonly (PickMachine & { active?: boolean })[]): string | null {
+  if (f.kind !== 'machine' || !f.types?.length) return null;
+  const codes = machines.filter((m) => m.active !== false && !m.type?.trim()).map((m) => m.code);
+  if (!codes.length) return null;
+  const shown = codes.length > 6 ? `${codes.slice(0, 6).join(', ')} and ${codes.length - 6} more` : codes.join(', ');
+  return `Not offered, because master data gives no type: ${shown}. Engineering sets the type (and the room) in master data.`;
 }

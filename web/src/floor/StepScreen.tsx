@@ -12,7 +12,7 @@ import { ReasonDialog } from './ReasonDialog.js';
 import { CERTIFICATE, fieldLabel, handEntered, LINK_OF } from '../../../shared/engine/links.js';
 import { notYetText } from '../../../shared/engine/batch.js';
 import { plantText } from '../../../shared/plant-time.js';
-import { machineRefusal, roomRefusal } from '../../../shared/engine/picks.js';
+import { machineRefusal, roomRefusal, untypedNote } from '../../../shared/engine/picks.js';
 import { materialLines } from '../../../shared/master/schema.js';
 
 type Dialog = { kind: 'done' | 'repeat' | 'check' | 'na' | 'send-back' | 'note' } | { kind: 'na-sign'; reason: string } | { kind: 'correct'; field: BlockField };
@@ -137,7 +137,7 @@ export function StepScreen({ me, d, blocks, row, now, reload }: { me: Me; d: Bat
     if (!pulled && (can('record') || (v === undefined && row.state === 'open') || (f.count && v !== undefined))) {
       return (
         <div key={f.name}>
-          <FieldInput f={f} unit={unit} saved={v} picks={picksFor(f)} options={f.kind === 'lot' ? lots.map((l) => l.lotNumber) : []}
+          <FieldInput f={f} unit={unit} saved={v} picks={picksFor(f)} note={untypedNote(f, md.machine)} options={f.kind === 'lot' ? lots.map((l) => l.lotNumber) : []}
             disabled={!can('record')} out={outOf(f)} onSave={can('record') ? (raw) => record(f.name, raw) : undefined} />
           {src && <p className="muted small">{sourceWords(src)}</p>}
           {!can('record') && can('correct') && <button className="big" onClick={() => setDialog({ kind: 'correct', field: f })}>Correct {f.label.toLowerCase()}</button>}
