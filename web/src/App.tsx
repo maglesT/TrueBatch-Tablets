@@ -1,13 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, ApiError, type Me } from './api.js';
 import { Login } from './pages/Login.js';
-import { Home } from './pages/Home.js';
+import { MyWork } from './floor/MyWork.js';
+import { BatchScreen } from './floor/BatchScreen.js';
+import { go, useRoute } from './api-floor.js';
 
 type Page = 'home';
 
 export function App() {
   const [me, setMe] = useState<Me | null | undefined>(undefined);
   const [page, setPage] = useState<Page>('home');
+  // Floor screens: #/batch/12, #/batch/12/step/0.1.0.1, #/batch/12/approve (the tablet's back button works).
+  const route = useRoute();
 
   const refresh = useCallback(async () => {
     try {
@@ -37,7 +41,7 @@ export function App() {
       <header className="bar">
         <span className="brand"><img className="brand-mark" src="/truebatch-mark.svg" alt="TrueBatch" /><span><b>TrueBatch Tablets</b><small>by Medhanta</small></span></span>
         <nav>
-          <button className={page === 'home' ? 'tab on' : 'tab'} onClick={() => setPage('home')}>My work</button>
+          <button className={page === 'home' && !route.batch ? 'tab on' : 'tab'} onClick={() => { setPage('home'); go('#/'); }}>My work</button>
         </nav>
         <span className="who">
           {me.fullName}
@@ -45,7 +49,7 @@ export function App() {
         </span>
       </header>
       <main className="page">
-        {page === 'home' && <Home me={me} />}
+        {page === 'home' && (route.batch ? <BatchScreen me={me} id={route.batch} step={route.step} approve={route.approve} /> : <MyWork me={me} />)}
       </main>
     </>
   );
