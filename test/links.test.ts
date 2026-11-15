@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { connect, type Sql } from '../server/db.js';
-import { links, type Links } from '../server/links.js';
+import { links, namesProduct, type Links } from '../server/links.js';
 import { findBlock } from '../shared/blocks/index.js';
 import { batchRefusal, batchView, fieldLabel, handFields, type BatchEvent } from '../shared/engine/index.js';
 import { call, freshApp, handLabels, login, proofFor, seedUser, TEST_DATABASE_URL, type TestApp } from './helpers.js';
@@ -40,7 +40,9 @@ beforeAll(async () => {
       grant select on all tables in schema ${S.dv}, ${S.qms}, ${S.lb}, ${S.mms} to truebatch_app;
       insert into ${S.qms}.change_v1 (number, status, title, products, qa_approved_at) values
         ('CC-2026-0001', 'implementation', 'New supplier of lactose', 'PRD-001', now()), ('CC-2026-0002', 'qa', 'Press speed', null, null),
-        ('CC-2026-0003', 'rejected', 'Drop the coating', null, now());
+        ('CC-2026-0003', 'rejected', 'Drop the coating', null, now()),
+        ('CC-2026-0004', 'implementation', 'Larger batch of paracetamol', 'FG-PCM500 Paracetamol 500 mg tablets', now()),
+        ('CC-2026-0005', 'closure', 'New sifter screen', null, now());
       insert into ${S.lb}.equipment_status_v1 (master_id, code, kind, state, fit_for_use, blockers, warnings, in_use_batch, cleaned_at, cleaned_by, checked_at) values
         ('eq-str', 'STR-01', 'equipment', 'clean', true, '{}', '{"Use allowed under exception EXC-7"}', null, null, null, now()),
         ('eq-str2', 'STR-02', 'equipment', 'dirty', false, '{"Dirty hold expired","Calibration overdue"}', '{}', null, null, null, now()),
@@ -352,7 +354,21 @@ describe('TB-02 QMS: a new master version needs a QA-approved change control', (
     // Pulled from QMS: the approver may make it effective.
     expect((await as('quality', 'POST', `/api/master-versions/${id}/make-effective`, {})).statusCode).toBe(200);
     const picks = (await as('quality', 'GET', '/api/change-controls')).json() as { changes: { number: string }[] };
-    expect(picks.changes.map((c) => c.number)).toEqual(['CC-2026-0001']);
+    expect(picks.changes.map((c) => c.number)).toEqual(['CC-2026-0005', 'CC-2026-0004', 'CC-2026-0001']);
+  });
+
+  it('TB-02 only a change control naming the master\'s product is offered and accepted; one naming no product is taken with a warning', async () => {
+    const { id, review } = await draft();
+    const picks = (await as('quality', 'GET', `/api/change-controls?version=${id}`)).json() as { changes: { number: string; names: string }[] };
+    expect(picks.changes.map((c) => [c.number, c.names])).toEqual([['CC-2026-0005', 'none'], ['CC-2026-0001', 'yes']]);
+    expect((await review('quality', 'approve', { changeControl: 'CC-2026-0004' })).json()).toMatchObject({ error: 'other_product',
+      message: 'CC-2026-0004 is for FG-PCM500 Paracetamol 500 mg tablets in QMS, not for PRD-001 Examplol 100 mg film-coated tablets: pick the change control of this product.' });
+    expect((await review('quality', 'approve', { changeControl: 'CC-2026-0005' })).statusCode).toBe(200);
+    const [e] = await t.owner<{ payload: { source: { changeControl: { shown: string } } } }[]>`select payload from master_events where version_id = ${id} and kind = 'approved'`;
+    expect(e!.payload.source.changeControl.shown).toMatch(/QMS names no product: QA checked that it covers PRD-001$/);
+    const c = (products: string | null) => ({ number: 'CC', status: 'closed', title: null, qaApprovedAt: 'x', products });
+    const prd = { productCode: 'FG-ATV20', productName: 'Atorvastatin calcium tablets 20 mg' };
+    expect([c('fg-atv20, FG-ATV40'), c('ATORVASTATIN CALCIUM TABLETS 20 MG'), c('FG-ATV200'), c(' '), c(null)].map((x) => namesProduct(x, prd))).toEqual(['yes', 'yes', 'no', 'none', 'none']);
   });
 
   it('TB-02 QMS down: the number is typed, and another person makes the version effective', async () => {

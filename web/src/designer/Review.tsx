@@ -27,7 +27,7 @@ export function Review({ me, version, doc, blocked, onChanged, onGo }: {
   const [cc, setCc] = useState('');
   const [ccDone, setCcDone] = useState(false);
   // QA-approved change controls in QMS, to pick from (empty without the link).
-  const changes = useLinked<{ number: string; title: string | null }>(doing === 'approve' ? '/api/change-controls' : null, 'changes');
+  const changes = useLinked<{ number: string; title: string | null; names: 'yes' | 'none' }>(doing === 'approve' ? `/api/change-controls?version=${version.id}` : null, 'changes');
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
   const load = async () => setData(await getReview(version.id));
@@ -116,6 +116,7 @@ export function Review({ me, version, doc, blocked, onChanged, onGo }: {
         <Dialog title="Approve: change control" onCancel={close} onSubmit={() => (cc.trim() ? setCcDone(true) : setError('Type the change control number.'))} submit="Continue to sign" error={error}>
           <label>Change control number<input autoFocus value={cc} onChange={(e) => setCc(e.target.value)} list="cc-picks" placeholder={changes.length ? 'Pick the change control from QMS' : 'e.g. CC-2026-014'} /></label>
           {changes.length > 0 && <datalist id="cc-picks">{changes.map((c) => <option key={c.number} value={c.number}>{c.title}</option>)}</datalist>}
+          {changes.find((c) => c.number === cc.trim())?.names === 'none' && <p className="notice warn">QMS names no product for {cc.trim()}: check that it covers {doc.header.productCode} {doc.header.productName} before you sign.</p>}
           <p className="muted small">The QA-approved change control under which this version is introduced. Without the QMS link it is typed, and another person makes the version effective.</p>
         </Dialog>
       )}
