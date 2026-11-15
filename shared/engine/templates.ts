@@ -10,6 +10,8 @@ export const TEMPLATES: Record<string, Template> = {
   T16: T.t16Overage, T17: T.t17LiquidMakeUp, T18: T.t18ContentAdjusted, T19: T.t19Split, T20: T.t20MultiLot,
   T21: T.t21LesserGreater, T22: T.t22SieveAnalysis, T23: T.t23CompactStrength, T24: T.t24SpecificEnergy,
   T25: T.t25AbsoluteHumidity, T26: T.t26MixToTarget,
+  // Variants with their own result shape (formulation test, waves 3 and 5).
+  'T14-stratified': T.t14Stratified, 'T22-mix': T.t22MixPsd,
   C1: T.c1WithinLimits, C2: T.c2Count, C3: T.c3AllIndividual, C4: T.c4Observation, C5: T.c5SameBasis,
   C6: T.c6StagedTest, C7: T.c7SamplingPlan,
   // F2 "no further change": this round's reading against the previous round's ("$prev.name").

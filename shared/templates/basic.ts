@@ -2,7 +2,7 @@
  * T1 Difference, T2 Total, T3 % of target, T4 Accountability, T5 % change,
  * T6 Ratio and powder indices, T21 Lesser / greater of values.
  */
-import { checkOf, defaultDecimals, Dec, fmt, HUNDRED, needKind, parse, refuse, run, sameKind, show, to, unitOf, ZERO, type Outcome, type Q } from './core.js';
+import { checkOf, defaultDecimals, Dec, fmt, HUNDRED, needKind, parse, refuse, run, sameKind, show, shownNumber, to, unitOf, ZERO, type Outcome, type Q } from './core.js';
 import type { Limit } from './rounding.js';
 import { differenceUnitOf, type Kind } from './units.js';
 
@@ -187,8 +187,9 @@ export interface T6Input {
   /**
    * ratio: a ÷ b; carr: (tapped − bulk) ÷ tapped × 100; hausner: tapped ÷ bulk; log10: log10(a ÷ b);
    * angle of repose (fixed funnel): arctan(height ÷ radius) in degrees, a = cone height, b = radius (or diameter, see bIs).
+   * whole containers: a = amount required, b = amount per container; containers = a ÷ b rounded UP, the excess shown.
    */
-  readonly mode: 'ratio' | 'carr' | 'hausner' | 'log10' | 'angle of repose';
+  readonly mode: 'ratio' | 'carr' | 'hausner' | 'log10' | 'angle of repose' | 'whole containers';
   /** Angle of repose only: b is the cone's radius (default) or its diameter (then tan = 2 × height ÷ diameter). */
   readonly bIs?: 'radius' | 'diameter';
   /** ratio/log10: numerator. carr/hausner: bulk density. */
@@ -215,8 +216,18 @@ const QUOTIENTS: readonly { num: Kind; den: Kind; numU: string; denU: string; re
   { num: 'count', den: 'time', numU: 'units', denU: 'h', result: 'units/h' },
 ];
 
-export function t6Ratio(i: T6Input): Outcome {
+export function t6Ratio(i: T6Input): Outcome<{ readonly excess?: Dec }> {
   return run(() => {
+    if (i.mode === 'whole containers') {
+      const need = parse(i.a, 'The amount required');
+      const per = parse(i.b, 'The amount per container');
+      sameKind([need, per], 'Whole containers');
+      if (need.v.isNegative() || !per.v.isPositive() || per.v.isZero()) refuse('The amount required cannot be negative, and the amount per container must be more than zero');
+      const value = to(need, per.unit).div(per.v).ceil();
+      const excess = value.times(per.v).minus(to(need, per.unit));
+      const shown = `${need.text} ÷ ${per.text} = ${fmt(to(need, per.unit).div(per.v), 2)}, rounded up to ${value.toFixed(0)} containers; excess ${shownNumber(excess, per.unit.symbol)} ${per.unit.symbol} (weigh a part container, or scale the batch)`;
+      return { ok: true, value, unit: 'units', excess, shown, ...checkOf(value, 'units', i.limit) };
+    }
     if (i.mode === 'carr' || i.mode === 'hausner') {
       const bulk = parse(i.a, 'The bulk density');
       const tapped = parse(i.b, 'The tapped density');

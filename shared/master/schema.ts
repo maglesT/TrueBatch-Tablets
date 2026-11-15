@@ -45,6 +45,15 @@ export const stepSchema = z.object({
   critical: z.boolean().default(false),
   minMinutes: z.number().int().positive().max(10_000).optional(),
   everyMinutes: z.number().int().positive().max(10_000).optional(),
+  // F6 with a changing interval: after `afterMinutes` from the first round, a round every `everyMinutes` (F0030).
+  everyMinutesLater: z.object({ afterMinutes: z.number().int().positive().max(10_000), everyMinutes: z.number().int().positive().max(10_000) }).strict().optional(),
+  // F4 by a rule: the step is done only when a header value is within the limit (F0040: the bag premix only for a
+  // batch of at most 50 kg); otherwise it is not applicable, with no operator choice.
+  onlyIf: z.object({ header: z.enum(['batchSize', 'coreBatch']), limit: limitSchema }).strict().optional(),
+  // A spray of a liquid made in excess: the amount of liquid to apply per amount charged (F0339: 971 g per 150 g).
+  applyPerCharge: z.object({ liquid: text(40), charge: text(40) }).strict().optional(),
+  // Order-critical: this step must come after the step with this key in the same stage (F0318: the drug after the PVP).
+  orderAfter: keySchema.optional(),
   flow: flowSchema.default({ kind: 'none' }),
 }).strict();
 
@@ -64,6 +73,8 @@ export const stageSchema = z.object({
 
 const form = z.object({
   name: text().min(1), mw: decimal, moleculesPerUnit: z.number().int().min(1).optional(), hydrateOrSolvate: z.boolean().optional(),
+  // The ion's charge, for a label claim in mEq (F0393).
+  charge: z.number().int().min(1).max(4).optional(),
 }).strict();
 
 export const lineSchema = z.object({
@@ -76,6 +87,10 @@ export const lineSchema = z.object({
   role: z.enum(['api', 'excipient', 'solvent']),
   place: z.enum(['intragranular', 'extragranular', 'binder', 'coating']),
   layer: z.number().int().min(1).max(10).optional(),
+  // The API's label claim per tablet ("20 mg", "10 mEq"), on the basis the label-basis answer gives; checked, never used.
+  labelClaim: text(40).optional(),
+  // A batch quantity as written in the source ("120.000 kg"); only checked against mg per tablet × batch size (T8).
+  batchQuantity: text(40).optional(),
   // Settings of the adjustment templates, applied in this order: T11 salt factor, T9 potency or T18 content, T16
   // overage; or, for a filler, T10 compensation of the named lines.
   adjust: z.object({
@@ -90,6 +105,8 @@ export const lineSchema = z.object({
     }).strict().optional(),
     content: z.object({
       formulaQuantityIs: z.enum(['dry', 'wet']), nominalContent: z.string().optional(), contentSource: z.enum(['certificate', 'in-process result']).optional(),
+      // What an in-process result is: the content, or a relative assay in % of theoretical (F0205).
+      resultType: z.enum(['content', 'percent of theoretical']).optional(),
     }).strict().optional(),
     overage: z.object({ percent: decimal, maxPercent: decimal.optional() }).strict().optional(),
     compensates: z.array(keySchema).max(20).optional(),
@@ -103,6 +120,10 @@ export const headerSchema = z.object({
   batchSize: z.string().regex(/^[1-9]\d{0,9}$/, 'a whole number of tablets'),
   coreWeightMg: decimal,
   coatedWeightMg: decimal.optional(),
+  // The die bore area from the tooling record, to check that the target weight fits the tooling (F0135).
+  dieAreaMm2: decimal.optional(),
+  // Other strengths compressed from the same blend at their own core weight (F0225, F0366).
+  otherStrengths: z.array(z.object({ name: text().min(1), labelClaim: text(40), coreWeightMg: decimal }).strict()).max(10).optional(),
 }).strict();
 
 // The author's answer to a calculation warning (checks.ts), keyed by the warning and its item. `about` is the warning

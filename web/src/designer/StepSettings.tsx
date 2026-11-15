@@ -18,6 +18,12 @@ export function StepSettings({ doc, si, ti, onChange }: { doc: MasterDoc; si: nu
   const step = doc.stages[si]!.steps[ti]!;
   const block = findBlock(step.block);
   if (!block) return <p className="error">No block {step.block.id} version {step.block.version} in the library.</p>;
+  // An optional step field: set, or left out when undefined.
+  const opt = <K extends 'everyMinutesLater' | 'onlyIf' | 'orderAfter' | 'applyPerCharge'>(k: K, v: Step[K] | undefined) => {
+    const next: Step = { ...step, [k]: v };
+    if (v === undefined) delete next[k];
+    onChange(next);
+  };
   const setting = (name: string, v: SettingValue | undefined) => {
     const { [name]: _, ...rest } = step.settings;
     onChange({ ...step, settings: v === undefined ? rest : { ...rest, [name]: v } });
@@ -88,6 +94,20 @@ export function StepSettings({ doc, si, ti, onChange }: { doc: MasterDoc; si: nu
           )}
         </div>
         <label className="check"><input type="checkbox" checked={step.waitForCheck} onChange={(e) => onChange({ ...step, waitForCheck: e.target.checked })} />The next step waits for the check</label>
+        <div className="form-grid">
+          {step.everyMinutes && <>
+            <label>After (minutes from the first round)<input type="number" min={1} value={step.everyMinutesLater?.afterMinutes ?? ''} onChange={(e) => opt('everyMinutesLater', e.target.value ? { afterMinutes: Number(e.target.value), everyMinutes: step.everyMinutesLater?.everyMinutes ?? step.everyMinutes! } : undefined)} /></label>
+            {step.everyMinutesLater && <label>then a round every (minutes)<input type="number" min={1} value={step.everyMinutesLater.everyMinutes} onChange={(e) => opt('everyMinutesLater', { ...step.everyMinutesLater!, everyMinutes: Number(e.target.value) || 1 })} /></label>}
+          </>}
+          <label>Only when the core batch is at most (kg)<Decimal label="Only when the core batch is at most (kg)" placeholder="always" value={step.onlyIf?.limit.high}
+            onChange={(v) => opt('onlyIf', v ? { header: 'coreBatch', limit: { high: v, unit: 'kg' } } : undefined)} /></label>
+          <label>Order-critical: must come after<select value={step.orderAfter ?? ''} onChange={(e) => opt('orderAfter', e.target.value || undefined)}>
+            <option value="">(not order-critical)</option>{doc.stages[si]!.steps.filter((t) => t.key !== step.key).map((t) => <option key={t.key} value={t.key}>{t.key}</option>)}</select></label>
+          {/^(coat|spray-coat)$/.test(block.id) && <>
+            <label>Liquid to apply<input aria-label="Liquid to apply" placeholder="e.g. 971 g" value={step.applyPerCharge?.liquid ?? ''} onChange={(e) => opt('applyPerCharge', e.target.value ? { liquid: e.target.value, charge: step.applyPerCharge?.charge ?? '' } : undefined)} /></label>
+            {step.applyPerCharge && <label>per charge of<input aria-label="per charge of" placeholder="e.g. 150 g" value={step.applyPerCharge.charge} onChange={(e) => opt('applyPerCharge', { ...step.applyPerCharge!, charge: e.target.value })} /></label>}
+          </>}
+        </div>
       </details>
     </div>
   );

@@ -58,13 +58,19 @@ answering) or **ok**.
 ## Calculation checks
 Owner decision of 15 November 2026. The master check also runs calculation checks: error-proofing of the
 calculations while a master is built. They are **not GMP rules** and are not among the 22. A **refusal** (⛔) is a
-calculation the templates library refuses (water counted twice, a salt factor with a potency stated as parent or
-element, molecules per salt unit ignored, a negative filler or solvent, IU or CFU turned into a mass, weight
-variation on coated tablets other than film-coated); it shows on its item and must be fixed. A **warning** (⚠️) is a
-question of basis only the author can answer (label basis, herbal line, ratio basis, double adjustment, a written salt
-factor): the author picks an answer, with a reason where asked, and the answer is kept in the master document and
-shown to the checker and QA. An unanswered warning blocks "Send for review" like a refusal. The list is in
-`shared/templates/README.md`.
+clear maths error: a calculation the templates library refuses (water or solvent counted twice, a salt factor up to
+the weighed form with a potency stated as parent or element, molecules per salt unit ignored, a negative filler or
+solvent, IU or CFU turned into a mass, weight variation on coated tablets other than film-coated, a property that does
+not mix by mass), or the master's own numbers disagreeing (a batch quantity against per tablet × batch size, one
+material twice with two quantities, the coating lines against coated − core, the API per tablet against the label
+claim for each strength, mEq without the ion charge, an in-process result without its type, a liquid made in excess
+without the amount to apply per charge); it shows on its item and must be fixed. A **warning** (⚠️) is an "it depends"
+question only the author can answer (label basis per market and strength, herbal line, ratio basis, double
+adjustment, a written salt factor, a weight that does not fit the tooling, a weight target without its stage, a
+solvent-wet API, a removed processing aid, a one-sided particle-size limit, a moved order-critical step): the author
+picks an answer, with a reason where asked, and the answer is kept in the master document and shown to the checker
+and QA. An unanswered warning blocks "Send for review" like a refusal. The list, with the formulation each comes from
+(1,000-formulation test, waves 1-5), is in `shared/templates/README.md`.
 
 ## Testing
 - Tests per rule and per template, and a few browser journeys.

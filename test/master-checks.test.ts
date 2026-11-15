@@ -69,7 +69,7 @@ describe('master checks', () => {
 
   it('the formula must add up to the theoretical core weight (coating and solvents left out)', () => {
     expect(after((d) => { d.formula[4]!.mgPerTablet = '17.0'; })).toEqual(['error - formula: The core materials add up to 249.5 mg per tablet, not the theoretical core weight 250.0 mg']);
-    expect(after((d) => { d.formula[3]!.mgPerTablet = '80.0'; d.formula[6]!.mgPerTablet = '9.0'; })).toEqual([]);
+    expect(after((d) => { d.formula[3]!.mgPerTablet = '80.0'; d.formula[6]!.mgPerTablet = '9.0'; d.header.coatedWeightMg = '259.0'; })).toEqual([]);
   });
 
   it('TB-13 adjustment settings the templates library refuses are errors (same basis, overage, salt factor)', () => {
@@ -136,8 +136,8 @@ describe('calculation checks', () => {
     ['potency as parent with a salt factor',
       salt({ name: 'sodium', mw: '405.4' }, { potency: { basis: 'as is', potencyAs: 'parent' } }),
       (d) => { d.formula[0]!.adjust = { potency: { basis: 'as is', potencyAs: 'parent' } }; }, /factor is already inside it/],
-    ['potency as element with a compound factor',
-      salt({ name: 'calcium carbonate', mw: '100.09' }, { potency: { basis: 'as is', potencyAs: 'element' } }),
+    ['potency as element with a compound factor (calcium 40.08 to calcium carbonate 100.09: × 2.497)',
+      (d) => { d.formula[0]!.adjust = { salt: { from: { name: 'calcium', mw: '40.08' }, to: { name: 'calcium carbonate', mw: '100.09' } }, potency: { basis: 'as is', potencyAs: 'element' } }; },
       (d) => { d.formula[0]!.adjust = { potency: { basis: 'as is', potencyAs: 'element' } }; }, /factor is already inside it/],
     ['molecules per salt unit ignored (a hemi-salt at 1 molecule per unit)',
       salt({ name: 'hemifumarate', mw: '883.1' }), salt({ name: 'hemifumarate', mw: '883.1', moleculesPerUnit: 2 }), /is a hemi-salt/],
