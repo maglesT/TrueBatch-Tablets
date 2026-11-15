@@ -10,5 +10,5 @@ export const granulate: Block = {
     { name: 'endPointAt', label: 'End point reached at', kind: 'timer' },
   ],
   settings: [{ name: 'endPointLimit', label: 'End-point limits', kind: 'limit' }],
-  calcs: [{ name: 'endPointCheck', label: 'End point within limits', template: 'C1', args: { value: '$endPoint', limit: '$endPointLimit' } }],
+  calcs: [{ name: 'endPointCheck', label: 'End point against limits', template: 'C1', args: { value: '$endPoint', limit: '$endPointLimit' } }],
 };

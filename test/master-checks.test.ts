@@ -18,6 +18,12 @@ describe('blocks are data', () => {
     expect(blockProblems(b)).toEqual([]);
   });
 
+  it('no calculation label states its own outcome (the record never reads "Within limits: … OUT OF LIMITS")', () => {
+    const labels = BLOCKS.flatMap((b) => b.calcs.map((c) => c.label));
+    expect(labels.filter((l) => /within|out of|pass|fail/i.test(l))).toEqual([]);
+    expect(labels).toContain('Result against limits');
+  });
+
   it('a block naming an unknown template, field or stop check is refused', () => {
     const bad: Block = { ...BLOCKS[0]!, calcs: [{ name: 'x', label: 'X', template: 'T99', args: { a: '$nothing' } }], stop: 'y' };
     expect(blockProblems(bad)).toEqual(['calculation x: unknown template T99', 'calculation x: "$nothing" is not a field, setting or earlier calculation', 'stop: no calculation y']);
