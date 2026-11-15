@@ -178,6 +178,8 @@ describe('walking a stage', () => {
     expect((await sign('ravi', id, '0.1.1.1', 'check')).statusCode).toBe(200);
     const b = await batch(id);
     expect(b.stages[0]).toMatchObject({ key: 'binder', closed: true });
+    // The check that closed the preparation recorded it once (equipment_use_v1 ends the stage's uses then).
+    expect(await t.owner`select payload from batch_events where batch_id = ${id} and kind = 'stage_closed'`).toEqual([{ payload: { stage: 0 } }]);
     expect(b.steps.find((s) => s.id === '1.1.0.1')!.state).toBe('open');
     expect(b.timers).toMatchObject([{ id: 'hold:0:1', state: 'running' }]);
   });
@@ -397,7 +399,7 @@ describe('production approval, QC approval and QA release', () => {
 
   it('TB-05 every step and batch action is in TrueBatch\'s own audit trail', async () => {
     const rows = await t.owner<{ action: string }[]>`select distinct action from audit_log where object_type = 'batch' and object_id = ${String(id)} order by action`;
-    expect(rows.map((r) => r.action)).toEqual(['batch.deviation_closed', 'batch.issued', 'batch.production_approved', 'batch.qc_approved', 'batch.released', 'signed.issued',
+    expect(rows.map((r) => r.action)).toEqual(['batch.deviation_closed', 'batch.issued', 'batch.production_approved', 'batch.qc_approved', 'batch.released', 'batch.stage_closed', 'signed.issued',
       'step.checked', 'step.done', 'step.note', 'step.started', 'step.value']);
   });
 

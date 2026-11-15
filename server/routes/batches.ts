@@ -5,7 +5,7 @@ import { audit } from '../audit.js';
 import { parseId, requirePermission, type SessionUser } from '../auth.js';
 import { usableItem } from '../master.js';
 import { machineRefusal, roomRefusal } from '../../shared/engine/picks.js';
-import { handProblem, mfgDateProblem, pullBulk, pullItem, pullLot, pulledWords } from '../pull.js';
+import { handProblem, lineOf, mfgDateProblem, pullBulk, pullItem, pullLot, pulledWords } from '../pull.js';
 import { SignError, authenticateSigner, contentHash, sign, signBody } from '../signatures.js';
 import { masterVersion } from './masters.js';
 import { batchRecordDoc, type RecordInput, type Signature } from '../batch-record.js';
@@ -14,8 +14,8 @@ import { findBlock } from '../../shared/blocks/index.js';
 import { blocking, masterChecks } from '../../shared/master/checks.js';
 import type { MasterDoc } from '../../shared/master/schema.js';
 import {
-  ACTIONS, BATCH_ACTIONS, CERTIFICATE, LINK_OF, batchRefusal, stepLabel, stepTitle, handFields, isHand, batchView, doneProblems, evaluate, lateItems, openSteps, parseKey, readValue, refusal, review, timers,
-  type Action, type BatchAction, type BatchEvent, type DeviationStatus, type LinkState, type Source, type StepEvent, type StepKey, type StepView, type Timer, type Value,
+  ACTIONS, BATCH_ACTIONS, CERTIFICATE, LINK_OF, batchRefusal, stepLabel, stepPlace, stepTitle, handFields, isHand, batchView, doneProblems, evaluate, lateItems, openSteps, parseKey, readValue, refusal, review, timers,
+  type Action, type BatchAction, type BatchEvent, type DeviationStatus, type LinkState, type Source, type StageView, type StepEvent, type StepKey, type StepView, type Timer, type Value,
 } from '../../shared/engine/index.js';
 
 // Plant time zone: the batch number's year is the plant's year.
@@ -50,7 +50,7 @@ export async function loadBatch(q: Sql | Tx, id: number): Promise<LoadedBatch | 
     from step_events e left join users u on u.id = e.person_id where e.batch_id = ${id} order by e.id`;
   const batchEvents = await q<LoadedBatch['batchEvents']>`
     select e.id::int, e.kind, e.payload, e.person_id::int as person, u.full_name as "personName", e.at
-    from batch_events e join users u on u.id = e.person_id where e.batch_id = ${id} order by e.id`;
+    from batch_events e join users u on u.id = e.person_id where e.batch_id = ${id} and e.kind <> 'stage_closed' order by e.id`;
   const { doc, now, ...batch } = b;
   return { batch, doc, events: [...events], batchEvents: [...batchEvents], now };
 }
@@ -242,6 +242,31 @@ function myWork(l: LoadedBatch, user: SessionUser) {
   };
 }
 
+// The blocks whose material other products read as used (material_use_v1 of both products).
+const MATERIAL_USE = ['weigh', 'lubricate', 'pack-material-issue'];
+/** The unit master data gives the step's material, read now; none when master data does not answer. */
+async function stockUnit(app: FastifyInstance, doc: MasterDoc, key: StepKey): Promise<string | undefined> {
+  const st = doc.stages[key.stage]!.steps[key.step]!;
+  const line = MATERIAL_USE.includes(st.block.id) ? lineOf(doc, st) : undefined;
+  if (!line) return undefined;
+  try { return (await app.master.materials()).find((m) => m.itemId === line.materialItemId)?.unit?.trim() || undefined; } catch { return undefined; }
+}
+
+/**
+ * A stage closed by this action, recorded once as a batch event 'stage_closed' (the engine works it out: every step
+ * done, checked or not applicable). A machine or room is in use by its stage until then (equipment_use_v1).
+ */
+async function recordClosedStages(tx: Tx, id: number, before: readonly StageView[], person: number) {
+  const l = (await loadBatch(tx, id))!;
+  for (const s of openSteps(l.doc, l.events, l.now).stages) {
+    if (!s.closed || before[s.index]?.closed) continue;
+    const [e] = await tx<{ id: number }[]>`
+      insert into batch_events (batch_id, kind, payload, person_id) values (${id}, 'stage_closed', ${tx.json({ stage: s.index })}, ${person})
+      on conflict do nothing returning id::int`;
+    if (e) await audit(tx, { actorId: person, action: 'batch.stage_closed', objectType: 'batch', objectId: id, new: { event: e.id, stage: s.index, name: s.name } });
+  }
+}
+
 export function batchRoutes(app: FastifyInstance, sql: Sql) {
   const anyUser = { preHandler: requirePermission() };
 
@@ -273,7 +298,7 @@ export function batchRoutes(app: FastifyInstance, sql: Sql) {
         if (facts) {
           // The batch facts are the first step's values, by the issuer: the step is then finished on the floor.
           const payload = { values: facts.values, results: facts.results, uses: [], ...(Object.keys(facts.source).length ? { source: facts.source } : {}) };
-          for (const [kind, p] of [['started', {}], ['value', payload]] as const) {
+          for (const [kind, p] of [['started', { where: stepPlace(v.doc, { stage: 0, sub: 1, step: 0, round: 1 }) }], ['value', payload]] as const) {
             const [e] = await tx<{ id: number }[]>`insert into step_events (batch_id, stage, sub, step, round, kind, payload, person_id)
               values (${row!.id}, 0, 1, 0, 1, ${kind}, ${tx.json(p as never)}, ${user.id}) returning id::int`;
             await audit(tx, { actorId: user.id, action: `step.${kind}`, objectType: 'batch', objectId: row!.id, new: { step: '0.1.0.1', event: e!.id, ...p } });
@@ -456,7 +481,8 @@ export function batchRoutes(app: FastifyInstance, sql: Sql) {
           // 1. the step's events, 2. its state
           const l = await loadBatch(tx, id);
           if (!l) throw new StepError(404, 'not_found');
-          const v = openSteps(l.doc, l.events, l.now).steps.find((s) => s.id === req.params.key);
+          const before = openSteps(l.doc, l.events, l.now);
+          const v = before.steps.find((s) => s.id === req.params.key);
           if (!v) throw new StepError(404, 'no_such_step');
           // Once production has approved the record it is closed to changes; notes stay possible until QA decides.
           const decided = l.batchEvents.find((e) => e.kind === 'released' || e.kind === 'rejected');
@@ -481,6 +507,10 @@ export function batchRoutes(app: FastifyInstance, sql: Sql) {
           if (b.text) payload.text = b.text;
           // Where the note was written, in words, for the deviation filed from it (deviation_note_v1.step).
           if (action === 'note') payload.where = stepLabel(l.doc, key);
+          // Where the step is, in words, for the uses other products read (equipment_use_v1, material_use_v1: step_name).
+          if (action === 'start') payload.where = stepPlace(l.doc, key);
+          // A material used: its unit in master data as read at signing (material_use_v1 gives MMS the quantity in it).
+          if (action === 'done') { const unit = await stockUnit(app, l.doc, key); if (unit) payload.stockUnit = unit; }
           if (b.reference) {
             // The reference must be a deviation of the Deviations system while it answers; else typed, and QA closes it by hand.
             const r = await app.links.deviations.byNumbers([b.reference]);
@@ -500,6 +530,7 @@ export function batchRoutes(app: FastifyInstance, sql: Sql) {
           }
           // 5. audit
           await audit(tx, { actorId: user.id, action: `step.${rule.event}`, objectType: 'batch', objectId: id, new: { step: v.id, event: ev!.id, ...payload }, reason: b.reason ?? null });
+          await recordClosedStages(tx, id, before.stages, user.id);
           return { ok: true, eventId: ev!.id };
         });
       } catch (e) {
