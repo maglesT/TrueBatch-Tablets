@@ -53,7 +53,7 @@ export function App() {
           {['qc.approve', 'qa.release'].some((c) => can(me, c)) && (
             <button className={release ? 'tab on' : 'tab'} onClick={() => { setPage('home'); go('#/release'); }}>To review</button>
           )}
-          {['master.author', 'master.check', 'master.approve', 'view'].some((c) => can(me, c)) && (
+          {['master.author', 'master.check', 'master.approve', 'batch.issue', 'view'].some((c) => can(me, c)) && (
             <button className={page === 'masters' && !release ? 'tab on' : 'tab'} onClick={() => { setPage('masters'); go('#/'); }}>{product.packing ? 'Packing masters' : 'Master records'}</button>
           )}
         </nav>
