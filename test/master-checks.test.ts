@@ -4,13 +4,15 @@ import { blockProblems, type Block } from '../shared/blocks/format.js';
 import { evaluate } from '../shared/engine/index.js';
 import { blocking, masterChecks } from '../shared/master/checks.js';
 import { masterSchema, type MasterDoc } from '../shared/master/schema.js';
-import { tablet } from './engine-fixture.js';
+import { placed, tablet, unplaced } from './engine-fixture.js';
+// The problems, without the rooms a stage must name (TB-11): the fixtures name none.
+const checks = (d: Parameters<typeof masterChecks>[0]) => unplaced(masterChecks(d));
 
 /** The fixture with one change; the problems that change makes. */
 function after(change: (d: MasterDoc) => void) {
   const d = tablet();
   change(d);
-  return masterChecks(d).map((p) => `${p.level} ${p.rule ?? '-'} ${p.path}: ${p.message}`);
+  return checks(d).map((p) => `${p.level} ${p.rule ?? '-'} ${p.path}: ${p.message}`);
 }
 const errors = (change: (d: MasterDoc) => void) => after(change).filter((p) => p.startsWith('error'));
 const step = (d: MasterDoc, stage: string, key: string) => d.stages.find((s) => s.key === stage)!.steps.find((t) => t.key === key)!;
@@ -34,7 +36,17 @@ describe('blocks are data', () => {
 
 describe('master checks', () => {
   it('the fixture tablet master passes every check', () => {
-    expect(masterChecks(tablet())).toEqual([]);
+    expect(checks(tablet())).toEqual([]);
+    expect(masterChecks(placed(tablet()))).toEqual([]);
+  });
+
+  it('TB-11 a stage that works machines or names a room, with no rooms chosen, is an error; balances alone and the line a packing batch is issued to are not', () => {
+    expect(masterChecks(tablet()).filter((p) => p.rule === 'TB-11').map((p) => `${p.path}: ${p.message}`)).toEqual(['Binder solution', 'Granulation', 'Compression', 'Coating']
+      .map((name, i) => `stages[${i}].roomTypes: Stage ${name}: choose the rooms this stage may run in (an area or a room of master data, in the stage settings)`));
+    const d = placed(tablet());
+    d.stages[0]!.roomTypes = [];
+    d.stages[0]!.steps = d.stages[0]!.steps.filter((t) => t.block.id === 'weigh');
+    expect(masterChecks(d).filter((p) => p.rule === 'TB-11')).toEqual([]);
   });
 
   it('a draft may be incomplete, but its shape is checked', () => {
@@ -196,16 +208,16 @@ describe('calculation checks', () => {
   ])('calculation check ⚠️ %s: fires, passes, and once answered no longer blocks', (_what, fires, passes, key, path, choice) => {
     const d = tablet();
     fires(d);
-    const q = masterChecks(d).find((p) => p.question?.key === key)!;
+    const q = checks(d).find((p) => p.question?.key === key)!;
     expect(q).toMatchObject({ level: 'warning', path, question: { options: expect.arrayContaining([choice]) } });
     expect(blocking(q)).toBe(true);
     // passes: the warning is not there
     const ok = tablet();
     passes(ok);
-    expect(masterChecks(ok).some((p) => p.question?.key === key)).toBe(false);
+    expect(checks(ok).some((p) => p.question?.key === key)).toBe(false);
     // answered (with a reason where one is needed): shown as answered, not blocking
     d.answers = { [key]: { about: q.message, choice, reason: q.question!.needsReason ? 'Per the development report' : '' } };
-    const answered = masterChecks(d).find((p) => p.question?.key === key)!;
+    const answered = checks(d).find((p) => p.question?.key === key)!;
     expect(answered.question!.answer).toMatchObject({ choice });
     expect(blocking(answered)).toBe(false);
   });
@@ -213,8 +225,8 @@ describe('calculation checks', () => {
   it('calculation check ⚠️ an answer counts only while it fits: a choice from the list, a reason where needed, the warning as answered', () => {
     const d = tablet();
     double(d);
-    const q = masterChecks(d).find((p) => p.question?.key === 'double-adjustment/mcc')!;
-    const answer = (a: object) => { d.answers = { 'double-adjustment/mcc': { about: q.message, choice: 'intended', reason: 'Validated', ...a } }; return masterChecks(d).find((p) => p.question?.key === 'double-adjustment/mcc')!; };
+    const q = checks(d).find((p) => p.question?.key === 'double-adjustment/mcc')!;
+    const answer = (a: object) => { d.answers = { 'double-adjustment/mcc': { about: q.message, choice: 'intended', reason: 'Validated', ...a } }; return checks(d).find((p) => p.question?.key === 'double-adjustment/mcc')!; };
     expect(blocking(answer({}))).toBe(false);
     expect(blocking(answer({ reason: ' ' }))).toBe(true);
     expect(blocking(answer({ choice: 'maybe' }))).toBe(true);
@@ -225,7 +237,7 @@ describe('calculation checks', () => {
 it('calculation check ⚠️ the messages say what to answer, in plain words', () => {
   const d = tablet();
   d.formula[0]!.adjust = { salt: { from: { name: 'base', mw: '383.4' }, to: { name: 'sodium', mw: '405.4' }, factor: '1.10' } };
-  expect(masterChecks(d).map((p) => `${p.path}: ${p.message}`)).toEqual([
+  expect(checks(d).map((p) => `${p.path}: ${p.message}`)).toEqual([
     "formula[0]: Label claim for this master's market: is the strength of Examplol stated as base or as sodium? The formula gives 100.0 mg of base per tablet.",
     'formula[0].adjust.salt: The salt factor 1.10 written for Examplol differs by 4.0 % from the molecular weights of base and sodium (factor 1.0574), which the batch quantity uses. Confirm with a reason, or correct the factor or the molecular weights.',
   ]);

@@ -4,7 +4,7 @@ import { links, namesProduct, type Links } from '../server/links.js';
 import { findBlock } from '../shared/blocks/index.js';
 import { batchRefusal, batchView, fieldLabel, handFields, type BatchEvent } from '../shared/engine/index.js';
 import { call, freshApp, handLabels, login, proofFor, seedUser, TEST_DATABASE_URL, type TestApp } from './helpers.js';
-import { at, ev, small, tablet } from './engine-fixture.js';
+import { at, ev, small, tablet, placed } from './engine-fixture.js';
 
 // The links to Deviations, QMS, Logbook and MMS (owner 15 Nov 2026), each read through a fake provider schema in the
 // test database with TrueBatch's restricted login, as on the platform: absent (no URL), down (refused or not
@@ -334,7 +334,7 @@ describe('TB-21 Deviations: the deviation number and its status come from the De
 
 describe('TB-02 QMS: a new master version needs a QA-approved change control', () => {
   const draft = async () => {
-    const { id } = (await as('author', 'POST', '/api/masters', { doc: tablet() })).json() as { id: number };
+    const { id } = (await as('author', 'POST', '/api/masters', { doc: placed(tablet()) })).json() as { id: number };
     const hash = async (who: string) => ((await as(who, 'GET', `/api/master-versions/${id}/review`)).json() as { contentHash: string }).contentHash;
     const review = async (who: string, action: string, extra: object = {}) =>
       as(who, 'POST', `/api/master-versions/${id}/${action}`, { proof: proofFor(who), contentHash: await hash(who), ...extra });

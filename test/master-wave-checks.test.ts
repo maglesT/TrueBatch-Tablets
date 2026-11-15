@@ -2,17 +2,19 @@ import { describe, expect, it } from 'vitest';
 import { openSteps, timers } from '../shared/engine/index.js';
 import { blocking, masterChecks } from '../shared/master/checks.js';
 import type { MasterDoc } from '../shared/master/schema.js';
-import { at, ev, tablet } from './engine-fixture.js';
+import { at, ev, tablet, unplaced } from './engine-fixture.js';
+// The problems, without the rooms a stage must name (TB-11): the fixtures name none.
+const checks = (d: Parameters<typeof masterChecks>[0]) => unplaced(masterChecks(d));
 
 // Calculation checks from the 1,000-formulation test (waves 1-5): not GMP rules. Each case cites its formulation.
 type Change = (d: MasterDoc) => void;
-const lines = (change: Change) => { const d = tablet(); change(d); return masterChecks(d).map((p) => `${p.level} ${p.rule ?? '-'} ${p.path}: ${p.message}`); };
+const lines = (change: Change) => { const d = tablet(); change(d); return checks(d).map((p) => `${p.level} ${p.rule ?? '-'} ${p.path}: ${p.message}`); };
 const only = (level: string, path: string) => (change: Change) => lines(change).filter((p) => p.startsWith(`${level} `) && p.includes(` ${path}: `));
 const step = (d: MasterDoc, stage: string, key: string) => d.stages.find((s) => s.key === stage)!.steps.find((t) => t.key === key)!;
 /** The change, then the warning `key` answered with `choice`. */
 const answered = (change: Change, key: string, choice: string): Change => (d) => {
   change(d);
-  const q = masterChecks(d).find((p) => p.question?.key === key)!;
+  const q = checks(d).find((p) => p.question?.key === key)!;
   d.answers = { ...d.answers, [key]: { about: q.message, choice, reason: '' } };
 };
 const salted = (from: object, to: object, mg: string, claim: string): Change => (d) => {
@@ -109,14 +111,14 @@ describe('calculation checks ⚠️ from the formulation test', () => {
   ])('calculation check ⚠️ %s: fires, passes, and once answered no longer blocks', (_what, fires, passes, key, path, choice) => {
     const d = tablet();
     fires(d);
-    const q = masterChecks(d).find((p) => p.question?.key === key)!;
+    const q = checks(d).find((p) => p.question?.key === key)!;
     expect(q).toMatchObject({ level: 'warning', path, question: { options: expect.arrayContaining([choice]) } });
     expect(blocking(q)).toBe(true);
     const ok = tablet();
     passes(ok);
-    expect(masterChecks(ok).some((p) => p.question?.key === key)).toBe(false);
+    expect(checks(ok).some((p) => p.question?.key === key)).toBe(false);
     d.answers = { [key]: { about: q.message, choice, reason: q.question!.needsReason ? 'Per the development report' : '' } };
-    expect(blocking(masterChecks(d).find((p) => p.question?.key === key)!)).toBe(false);
+    expect(blocking(checks(d).find((p) => p.question?.key === key)!)).toBe(false);
   });
 });
 
@@ -133,11 +135,11 @@ describe('F4 by rule and F6 with a changing interval (data-level options)', () =
   it('F6 F0030: checks every 30 min, then every 15 min after 60 min; a later interval above 30 min is TB-15', () => {
     const d = tablet();
     step(d, 'compression', 'compress').everyMinutesLater = { afterMinutes: 60, everyMinutes: 15 };
-    expect(masterChecks(d)).toEqual([]);
+    expect(checks(d)).toEqual([]);
     const events = [ev('started', '2.1.0.1', { min: 0 }), ev('started', '2.1.0.2', { min: 30 }), ev('started', '2.1.0.3', { min: 60 })];
     const t = timers(d, events, at(61)).find((x) => x.kind === 'periodic' && x.key.round === 4)!;
     expect([t.at.getTime() - at(0).getTime(), t.label]).toEqual([75 * 60_000, 'Check 4 of “Compress with periodic checks” (every 15 min)']);
     step(d, 'compression', 'compress').everyMinutesLater = { afterMinutes: 60, everyMinutes: 45 };
-    expect(masterChecks(d).map((p) => p.message)).toEqual(['Periodic checks every 45 min: they must be at least every 30 min']);
+    expect(checks(d).map((p) => p.message)).toEqual(['Periodic checks every 45 min: they must be at least every 30 min']);
   });
 });

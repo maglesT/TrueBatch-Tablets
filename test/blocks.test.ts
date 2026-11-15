@@ -4,7 +4,9 @@ import { blockProblems } from '../shared/blocks/format.js';
 import { doneProblems, evaluate, openSteps, parseKey, type StepEvent, type Value } from '../shared/engine/index.js';
 import { masterChecks } from '../shared/master/checks.js';
 import type { MasterDoc } from '../shared/master/schema.js';
-import { at, ev, small } from './engine-fixture.js';
+import { at, ev, small, unplaced } from './engine-fixture.js';
+// The problems, without the rooms a stage must name (TB-11): the fixtures name none.
+const checks = (d: Parameters<typeof masterChecks>[0]) => unplaced(masterChecks(d));
 
 // The standard tablet blocks: each is a description that the format accepts and that a small master can use without
 // a master-check problem; the engine runs them like any other block.
@@ -45,7 +47,7 @@ const using = (id: string, settings: object, options: object = {}): MasterDoc =>
 describe('the standard tablet blocks', () => {
   it.each(NEW)('the %s block is a valid description, and a small master using it passes the master check', (id, settings, options) => {
     expect(blockProblems(findBlock({ id, version: 1 })!)).toEqual([]);
-    expect(masterChecks(using(id, settings, options)).map((p) => `${p.path}: ${p.message}`)).toEqual([]);
+    expect(checks(using(id, settings, options)).map((p) => `${p.path}: ${p.message}`)).toEqual([]);
   });
 
   it('a liquid make-up is worked out in the master check before any batch: 0.100 kg binder at 10 % solids needs 0.900 kg of solvent', () => {
@@ -57,14 +59,14 @@ describe('the standard tablet blocks', () => {
     const doc = using('binder-solution', { ...NEW[1]![1], binder2: '0.020 kg' });
     const r = evaluate(doc, [], { stage: 0, sub: 1, step: 0, round: 1 }, {}).makeUp;
     expect(r).toMatchObject({ ok: true, value: '1.08', unit: 'kg', shown: expect.stringContaining('0.020 kg second material') });
-    expect(masterChecks(doc).map((p) => p.message)).toEqual([]);
+    expect(checks(doc).map((p) => p.message)).toEqual([]);
   });
 
   it('an overage may be set on any line, not only the API: a coating powder made with 10 % spray loss', () => {
     const doc = using('weigh', { target: { formula: 'x', adjusted: true }, tolerance: '0.5' });
     doc.formula[0]!.adjust = { overage: { percent: '10' } };
     expect(evaluate(doc, [], { stage: 0, sub: 1, step: 0, round: 1 }, {}).target).toMatchObject({ ok: true, value: '0.11', unit: 'kg' });
-    expect(masterChecks(doc).map((p) => p.message)).toEqual([]);
+    expect(checks(doc).map((p) => p.message)).toEqual([]);
   });
 });
 
@@ -102,7 +104,7 @@ describe('the engine runs the new blocks like any other', () => {
   const intact = { tooling: 'TS-08-01', upperPunches: 'yes', lowerPunches: 'yes', dies: 'yes', damaged: { value: '0', unit: 'units' } };
 
   it('record → done, step by step: lubricant re-scaled to the actual granules, tooling checked before and after, tablets reconciled', () => {
-    expect(masterChecks(doc)).toEqual([]);
+    expect(checks(doc)).toEqual([]);
     let e: StepEvent[] = walk(doc, [], '0.1.0.1', { output: kg('0.098'), samples: kg('0.001'), rejects: kg('0.001') });
     // 0.100 kg lubricant × 0.098 kg ÷ 0.100 kg = 0.098 kg; net 0.5980 − 0.5000 = 0.0980 kg
     const lub = { lot: 'L-1', balance: 'BAL-01', gross: kg('0.5980'), tare: kg('0.5000'), machine: 'BLN-01', ...mixing('00', '11') };

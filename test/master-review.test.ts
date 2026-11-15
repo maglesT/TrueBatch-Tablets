@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { call, freshApp, login, proofFor, seedUser, type TestApp } from './helpers.js';
-import { tablet } from './engine-fixture.js';
+import { tablet, placed } from './engine-fixture.js';
 
 // Review and approval of master versions (TB-02): the author sends for review (signs "prepared"), a second person
 // checks ("checked") or returns, QA approves ("approved") with a change control number, and making a version
@@ -34,8 +34,8 @@ const review = async (id: number, who = 'viewer') => (await as(who, 'GET', `/api
 const state = async (id: number) => ((await as('viewer', 'GET', `/api/master-versions/${id}`)).json() as { state: string }).state;
 const act = async (who: string, id: number, action: string, extra: object = {}) =>
   as(who, 'POST', `/api/master-versions/${id}/${action}`, { proof: proofFor(who), contentHash: (await review(id, who)).contentHash, ...extra });
-const draft = async (doc = tablet()) => ((await as('author', 'POST', '/api/masters', { doc })).json() as { id: number; masterId: number });
-async function approved(doc = tablet()) {
+const draft = async (doc = placed(tablet())) => ((await as('author', 'POST', '/api/masters', { doc })).json() as { id: number; masterId: number });
+async function approved(doc = placed(tablet())) {
   const v = await draft(doc);
   expect((await act('author', v.id, 'submit')).statusCode).toBe(200);
   expect((await act('checker', v.id, 'pass')).statusCode).toBe(200);
@@ -45,7 +45,7 @@ async function approved(doc = tablet()) {
 
 describe('master review and approval', () => {
   it('TB-01 a version with master-check errors cannot be sent for review', async () => {
-    const doc = tablet();
+    const doc = placed(tablet());
     doc.formula[0]!.mgPerTablet = '90.0';
     const { id } = await draft(doc);
     expect((await review(id, 'author')).refusals.submit).toMatch(/master check shows 1 problem/);
@@ -56,7 +56,7 @@ describe('master review and approval', () => {
   });
 
   it('calculation checks: a warning that needs an answer blocks "Send for review" until the author answers it in the master', async () => {
-    const doc = tablet();
+    const doc = placed(tablet());
     doc.formula[4]!.adjust = { content: { formulaQuantityIs: 'dry', contentSource: 'in-process result', resultType: 'content' } };
     const { id } = await draft(doc);
     const checks = (await as('author', 'GET', `/api/master-versions/${id}/checks`)).json() as { problems: { message: string; question?: { key: string } }[] };
@@ -78,7 +78,7 @@ describe('master review and approval', () => {
     expect((await act('author', id, 'submit')).statusCode).toBe(200);
     expect(await state(id)).toBe('in_review');
     // The version is locked while in review.
-    expect((await as('author', 'PUT', `/api/master-versions/${id}`, { doc: tablet() })).statusCode).toBe(409);
+    expect((await as('author', 'PUT', `/api/master-versions/${id}`, { doc: placed(tablet()) })).statusCode).toBe(409);
     expect((await review(id, 'checker')).actions).toEqual(['pass', 'return']);
     expect((await act('checker', id, 'pass')).statusCode).toBe(200);
     expect((await act('qachecker', id, 'pass')).json().error).toBe('already_checked');
@@ -89,7 +89,7 @@ describe('master review and approval', () => {
 
   it('TB-02 an author who edited a version cannot check it', async () => {
     const { id } = await draft();
-    expect((await as('author2', 'PUT', `/api/master-versions/${id}`, { doc: tablet() })).statusCode).toBe(200);
+    expect((await as('author2', 'PUT', `/api/master-versions/${id}`, { doc: placed(tablet()) })).statusCode).toBe(200);
     expect((await act('author', id, 'submit')).statusCode).toBe(200);
     expect((await act('author2', id, 'pass')).json().error).toBe('author_cannot_check');
   });

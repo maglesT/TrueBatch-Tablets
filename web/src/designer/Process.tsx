@@ -47,7 +47,7 @@ export function Process({ doc, onChange, md, place, onPlace, editable }: {
         <ol className="olist">
           {doc.stages.map((s, i) => (
             <li key={s.key} className={i === si ? 'on' : ''}>
-              <span className="ol-main" {...pickable(() => select(i))} aria-current={i === si}><b>{i + 1}. {s.name}</b><small>{KIND_LABEL[s.kind]}{s.kind === 'sub-batch' && s.count ? ` × ${s.count}` : ''} · {s.steps.length} step{s.steps.length === 1 ? '' : 's'}</small></span>
+              <span className="ol-main" {...pickable(() => select(i))} aria-current={i === si}><b>{i + 1}. {s.name}</b><small>{KIND_LABEL[s.kind]}{s.kind === 'sub-batch' && s.count ? ` × ${s.count}` : ''} · {s.steps.length} step{s.steps.length === 1 ? '' : 's'} · {s.roomTypes.length ? s.roomTypes.join(', ') : 'no rooms chosen'}</small></span>
               {editable && <Order index={i} count={doc.stages.length} what={s.name} onMove={(by) => { setStages(move(doc.stages, i, by)); select(i + by); }}
                 onRemove={() => { if (!s.steps.length || window.confirm(`Remove ${s.name} and its ${s.steps.length} steps?`)) { setStages(doc.stages.filter((_, j) => j !== i)); select(Math.max(0, i - 1)); } }} />}
             </li>
@@ -118,8 +118,10 @@ function StageForm({ doc, si, stage, onChange, roles, machineTypes, areas }: {
         <label>Responsible role<input list="roles" value={stage.role} onChange={(e) => onChange({ ...stage, role: e.target.value })} /></label>
         <datalist id="roles">{roles.map((r) => <option key={r} value={r} />)}</datalist>
       </div>
+      {/* TB-11: the machines and rooms the floor is offered stand in these rooms (balances also in a dispensing area). */}
+      <ChipSet label="Rooms this stage may run in (an area, or a room)" values={stage.roomTypes} options={areas} onChange={(roomTypes) => onChange({ ...stage, roomTypes })}
+        empty="None chosen yet: choose the rooms (needed when the stage works machines or names a room)" />
       <ChipSet label="Allowed machine types" values={stage.machineTypes} options={machineTypes} onChange={(machineTypes) => onChange({ ...stage, machineTypes })} empty="Any machine type" />
-      <ChipSet label="Allowed rooms (an area, or a room)" values={stage.roomTypes} options={areas} onChange={(roomTypes) => onChange({ ...stage, roomTypes })} empty="Any room" />
       <fieldset className="checklist">
         <legend>Intermediate produced</legend>
         <label className="check"><input type="checkbox" checked={!!stage.produces} onChange={(e) => { const { produces: _, ...rest } = stage; onChange(e.target.checked ? { ...rest, produces: { name: '', holdHours: 24 } } : rest); }} />This stage produces an intermediate</label>

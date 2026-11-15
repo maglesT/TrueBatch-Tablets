@@ -281,7 +281,8 @@ export function batchRoutes(app: FastifyInstance, sql: Sql) {
         const v = await masterVersion(tx, b.data.masterVersionId, true);
         if (v?.state !== 'effective') throw new StepError(409, 'not_effective', ['Only an effective master version can be issued.']);
         // Approval will refuse a version with errors; until that workflow exists, issuing checks it too.
-        const errors = masterChecks(v.doc).filter(blocking);
+        // A version approved before its stages had to name their rooms (TB-11) still issues: its stages allow any room.
+        const errors = masterChecks(v.doc).filter((p) => blocking(p) && !(p.rule === 'TB-11' && p.path.endsWith('.roomTypes')));
         if (errors.length) throw new StepError(409, 'master_has_errors', errors.map((p) => `${p.path}: ${p.message}`));
         const atIssue = findBlock(v.doc.stages[0]?.steps[0]?.block ?? { id: '', version: 0 })?.atIssue;
         const facts = atIssue ? await issueValues(app, tx, v.doc, b.data.values, (await tx<{ now: Date }[]>`select now() as now`)[0]!.now) : null;
