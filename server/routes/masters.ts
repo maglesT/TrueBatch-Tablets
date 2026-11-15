@@ -27,7 +27,8 @@ export async function masterVersion(q: Sql | Tx, id: number, lock = false): Prom
 
 // PL-08: the product and every material must be active in master data now; their code and name are copied from it.
 async function withMasterData(master: Master, doc: MasterDoc): Promise<MasterDoc> {
-  const product = usableItem(await master.products(), doc.header.productItemId, 'product');
+  const products = await master.products();
+  const product = usableItem(products, doc.header.productItemId, 'product');
   const materials = await master.materials();
   return {
     ...doc,
@@ -36,6 +37,14 @@ async function withMasterData(master: Master, doc: MasterDoc): Promise<MasterDoc
       const m = usableItem(materials, l.materialItemId, 'material');
       return { ...l, code: m.code, name: m.name };
     }),
+    // Packing: the bulk product and every packing material too.
+    ...(doc.pack ? { pack: (() => {
+      const bulk = usableItem(products, doc.pack.bulkItemId, 'bulk product');
+      return { ...doc.pack, bulkCode: bulk.code, bulkName: bulk.name, materials: doc.pack.materials.map((l) => {
+        const m = usableItem(materials, l.materialItemId, 'packing material');
+        return { ...l, code: m.code, name: m.name };
+      }) };
+    })() } : {}),
   };
 }
 

@@ -4,14 +4,14 @@ import type { Sql, Tx } from '../db.js';
 import { audit } from '../audit.js';
 import { parseId, requirePermission, type SessionUser } from '../auth.js';
 import { usableItem } from '../master.js';
-import { handProblem, pullItem, pullLot, pulledWords } from '../pull.js';
+import { handProblem, pullBulk, pullItem, pullLot, pulledWords } from '../pull.js';
 import { SignError, authenticateSigner, contentHash, sign, signBody } from '../signatures.js';
 import { masterVersion } from './masters.js';
 import { batchRecordDoc, type RecordInput, type Signature } from '../batch-record.js';
 import { render, sendPdf } from '../pdf.js';
 import { findBlock } from '../../shared/blocks/index.js';
 import { blocking, masterChecks } from '../../shared/master/checks.js';
-import type { MasterDoc, Step } from '../../shared/master/schema.js';
+import { materialLines, type MasterDoc, type Step } from '../../shared/master/schema.js';
 import {
   ACTIONS, BATCH_ACTIONS, CERTIFICATE, LINK_OF, batchRefusal, handFields, isHand, batchView, doneProblems, evaluate, lateItems, openSteps, parseKey, readValue, refusal, review, timers,
   type Action, type BatchAction, type BatchEvent, type DeviationStatus, type LinkState, type Source, type StepEvent, type StepKey, type StepView, type Value,
@@ -113,7 +113,7 @@ async function readValues(app: FastifyInstance, doc: MasterDoc, key: StepKey, ra
       const v = readValue(f, x, '');
       if (typeof v !== 'string') { problems.push((v as { error: string }).error); continue; }
       out[name] = v;
-      pulled = await pullLot(app, doc, step, block, v, current.values, now, PLANT_TZ);
+      pulled = f.kind === 'bulk' ? await pullBulk(app, doc, block, v) : await pullLot(app, doc, step, block, v, current.values, now, PLANT_TZ);
     }
     problems.push(...pulled.problems);
     source[name] = pulled.source;
@@ -177,8 +177,42 @@ const context = (doc: MasterDoc, v: StepView, user: SessionUser) => ({ state: v.
 // A step as people name it: the block, and the formula line or the thing checked.
 function stepTitle(doc: MasterDoc, st: Step): string {
   const line = Object.values(st.settings).find((v): v is { formula: string } => typeof v === 'object' && 'formula' in v);
-  const what = line ? doc.formula.find((l) => l.key === line.formula)?.name : typeof st.settings.what === 'string' ? st.settings.what : undefined;
+  const what = line ? materialLines(doc).find((l) => l.key === line.formula)?.name : typeof st.settings.what === 'string' ? st.settings.what : undefined;
   return [findBlock(st.block)?.name ?? st.key, what].filter(Boolean).join(': ');
+}
+
+const FIRST: StepKey = { stage: 0, sub: 1, step: 0, round: 1 };
+/**
+ * Packing (TB-P2, TB-P7): a master whose first step is recorded at issue (the line, the released bulk batch, the
+ * tablets issued) is issued with those values, read as any step's values are (pulled while a link answers, else
+ * typed with the label questions and checked by a second person). One active packing order per line: a line with a
+ * batch still in production takes no other.
+ */
+async function issueValues(app: FastifyInstance, tx: Tx, doc: MasterDoc, raw: Record<string, unknown> | undefined, now: Date) {
+  const block = findBlock(doc.stages[0]!.steps[0]!.block)!;
+  const current = openSteps(doc, [], now).steps[0]!;
+  const typed = await readValues(app, doc, FIRST, raw ?? {}, now, current, '');
+  const needed = [...block.atIssue!.map((n) => block.fields.find((f) => f.name === n)!), ...handFields(block.fields, typed.source)];
+  const missing = needed.filter((f) => !f.optional && typed.values[f.name] === undefined).map((f) => `${f.label} is not recorded`);
+  const results = evaluate(doc, [], FIRST, typed.values);
+  const refused = Object.values(results).flatMap((r) => (r.ok ? [] : [r.message]));
+  if (missing.length || refused.length) throw new StepError(400, 'invalid_values', [...missing, ...refused]);
+  const field = block.fields.find((f) => f.kind === 'machine')?.name ?? '';
+  const line = typed.values[field] as { itemId: string; code: string } | undefined;
+  if (line) {
+    await tx`select pg_advisory_xact_lock(hashtext(${`line:${line.itemId}`}))`;
+    const others = await tx<{ id: number }[]>`
+      select distinct e.batch_id::int as id from step_events e
+      where e.stage = 0 and e.step = 0 and e.round = 1 and e.kind in ('value', 'corrected') and e.payload->'values'->${field}->>'itemId' = ${line.itemId}
+        and not exists (select 1 from batch_events x where x.batch_id = e.batch_id and x.kind in ('production_approved', 'released', 'rejected'))`;
+    for (const { id } of others) {
+      const l = (await loadBatch(tx, id))!;
+      if (view(l).status === 'in production' && (openSteps(l.doc, l.events, l.now).steps[0]!.values[field] as { itemId?: string } | undefined)?.itemId === line.itemId) {
+        throw new StepError(409, 'line_in_use', [`Line ${line.code} has an active packing order: batch ${l.batch.batchNo} (${l.doc.header.productCode}) is still being packed. One packing order per line.`]);
+      }
+    }
+  }
+  return { ...typed, results };
 }
 
 /** "My work": what in this batch waits for the person, and where the batch stands. Null when nothing does. */
@@ -215,7 +249,7 @@ export function batchRoutes(app: FastifyInstance, sql: Sql) {
 
   // TB-03: issue a batch from an effective master version, with the next number of the year (never reused).
   app.post('/api/batches', { preHandler: requirePermission('truebatch.batch.issue') }, async (req, reply) => {
-    const b = z.object({ masterVersionId: z.number().int().positive(), proof: z.string().min(1).max(2000) }).safeParse(req.body);
+    const b = z.object({ masterVersionId: z.number().int().positive(), proof: z.string().min(1).max(2000), values: z.record(z.unknown()).optional() }).safeParse(req.body);
     if (!b.success) return reply.code(400).send({ error: 'invalid' });
     const user = req.user!;
     try {
@@ -226,6 +260,8 @@ export function batchRoutes(app: FastifyInstance, sql: Sql) {
         // Approval will refuse a version with errors; until that workflow exists, issuing checks it too.
         const errors = masterChecks(v.doc).filter(blocking);
         if (errors.length) throw new StepError(409, 'master_has_errors', errors.map((p) => `${p.path}: ${p.message}`));
+        const atIssue = findBlock(v.doc.stages[0]?.steps[0]?.block ?? { id: '', version: 0 })?.atIssue;
+        const facts = atIssue ? await issueValues(app, tx, v.doc, b.data.values, (await tx<{ now: Date }[]>`select now() as now`)[0]!.now) : null;
         const [c] = await tx<{ n: number; yy: string }[]>`
           insert into batch_counters (year, last_no) values (extract(year from now() at time zone ${PLANT_TZ})::int, 1)
           on conflict (year) do update set last_no = batch_counters.last_no + 1
@@ -233,9 +269,18 @@ export function batchRoutes(app: FastifyInstance, sql: Sql) {
         const batchNo = `${app.batchPrefix}${c!.yy}${String(c!.n).padStart(4, '0')}`;
         const [row] = await tx<{ id: number }[]>`
           insert into batches (batch_no, master_version_id, issued_by) values (${batchNo}, ${v.id}, ${user.id}) returning id::int`;
-        const content = { batchNo, masterVersionId: v.id, masterId: v.masterId, versionNo: v.versionNo, product: v.doc.header.productCode };
+        const content = { batchNo, masterVersionId: v.id, masterId: v.masterId, versionNo: v.versionNo, product: v.doc.header.productCode, ...(facts ? { facts: facts.values } : {}) };
         await sign(tx, { signer, objectType: 'batch', objectId: row!.id, meaning: 'issued', content, shownHash: contentHash('batch', row!.id, content) });
         await audit(tx, { actorId: user.id, action: 'batch.issued', objectType: 'batch', objectId: row!.id, new: content });
+        if (facts) {
+          // The batch facts are the first step's values, by the issuer: the step is then finished on the floor.
+          const payload = { values: facts.values, results: facts.results, uses: [], ...(Object.keys(facts.source).length ? { source: facts.source } : {}) };
+          for (const [kind, p] of [['started', {}], ['value', payload]] as const) {
+            const [e] = await tx<{ id: number }[]>`insert into step_events (batch_id, stage, sub, step, round, kind, payload, person_id)
+              values (${row!.id}, 0, 1, 0, 1, ${kind}, ${tx.json(p as never)}, ${user.id}) returning id::int`;
+            await audit(tx, { actorId: user.id, action: `step.${kind}`, objectType: 'batch', objectId: row!.id, new: { step: '0.1.0.1', event: e!.id, ...p } });
+          }
+        }
         return { id: row!.id, batchNo };
       });
     } catch (e) {
@@ -269,7 +314,7 @@ export function batchRoutes(app: FastifyInstance, sql: Sql) {
     for (const { id } of ids) {
       const l = (await loadBatch(sql, id))!;
       const bv = view(l, (await deviationsRead(app, l)).read);
-      const waiting = bv.status === 'production approved' ? 'QC' : 'QA';
+      const waiting = bv.status === 'production approved' && bv.qc ? 'QC' : 'QA';
       if (!req.user!.permissions.includes(waiting === 'QC' ? 'truebatch.qc.approve' : 'truebatch.qa.release')) continue;
       const last = l.batchEvents.filter((e) => e.kind !== 'deviation_closed').at(-1)!;
       out.push({ id, batchNo: l.batch.batchNo, productCode: l.doc.header.productCode, productName: l.doc.header.productName, status: bv.status, waiting,
@@ -352,7 +397,7 @@ export function batchRoutes(app: FastifyInstance, sql: Sql) {
     const l = id === null ? null : await loadBatch(sql, id);
     if (!l) return reply.code(404).send({ error: 'not_found' });
     const def = batchRecordDoc({ ...await recordInput(sql, l), deviationsRead: (await deviationsRead(app, l)).read }, req.user!.fullName);
-    return sendPdf(reply, `batch-record-${l.batch.batchNo}`, await render(def));
+    return sendPdf(reply, `${l.doc.pack ? 'packing' : 'batch'}-record-${l.batch.batchNo}`, await render(def));
   });
 
   // Production approval, QC approval, release or rejection (each an e-signature), and QA closing a deviation note.

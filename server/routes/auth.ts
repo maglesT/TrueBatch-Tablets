@@ -105,8 +105,8 @@ export function authRoutes(app: FastifyInstance, sql: Sql, signOn: SignOn) {
     });
     if ('refused' in outcome) {
       return reply.code(403).type('text/html').send(outcome.refused === 'role'
-        ? page('No access', 'You have no right to use TrueBatch Tablets. Ask your administrator.')
-        : page('Login cannot be used', 'This login cannot be used in TrueBatch Tablets. Ask your administrator.'));
+        ? page('No access', `You have no right to use ${app.product.name}. Ask your administrator.`)
+        : page('Login cannot be used', `This login cannot be used in ${app.product.name}. Ask your administrator.`));
     }
     void reply.setCookie(SESSION_COOKIE, outcome.sessionId, { path: '/', httpOnly: true, sameSite: 'strict', secure: app.cookieSecure });
     return reply.redirect('/');

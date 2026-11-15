@@ -9,10 +9,20 @@ import { HEADER_LABEL, unitLabel } from './model.js';
 export type Part = string | { setting: string } | { field: string } | { calc: string } | { prev: string };
 type Calc = Block['calcs'][number];
 
+// Packing: the master's pack facts and the batch facts recorded at issue, in words.
+const FACTS: Record<string, string> = {
+  'pack.unitsPerPack': 'the tablets per pack', 'pack.packsPerCarton': 'the packs per carton', 'pack.shelfLifeMonths': 'the approved shelf life',
+  'pack.expiryRule': 'the expiry rule', 'pack.type': 'the pack type', 'pack.destination': 'the destination', 'pack.gtin': 'the pack GTIN', 'pack.mrp': 'the MRP of the master',
+  'batch.bulk': 'the bulk batch number', 'batch.mfgDate': 'the date of manufacture of the bulk', 'batch.tablets': 'the bulk tablets issued',
+  'batch.packs': 'the theoretical packs', 'batch.line': 'the packing line',
+};
+
 /** One input of a calculation as a part: "$gross" is a field, "$target" a setting, "$net" an earlier calculation. */
 function input(block: Block, x: unknown): Part {
   if (typeof x !== 'string' || !x.startsWith('$')) return written(block, x);
   const raw = x.slice(1).replace(/\?$/, '');
+  if (FACTS[raw]) return FACTS[raw];
+  if (raw.startsWith('earlier.')) return `the ${block.fields.find((f) => f.name === raw.slice(8))?.label.toLowerCase() ?? raw} read in earlier rounds`;
   if (raw.startsWith('prev.')) return { prev: raw.slice(5) };
   if (block.settings.some((s) => s.name === raw)) return { setting: raw };
   if (block.fields.some((f) => f.name === raw)) return { field: raw };
@@ -68,6 +78,8 @@ export function sentence(block: Block, c: Calc): Part[] {
         ...(outer ? [', and none outside ± ', p(outer.plusMinusPercent), ' %'] : []), '.'];
     }
     case 'C4': return [`${String(a.question)}: the answer must be "${(a.expected as string[]).join('" or "')}".`];
+    case 'C8': return [p(a.printed), ' must match ', a.kind === 'expiry' ? 'the expiry worked out from the date of manufacture of the bulk and the approved shelf life' : p(a.expected), '.'];
+    case 'C9': return ['Each of ', p(a.codes), ' must carry the pack GTIN, the bulk batch number and the expiry, with a serial not read before in this batch.'];
     case 'F2': return [p(a.current), ' must not differ by more than ', p((a.limit as { maxChange: unknown }).maxChange), ' from the previous round.'];
     default: {
       // The inputs it is worked out from, then the limits it must meet.

@@ -20,6 +20,19 @@ pulled and cannot be typed over; without it, or while it is down, it is typed by
 listed for QA. TrueBatch publishes `report.batch_fact_v1`, `equipment_use_v1` and `deviation_note_v1`
 (`db/migrations/0006_report_views.sql`).
 
+## TrueBatch Tablets Packing
+The packing batch record is a separate product on the platform, built from this repository on the same engine and
+screens: `docs/packing-design.md`, its rules TB-P1 to TB-P9 in `docs/rules.md`. Its own parts are in `packing/` (entry
+points, migrations, the view it publishes) and `ops/packing.*`.
+
+```sh
+export DATABASE_URL=postgres://truebatch_owner:dev@localhost:5432/truebatch_packing_dev DB_APP_ROLE=truebatch_packing_app
+export TRUEBATCH_DATABASE_URL=postgres://...   # optional: TrueBatch Tablets' published views (released bulk batches)
+npm run migrate:packing
+npm run dev:packing        # API on :3001
+npm run dev:packing-web    # UI on :5174 (proxies /api)
+```
+
 ## Develop
 Needs Node 22 and PostgreSQL 16.
 
@@ -47,7 +60,8 @@ views it reads from master data and the four linked products, and the views it p
 `truebatch_app`, which cannot change or delete audit rows or signatures. Migrations run as the database owner.
 
 ## Conventions
-- One app: `server/` (Fastify), `web/` (React), `db/migrations/` (plain SQL), `test/`, `e2e/` (browser tests), `ops/`, `docs/`.
+- One app: `server/` (Fastify), `web/` (React), `db/migrations/` (plain SQL), `test/`, `e2e/` (browser tests), `ops/`, `docs/`;
+  `packing/` for TrueBatch Tablets Packing's own entry points and migrations.
 - A test that proves a rule starts its name with the rule ID: `TB-xx` for TrueBatch rules, `PL-xx` for platform rules.
 - Paraphrase regulations; never paste more than a short phrase.
 - Work on a branch, CI green, one review pass, then merge.

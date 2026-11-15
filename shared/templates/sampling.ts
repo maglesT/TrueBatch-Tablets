@@ -94,12 +94,12 @@ export function plan(letter: string, aql: string): { letter: string; n: number; 
 
 export interface C7Input {
   /** Lot size in units (e.g. tablets from a count by weight). */
-  readonly lotSize: string;
+  readonly lotSize: string | { readonly value: string; readonly unit: string };
   readonly level: Level;
   /** AQL per defect class, e.g. { critical: "0", major: "0.65", minor: "2.5" }. */
   readonly classes: Readonly<Record<string, string>>;
   /** Defects found per class, once inspected (optional). */
-  readonly found?: Readonly<Record<string, number>>;
+  readonly found?: Readonly<Record<string, number | { readonly value: string; readonly unit: string }>>;
 }
 
 export interface ClassPlan {
@@ -117,15 +117,18 @@ export interface ClassPlan {
 /** C7 Sampling plan by lot size: code letter, sample size and accept/reject numbers per defect class; pass/fail when defects are given. */
 export function c7SamplingPlan(i: C7Input): Outcome<{ readonly letter: string; readonly plans: readonly ClassPlan[] }> {
   return run(() => {
-    if (typeof i.lotSize !== 'string' || !/^\d+$/.test(i.lotSize.trim())) refuse('The lot size must be a whole number written as text, e.g. "300000"');
-    const N = Number(i.lotSize);
+    // A count from a step comes as a value with its unit; a lot size worked out (packs from tablets) is cut to whole units.
+    const lot = typeof i.lotSize === 'object' && i.lotSize !== null ? new Dec(i.lotSize.value).floor().toFixed(0) : i.lotSize;
+    if (typeof lot !== 'string' || !/^\d+$/.test(lot.trim())) refuse('The lot size must be a whole number written as text, e.g. "300000"');
+    const N = Number(lot);
     if (N < 2) refuse('The lot size must be 2 or more');
     const letter = codeLetter(N, i.level);
     const plans: ClassPlan[] = Object.entries(i.classes).map(([name, aql]) => {
       const p = aql.trim() === '0' ? { letter, n: SAMPLE[letter] ?? 0, ac: 0, re: 1 } : plan(letter, aql.trim());
       const hundred = p.n >= N;
       const n = hundred ? N : p.n;
-      const f = i.found?.[name];
+      const x = i.found?.[name];
+      const f = typeof x === 'object' && x !== null ? Number(x.value) : x;
       if (f !== undefined && (!Number.isInteger(f) || f < 0)) refuse(`The number of ${name} defects must be a whole number, 0 or more`);
       return { name, aql, letter: p.letter, sampleSize: n, accept: p.ac, reject: p.re, hundredPercent: hundred, ...(f === undefined ? {} : { found: f, pass: f <= p.ac }) };
     });

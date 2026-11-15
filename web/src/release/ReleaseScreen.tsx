@@ -8,6 +8,7 @@ import {
 import { fieldLabel as labelOf, PROVIDER_NAME } from '../../../shared/engine/links.js';
 import { BatchHeader } from '../floor/BatchScreen.js';
 import { ReasonDialog } from '../floor/ReasonDialog.js';
+import { product } from '../product.js';
 import '../floor/floor.css';
 import './release.css';
 
@@ -61,8 +62,9 @@ export function ReleaseScreen({ me, id }: { me: Me; id: number }) {
   const decided = d.batch.status === 'released' || d.batch.status === 'rejected';
   const yields = d.steps.filter((s) => s.results.yield?.ok);
   const openDevs = r.deviations.filter((x) => x.open);
-  const qcTurn = d.batch.status === 'production approved';
-  const qaTurn = d.batch.status === 'QC approved';
+  // A packing record has no QC approval: QA releases it after production approval.
+  const qcTurn = d.batch.qc && d.batch.status === 'production approved';
+  const qaTurn = d.batch.status === (d.batch.qc ? 'QC approved' : 'production approved');
   const blockers = [...openDevs.map((x) => `Deviation ${x.reference} (${name(x.step)}) is ${x.status ? `${x.status} in the Deviations system: it is closed there.` : 'open: close it first.'}`), ...d.batch.yieldOut.map(plain)];
   const handLabel = (step: string, field: string) => field === 'reference' ? 'deviation number' : fieldLabel(step, field);
 
@@ -134,7 +136,7 @@ export function ReleaseScreen({ me, id }: { me: Me; id: number }) {
 
       <section className="dash-panel" aria-label="Decision">
         <div className="panel-head"><h2>{qcTurn ? 'QC approval' : 'QA release'}</h2>
-          <a className="button" href={pdfLink(id)} download>Batch record (PDF)</a></div>
+          <a className="button" href={pdfLink(id)} download>{product.packing ? 'Packing record' : 'Batch record'} (PDF)</a></div>
         {notice && <p className="notice info" role="status">{notice}</p>}
         {r.batchEvents.filter((b) => b.kind !== 'deviation_closed').map((b) => (
           <p key={b.id} className={b.kind === 'rejected' ? 'notice bad' : 'all-good'}><span aria-hidden="true">{b.kind === 'rejected' ? '✕' : '✓'}</span>
@@ -158,7 +160,7 @@ export function ReleaseScreen({ me, id }: { me: Me; id: number }) {
             <button className="big soft-bad" disabled={!rejectWhy.trim() || openDevs.length > 0} onClick={() => setSigning({ meaning: 'rejected', action: 'reject' })}>Sign: rejected</button>
           </div>
         </>) : <p className="notice">The batch waits for QA release: it needs the QA release permission.</p>)}
-        {!qcTurn && !qaTurn && !decided && <p className="notice">The batch is {d.batch.status}: production approves it before QC and QA.</p>}
+        {!qcTurn && !qaTurn && !decided && <p className="notice">The batch is {d.batch.status}: production approves it before {d.batch.qc ? 'QC and QA' : 'QA'}.</p>}
       </section>
 
       {signing && (

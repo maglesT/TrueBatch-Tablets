@@ -148,7 +148,9 @@ export function openSteps(doc: MasterDoc, events: readonly StepEvent[], now: Dat
           if (!byKey.has(keyId({ ...key, round: round + 1 })) && (st.flow.kind !== 'repeat-until' || !finished(last, st.waitForCheck) || stopPassed(last, st) || round >= maxRounds(st))) break;
           gate = null;
         }
-        gate = after(st, last!, st.waitForCheck);
+        // A periodic check that runs alongside (packing): what follows opens once its first round is done.
+        const first = findBlock(st.block)?.periodic?.alongside ? steps.find((x) => x.id === keyId({ stage: si, sub, step: ti, round: 1 })) : undefined;
+        gate = first ? (finished(first, st.waitForCheck) ? null : `Waits for the first check of step ${st.key}`) : after(st, last!, st.waitForCheck);
         if (after(st, last!, true) !== null) closed = false;
       });
     }

@@ -5,7 +5,8 @@ and size), not the Batchwright way.
 
 ## Product
 - **One product per dosage form.** TrueBatch Tablets covers manufacturing, from dispensing to QA release of bulk
-  tablets. Packing is a later, separate product, "TrueBatch Tablets Packing".
+  tablets. Packing is a separate product, "TrueBatch Tablets Packing", in this repository on the same engine
+  (`docs/packing-design.md`).
 
 ## Platform
 - Runs on the Medhanta platform. Core provides people, sign-in, permissions, e-signature re-authentication and master

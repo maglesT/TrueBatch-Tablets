@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, type Me } from '../api.js';
 import { SignDialog } from '../components/SignDialog.js';
+import { product } from '../product.js';
 import {
   batchLink, changed, go, headline, pdfLink, plainClock, plainError, STATE_LABEL, STATUS_CHIP, stepLink, stepOf, stepTitle, timeLeft, tone, useBlocks, words, useServerNow,
   type BatchDetail, type Block, type StepRow,
@@ -62,7 +63,7 @@ export function BatchHeader({ d }: { d: BatchDetail }) {
       </div>
       <span className="bh-side">
         <span className={`chip ${STATUS_CHIP[d.batch.status] ?? ''}`}>{d.batch.status}</span>
-        <a className="button" href={pdfLink(d.batch.id)} download>Batch record (PDF)</a>
+        <a className="button" href={pdfLink(d.batch.id)} download>{product.packing ? 'Packing record' : 'Batch record'} (PDF)</a>
       </span>
     </section>
   );

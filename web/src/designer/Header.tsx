@@ -6,7 +6,9 @@ import { createMaster, getVersion, STATE_LABEL, type MasterData, type MasterRow,
 import { masterSchema, type MasterDoc } from '../../../shared/master/schema.js';
 import { batchWeight } from './example.js';
 import { scaleDoc } from './model.js';
-import { SKELETON_LIST, skeletonStages } from './skeletons.js';
+import { packingStages, SKELETON_LIST, skeletonStages } from './skeletons.js';
+import { NEW_PACK, PackFields } from './Pack.js';
+import { product } from '../product.js';
 import { Decimal, Picker } from './ui.js';
 
 type Header = MasterDoc['header'];
@@ -77,7 +79,10 @@ export function NewMaster({ md, masters, copyOf, onCreated, onCancel }: {
   md: MasterData; masters: MasterRow[]; copyOf?: MasterRow; onCreated: (id: number) => void; onCancel: () => void;
 }) {
   const [header, setHeader] = useState<Header>(copyOf?.header ?? { productItemId: '', productCode: '', productName: '', batchSize: '', coreWeightMg: '' });
-  const [start, setStart] = useState<Start>(copyOf ? { kind: 'copy', versionId: copyOf.id } : { kind: 'skeleton', id: SKELETON_LIST[0]!.id });
+  const skeletons = product.packing ? [{ id: 'packing', name: 'Packing record', text: 'Issue to the line, packing with the checks alongside the line, reconciliation and line clearance after, for this pack.' }] : SKELETON_LIST;
+  const [start, setStart] = useState<Start>(copyOf ? { kind: 'copy', versionId: copyOf.id } : { kind: 'skeleton', id: skeletons[0]!.id });
+  // A packing master: the pack (TB-P1), copied with the master it is copied from.
+  const [pack, setPack] = useState(product.packing ? NEW_PACK : undefined);
   const [source, setSource] = useState<MasterDoc | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -85,6 +90,7 @@ export function NewMaster({ md, masters, copyOf, onCreated, onCancel }: {
     if (start.kind !== 'copy') return setSource(null);
     void getVersion(start.versionId).then((v) => {
       setSource(v.doc);
+      if (v.doc.pack) setPack(v.doc.pack);
       setHeader((h) => ({ ...h, coreWeightMg: h.coreWeightMg || v.doc.header.coreWeightMg, batchSize: h.batchSize || v.doc.header.batchSize,
         ...(v.doc.header.coatedWeightMg && !h.coatedWeightMg ? { coatedWeightMg: v.doc.header.coatedWeightMg } : {}) }));
     });
@@ -93,11 +99,12 @@ export function NewMaster({ md, masters, copyOf, onCreated, onCancel }: {
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
-    let doc: MasterDoc = { header, formula: [], stages: [] };
-    if (start.kind === 'skeleton') doc.stages = skeletonStages(start.id, header);
-    if (start.kind === 'copy' && source) doc = { ...scaleDoc(source, header.batchSize), header };
+    let doc: MasterDoc = { header, formula: [], stages: [], ...(pack ? { pack } : {}) };
+    if (start.kind === 'skeleton') doc.stages = pack ? packingStages(pack) : skeletonStages(start.id, header);
+    if (start.kind === 'copy' && source) doc = { ...scaleDoc(source, header.batchSize), header, ...(pack ? { pack } : {}) };
     const parsed = masterSchema.safeParse(doc);
     if (!header.productItemId) return setError('Pick the product.');
+    if (pack && !pack.bulkItemId) return setError('Pick the bulk product.');
     if (!parsed.success) return setError(parsed.error.issues.map((i) => `${i.path.at(-1) === 'batchSize' ? 'Batch size' : i.path.at(-1) === 'coreWeightMg' ? 'Core weight' : i.path.join('.')}: ${i.message}`).join('; '));
     setBusy(true);
     try {
@@ -112,10 +119,11 @@ export function NewMaster({ md, masters, copyOf, onCreated, onCancel }: {
     <div className="overlay" role="dialog" aria-modal="true" aria-label={copyOf ? 'Copy a master' : 'New master'}>
       <form className="card dialog wide" onSubmit={submit}>
         <h2>{copyOf ? `Copy ${copyOf.header.productCode} version ${copyOf.versionNo}` : 'New master'}</h2>
-        <HeaderFields header={header} onChange={setHeader} products={md.products} />
+        {pack ? <PackFields header={header} pack={pack} products={md.products} onChange={(h, p) => { setHeader(h); setPack(p); }} />
+          : <HeaderFields header={header} onChange={setHeader} products={md.products} />}
         <fieldset className="checklist">
           <legend>Start from</legend>
-          {SKELETON_LIST.map((s) => (
+          {skeletons.map((s) => (
             <label key={s.id} className="check route"><input type="radio" name="start" checked={start.kind === 'skeleton' && start.id === s.id} onChange={() => setStart({ kind: 'skeleton', id: s.id })} />
               <span>Process skeleton: {s.name}<small>{s.text}</small></span></label>
           ))}

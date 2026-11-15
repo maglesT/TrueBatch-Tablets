@@ -22,7 +22,7 @@ export interface StageRow { index: number; key: string; name: string; open: bool
 export interface Deviation { note: number; step: string; reference: string; text: string; open: boolean; status?: string; closedAt?: string | null }
 export interface BatchDetail {
   now: string;
-  batch: { id: number; batchNo: string; issuedAt: string; status: string; open: string[]; late: string[]; deviations: Deviation[]; yieldOut: string[]; contentHash: string; actions: string[]; deviationsLink: string };
+  batch: { id: number; batchNo: string; issuedAt: string; status: string; open: string[]; late: string[]; deviations: Deviation[]; yieldOut: string[]; contentHash: string; actions: string[]; deviationsLink: string; qc: boolean };
   master: { id: number; versionNo: number; doc: MasterDoc };
   stages: StageRow[]; timers: TimerRow[]; steps: StepRow[];
 }

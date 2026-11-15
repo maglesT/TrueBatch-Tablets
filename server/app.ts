@@ -14,6 +14,7 @@ import { batchRoutes } from './routes/batches.js';
 import type { SignOn } from './signon.js';
 import { ConnectionOff, NotUsable, type Master } from './master.js';
 import { links as noLinks, type Links } from './links.js';
+import { TABLETS, productSignOn, type Product } from './product.js';
 
 export const VERSION = '0.1.0';
 
@@ -34,10 +35,15 @@ export interface AppOptions {
   cookieSecure?: boolean;
   // The fixed start of every batch number (TB-03).
   batchPrefix?: string;
+  // Which product this server is: TrueBatch Tablets (default) or TrueBatch Tablets Packing (server/product.ts).
+  product?: Product;
 }
 
-export async function buildApp({ sql, signOn, master, links = noLinks(), proofKey = randomBytes(32), logger = false, webRoot, cookieSecure = true, batchPrefix = 'TB' }: AppOptions): Promise<FastifyInstance> {
+export async function buildApp({ sql, signOn: core, master, links = noLinks(), proofKey = randomBytes(32), logger = false, webRoot, cookieSecure = true, product = TABLETS,
+  batchPrefix = product.batchPrefix }: AppOptions): Promise<FastifyInstance> {
   const app = Fastify({ logger, trustProxy: true });
+  const signOn = productSignOn(core, product);
+  app.decorate('product', product);
   app.decorate('cookieSecure', cookieSecure);
   app.decorate('proofKey', proofKey);
   app.decorate('master', master);
@@ -95,5 +101,6 @@ declare module 'fastify' {
     proofKey: Buffer;
     master: Master;
     links: Links;
+    product: Product;
   }
 }
