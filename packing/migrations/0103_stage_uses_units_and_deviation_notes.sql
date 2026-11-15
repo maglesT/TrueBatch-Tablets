@@ -6,7 +6,7 @@
 -- closed (batch event 'stage_closed'), or the production approval or rejection if earlier: the packing line is in use
 -- by the batch through its packing and its reconciliation and line clearance, and dirty after the batch. The line named
 -- when the batch is issued (bulk-issue: the line the order is for) and in the line clearance after packing (it clears
--- the line the batch has just used) do not start a use. step_name added.
+-- the line the batch has just used) do not start a use, nor does a balance (as TrueBatch Tablets'). step_name added.
 -- material_use_v1: the quantity issued in the material's unit in master data, as read when the step was signed done
 -- (a count in e.g. nos; grams exactly in kg when master data counts the material in kg); step_name added.
 -- deviation_note_v1 (new): every deviation note (a late periodic check, a result out of limits), with the columns of
@@ -35,6 +35,8 @@ from (
       select distinct on (e.batch_id, e.stage, e.sub, e.step, e.round, f.key) e.batch_id, e.stage, e.sub, e.step, e.round, f.value, e.at
       from step_events e cross join lateral jsonb_each(e.payload->'values') f
       where e.kind in ('value', 'corrected') and jsonb_typeof(f.value) = 'object' and f.value ? 'itemId'
+        -- a weighing instrument (a machine whose type names a balance, the rule of shared/engine/picks.ts) is no use
+        and not (f.value->>'room' is distinct from f.value->>'code' and lower(coalesce(f.value->>'type', '')) like '%balance%')
       order by e.batch_id, e.stage, e.sub, e.step, e.round, f.key, e.id desc
     ) x
     join batches xb on xb.id = x.batch_id

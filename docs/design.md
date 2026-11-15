@@ -51,7 +51,9 @@ answering) or **ok**.
   its room (by code or area), has closed (the batch event `stage_closed`, recorded once by the action that closes it,
   `0010`), or the production approval or rejection if earlier. So the binder preparation and the granulation in RM-104
   are one use, not dirty between them, and the Logbook marks it dirty after the last; another batch is another use. A
-  picked machine or room keeps its room's area for this. Both views add `step_name` at the end ("Granulation › Granulate to
+  picked machine or room keeps its room's area for this. A weighing instrument (a balance, by the type rule of
+  `shared/engine/picks.ts`) is never a use: shared by the batches weighing on it, it is neither in use by a batch nor
+  dirty between weighings; the record keeps which balance was used and the Logbook checks its calibration as before. Both views add `step_name` at the end ("Granulation › Granulate to
   an end point", kept with the step's start); `step` stays the keys. `material_use_v1` gives the quantity in the
   material's unit in master data, read when the step is signed done (g and mg exactly in kg for a kg material).
 - **Where machines are**: a stage that works machines or names a room chooses the rooms it may run in (master check,

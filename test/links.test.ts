@@ -216,11 +216,14 @@ describe('TB-11 Logbook: equipment and rooms fit for use', () => {
 
 describe('TB-12 MMS: only released, in-date lots of the material; certificate values pulled', () => {
   let b: { id: number; batchNo: string };
-  beforeAll(async () => {
+  const granulation = () => {
     const d = tablet();
     const g = d.stages[1]!;
     d.stages = [{ ...g, uses: [], steps: [g.steps[0]!, g.steps[2]!, g.steps[6]!] }];
-    b = await issue(d);
+    return d;
+  };
+  beforeAll(async () => {
+    b = await issue(granulation());
     await act('asha', b.id, '0.1.0.1', 'start');
   });
 
@@ -271,6 +274,19 @@ describe('TB-12 MMS: only released, in-date lots of the material; certificate va
     expect(s.values).toMatchObject({ 'lot.released': 'yes', 'lot.expiry': '2099-12-31' });
     const r = (await as('meera', 'GET', `/api/batches/${b.id}/review`)).json() as { hand: { field: string; link: string }[] };
     expect(r.hand).toMatchObject([{ field: 'lot', link: 'mms' }]);
+  });
+
+  it('TB-11 a balance is shared by the batches weighing on it: it is no use in equipment_use_v1, so the next weighing on it is not refused', async () => {
+    const uses = async (code: string) => (await t.owner.unsafe(`select batch_number from ${t.schema}_report.equipment_use_v1 where equipment_code = $1`, [code])).map((r) => r.batch_number);
+    // The weighing above was signed on BAL-01; the charge's mixer is a use of the batch.
+    expect(await uses('BAL-01')).toEqual([]);
+    expect(await uses('RMG-01')).toEqual([b.batchNo]);
+    // Another batch weighs on BAL-01 at once, and the Logbook (its status unchanged: clean, in use by no batch) lets it.
+    const other = await issue(granulation());
+    await act('asha', other.id, '0.1.0.1', 'start');
+    expect((await record(other.id, '0.1.0.1', { lot: 'API-OK', balance: 'eq-bal', gross: '11.000', tare: '0.850' })).statusCode).toBe(200);
+    expect((await stepOf(other.id, '0.1.0.1')).values.balance).toMatchObject({ code: 'BAL-01', type: 'balance' });
+    expect(await uses('BAL-01')).toEqual([]);
   });
 });
 
@@ -487,7 +503,7 @@ describe('the views TrueBatch publishes', () => {
       { lot_number: 'LAC-G1', quantity: '12.5', unit: 'mg', step_name: 'Granulation › weigh-lactose' }]);
   });
 
-  it('equipment_use_v1: one use per batch and machine or room, open across the stages of the batch that name it or may run in its room; another batch, another use', async () => {
+  it('equipment_use_v1: one use per batch and machine or room, open across the stages of the batch that name it or may run in its room; another batch, another use; a balance, none', async () => {
     const [u] = await t.owner<{ id: number }[]>`select id::int from users order by id limit 1`;
     // The binder preparation runs in RM-104; the granulation in the Granulation area, RM-104's area; the balance stands in dispensing.
     const doc = tablet();
@@ -497,7 +513,7 @@ describe('the views TrueBatch publishes', () => {
     const batch = async (no: string) => (await t.owner<{ id: number }[]>`insert into batches (batch_no, master_version_id, issued_by) values (${no}, ${v!.id}, ${u!.id}) returning id::int`)[0]!.id;
     const [b1, b2] = [await batch('EQ-USE-1'), await batch('EQ-USE-2')];
     const room = { itemId: 'rm-104', code: 'RM-104', name: 'Granulation room 4', version: 1, type: 'Granulation', room: 'RM-104', area: 'Granulation' };
-    const bal = { itemId: 'eq-bal', code: 'BAL-01', name: 'Balance', version: 1, type: 'balance', room: 'DSP-01', area: 'Dispensing' };
+    const bal = { itemId: 'eq-bal', code: 'BAL-01', name: 'Balance', version: 1, type: 'Platform balance', room: 'DSP-01', area: 'Dispensing' };
     const e = (b: number, stage: number, sub: number, step: number, kind: string, payload: object, at: string) => t.owner`
       insert into step_events (batch_id, stage, sub, step, round, kind, payload, person_id, at)
       values (${b}, ${stage}, ${sub}, ${step}, 1, ${kind}, ${t.owner.json(payload as never)}, ${u!.id}, ${at})`;
@@ -509,30 +525,29 @@ describe('the views TrueBatch publishes', () => {
     await e(b1, 0, 1, 0, 'started', { where: 'Binder solution › Weigh a material: Povidone K30' }, '2026-11-15 08:00+00');
     await e(b1, 0, 1, 0, 'value', { values: { room, balance: bal } }, '2026-11-15 08:01+00');
     await e(b1, 0, 1, 0, 'done', {}, '2026-11-15 08:05+00');
+    // The balance the weighing names is no use (shared by the batches weighing on it); the room is.
     expect(await rows('EQ-USE-1')).toEqual([
-      { equipment_code: 'BAL-01', step: 'binder/weigh-pvp', step_name: 'Binder solution › Weigh a material: Povidone K30', started_at: new Date('2026-11-15T08:00:00Z'), ended_at: null },
       { equipment_code: 'RM-104', step: 'binder/weigh-pvp', step_name: 'Binder solution › Weigh a material: Povidone K30', started_at: new Date('2026-11-15T08:00:00Z'), ended_at: null }]);
     // The binder preparation closes: the granulation, still to run, may run in RM-104 (its area), so the room stays in use by the
-    // batch, not dirty; the balance, in no room a later stage allows, is free to be cleaned.
+    // batch, not dirty.
     await closed(b1, 0, '2026-11-15 08:30+00');
-    expect(await ends('EQ-USE-1')).toEqual([['BAL-01', new Date('2026-11-15T08:30:00Z')], ['RM-104', null]]);
-    // The granulation names both again, in two sub-batch rows too: still one use each, open until the granulation closes.
+    expect(await ends('EQ-USE-1')).toEqual([['RM-104', null]]);
+    // The granulation names it again, in two sub-batch rows too: still one use, open until the granulation closes.
     await e(b1, 1, 1, 0, 'started', {}, '2026-11-15 09:00+00');
     await e(b1, 1, 1, 0, 'value', { values: { room, balance: bal } }, '2026-11-15 09:01+00');
     await e(b1, 1, 2, 1, 'started', {}, '2026-11-15 09:10+00');
     await e(b1, 1, 2, 1, 'value', { values: { room } }, '2026-11-15 09:11+00');
     await e(b1, 1, 2, 1, 'done', {}, '2026-11-15 09:20+00');
-    expect(await rows('EQ-USE-1')).toMatchObject([{ equipment_code: 'BAL-01', step: 'binder/weigh-pvp', started_at: new Date('2026-11-15T08:00:00Z'), ended_at: null },
-      { equipment_code: 'RM-104', step: 'binder/weigh-pvp', started_at: new Date('2026-11-15T08:00:00Z'), ended_at: null }]);
-    // Dirty after the last stage that names them.
+    expect(await rows('EQ-USE-1')).toMatchObject([{ equipment_code: 'RM-104', step: 'binder/weigh-pvp', started_at: new Date('2026-11-15T08:00:00Z'), ended_at: null }]);
+    // Dirty after the last stage that names it.
     await closed(b1, 1, '2026-11-15 10:00+00');
-    expect(await ends('EQ-USE-1')).toEqual([['BAL-01', new Date('2026-11-15T10:00:00Z')], ['RM-104', new Date('2026-11-15T10:00:00Z')]]);
+    expect(await ends('EQ-USE-1')).toEqual([['RM-104', new Date('2026-11-15T10:00:00Z')]]);
     await expect(t.owner`insert into batch_events (batch_id, kind, payload, person_id) values (${b1}, 'stage_closed', '{"stage":0}', ${u!.id})`).rejects.toMatchObject({ code: '23505' });
     // Another batch in the same room is another use; rejected before its stages closed, its use ends then.
     await e(b2, 0, 1, 0, 'started', {}, '2026-11-15 11:00+00');
-    await e(b2, 0, 1, 0, 'value', { values: { room } }, '2026-11-15 11:01+00');
+    await e(b2, 0, 1, 0, 'value', { values: { room, balance: bal } }, '2026-11-15 11:01+00');
     expect(await rows('EQ-USE-2')).toMatchObject([{ equipment_code: 'RM-104', started_at: new Date('2026-11-15T11:00:00Z'), ended_at: null }]);
-    expect(await ends('EQ-USE-1')).toEqual([['BAL-01', new Date('2026-11-15T10:00:00Z')], ['RM-104', new Date('2026-11-15T10:00:00Z')]]);
+    expect(await ends('EQ-USE-1')).toEqual([['RM-104', new Date('2026-11-15T10:00:00Z')]]);
     await t.owner`insert into batch_events (batch_id, kind, payload, person_id, at) values (${b2}, 'rejected', '{}', ${u!.id}, '2026-11-15 12:00+00')`;
     expect(await ends('EQ-USE-2')).toEqual([['RM-104', new Date('2026-11-15T12:00:00Z')]]);
   });

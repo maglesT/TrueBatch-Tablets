@@ -21,7 +21,7 @@ pulled and cannot be typed over; without it, or while it is down, it is typed by
 listed for QA. TrueBatch publishes `report.batch_fact_v1` (with `manufactured_on` at its end, 0007, and the product
 name and master version, 0008), `equipment_use_v1`, `deviation_note_v1` (`db/migrations/0006_report_views.sql`) and
 `material_use_v1`, the quantities dispensed, which MMS reads to reduce lot stock (0008), in the material's master-data
-unit; a machine or room is in use by its batch until the last stage of the batch that names it (or may run in its room) closes, and both views name the step in words
+unit; a machine or room is in use by its batch until the last stage of the batch that names it (or may run in its room) closes, a balance is never in use by a batch, and both views name the step in words
 (`step_name`, 0010 and 0011).
 
 ## TrueBatch Tablets Packing

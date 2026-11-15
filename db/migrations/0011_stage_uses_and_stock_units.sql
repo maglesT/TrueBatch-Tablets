@@ -8,7 +8,10 @@
 -- those closes, or the batch's production approval or rejection if earlier. So a room or machine used by the binder
 -- preparation and the granulation is not dirty between them, and is dirty after the last. `step` stays the keys
 -- "stage/step" of the first step that names it; step_name (added at the end) is it in words, "Granulation › Granulate
--- to an end point", as the step's start recorded it (older steps: the stage name and the step's key).
+-- to an end point", as the step's start recorded it (older steps: the stage name and the step's key). A weighing
+-- instrument (a balance: a machine whose type names one, as shared/engine/picks.ts) is never a use: a dispensing
+-- balance is shared by the batches weighing on it, so it is neither in use by a batch nor dirty between weighings;
+-- the batch record keeps which balance was used, and the Logbook checks its calibration and daily check as before.
 -- material_use_v1: the quantity in the material's unit in master data, as read when the step was signed done
 -- (payload.stockUnit): grams and milligrams are given exactly in kg when master data counts the material in kg; a count
 -- in the master-data unit (e.g. nos). Without that unit, the quantity stays in the step's unit. step_name added at the end.
@@ -37,6 +40,8 @@ from (
       select distinct on (e.batch_id, e.stage, e.sub, e.step, e.round, f.key) e.batch_id, e.stage, e.sub, e.step, e.round, f.value, e.at
       from step_events e cross join lateral jsonb_each(e.payload->'values') f
       where e.kind in ('value', 'corrected') and jsonb_typeof(f.value) = 'object' and f.value ? 'itemId'
+        -- a weighing instrument (a machine whose type names a balance, the rule of shared/engine/picks.ts) is no use
+        and not (f.value->>'room' is distinct from f.value->>'code' and lower(coalesce(f.value->>'type', '')) like '%balance%')
       order by e.batch_id, e.stage, e.sub, e.step, e.round, f.key, e.id desc
     ) x
     cross join lateral (
