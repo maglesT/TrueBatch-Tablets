@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { BLOCKS, findBlock } from '../shared/blocks/index.js';
 import { blocking, masterChecks } from '../shared/master/checks.js';
 import { masterSchema } from '../shared/master/schema.js';
-import { describeMaster, diffMasters } from '../web/src/designer/describe.js';
+import { describeMaster, diffMasters, stepText } from '../web/src/designer/describe.js';
 import { dispensing, workedExample } from '../web/src/designer/example.js';
-import { answerDoc, earlierRefs, neededKind, scaleDoc } from '../web/src/designer/model.js';
+import { answerDoc, earlierRefs, neededKind, scaleDoc, stepFrom } from '../web/src/designer/model.js';
 import { sentence, sentenceText } from '../web/src/designer/sentences.js';
 import { SKELETON_LIST, skeletonStages } from '../web/src/designer/skeletons.js';
 import { tablet } from './engine-fixture.js';
@@ -24,6 +24,22 @@ describe('master designer', () => {
     const weigh = d.stages[1]!.steps[0]!;
     expect(sentenceText(d, block('weigh'), weigh.settings, sentence(block('weigh'), block('weigh').calcs[1]!)))
       .toBe('The net weight must be within ± 0.5 % of the batch quantity of Examplol, adjusted for the lot.');
+  });
+
+  it('every block reads in words with its default settings: a limit written in the block too, never [object Object]', () => {
+    const d = tablet();
+    for (const b of BLOCKS) {
+      const t = stepFrom(b, []);
+      const text = [stepText(d, t, 0), ...b.calcs.map((c) => sentenceText(d, b, t.settings, sentence(b, c)))].join(' ');
+      expect(text, `${b.id} v${b.version}`).not.toMatch(/\[object Object\]|undefined|NaN/);
+    }
+    const punch = block('punch-die-check');
+    expect(sentenceText(d, punch, {}, sentence(punch, punch.calcs[1]!))).toBe('The punches or dies damaged must be at most 0 units.');
+    // Any other shape written into a block reads in words too.
+    const said = (limit: unknown) => sentenceText(d, punch, {}, sentence(punch, { name: 'x', label: 'x', template: 'C1', args: { value: '$damaged', limit } }));
+    expect(said({ max: 0 })).toBe('The punches or dies damaged must be at most 0.');
+    expect(said({ low: '2', high: '5', unit: 'kg' })).toBe('The punches or dies damaged must be within 2 to 5 kg.');
+    expect(said([{ high: '$toolingCheck', highStrict: true }, { min: 1 }])).toBe('The punches or dies damaged must be less than the punches and dies and at least 1.');
   });
 
   it('a quantity or limit is offered only from values of a compatible kind', () => {

@@ -11,12 +11,33 @@ type Calc = Block['calcs'][number];
 
 /** One input of a calculation as a part: "$gross" is a field, "$target" a setting, "$net" an earlier calculation. */
 function input(block: Block, x: unknown): Part {
-  if (typeof x !== 'string' || !x.startsWith('$')) return String(x);
+  if (typeof x !== 'string' || !x.startsWith('$')) return written(block, x);
   const raw = x.slice(1).replace(/\?$/, '');
   if (raw.startsWith('prev.')) return { prev: raw.slice(5) };
   if (block.settings.some((s) => s.name === raw)) return { setting: raw };
   if (block.fields.some((f) => f.name === raw)) return { field: raw };
   return { calc: raw };
+}
+
+/** A value written in the block itself in words: a limit as "at most 0 units", a list one by one, a name by its label. */
+function written(block: Block, x: unknown): string {
+  if (typeof x === 'string') {
+    if (!x.startsWith('$')) return x;
+    const raw = x.slice(1).replace(/\?$/, '').replace(/^prev\./, '');
+    return `the ${[...block.fields, ...block.settings, ...block.calcs].find((y) => y.name === raw)?.label.toLowerCase() ?? raw}`;
+  }
+  if (Array.isArray(x)) return x.map((y) => written(block, y)).join(' and ');
+  if (x && typeof x === 'object') {
+    const o = x as Record<string, unknown>;
+    const w = (...keys: string[]) => keys.map((k) => o[k]).filter((y) => y !== undefined).map((y) => written(block, y))[0];
+    const low = w('low', 'min'); const high = w('high', 'max'); const change = w('maxChange', 'maxChangePercent');
+    if (low !== undefined || high !== undefined) {
+      return limitText({ low, high, unit: typeof o.unit === 'string' ? o.unit : '', lowStrict: o.lowStrict === true, highStrict: o.highStrict === true });
+    }
+    if (change !== undefined) return `changed by at most ${change}${o.maxChangePercent !== undefined ? ' %' : ''}`;
+    return Object.values(o).map((y) => written(block, y)).join(' and ');
+  }
+  return String(x);
 }
 
 export function sentence(block: Block, c: Calc): Part[] {
