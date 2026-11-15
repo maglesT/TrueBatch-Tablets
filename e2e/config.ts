@@ -8,6 +8,9 @@ export const USERS: Record<string, Permission[]> = {
   op1: ['truebatch.batch.operate'],
   chk1: ['truebatch.batch.check'],
   qa1: ['truebatch.qa.release', 'truebatch.master.approve'],
+  // The release journey: production supervisor and QC.
+  sup1: ['truebatch.batch.supervise'],
+  qc1: ['truebatch.qc.approve'],
   // Writes the fixture master and issues the batch of the floor journey.
   iss1: ['truebatch.master.author', 'truebatch.batch.issue'],
   // The master designer journey: an author and a second-person checker (qa1 approves).
