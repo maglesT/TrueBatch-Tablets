@@ -58,11 +58,12 @@ export async function loadBatch(q: Sql | Tx, id: number): Promise<LoadedBatch | 
 const batchContent = (l: LoadedBatch) => ({ batch: l.batch.id, batchNo: l.batch.batchNo, lastStepEvent: l.events.at(-1)?.id ?? 0, lastBatchEvent: l.batchEvents.at(-1)?.id ?? 0 });
 /** Every signature of the batch: its issue, its steps and its batch-level decisions, in order. */
 const batchSignatures = (q: Sql, id: number) => q<Signature[]>`
-  select s.object_type as "objectType", s.object_id::int as "objectId", s.printed_name as "printedName", s.meaning, s.signed_at as "signedAt"
-  from signatures s
+  select s.object_type as "objectType", s.object_id::int as "objectId", s.printed_name as "printedName", s.meaning, s.signed_at as "signedAt",
+    case when e.id is not null then concat_ws('.', e.stage, e.sub, e.step, e.round) end as step
+  from signatures s left join step_events e on s.object_type = 'step_event' and e.id = s.object_id
   where (s.object_type = 'batch' and s.object_id = ${id})
-     or (s.object_type = 'step_event' and s.object_id in (select e.id from step_events e where e.batch_id = ${id}))
-     or (s.object_type = 'batch_event' and s.object_id in (select e.id from batch_events e where e.batch_id = ${id}))
+     or e.batch_id = ${id}
+     or (s.object_type = 'batch_event' and s.object_id in (select b.id from batch_events b where b.batch_id = ${id}))
   order by s.signed_at, s.id`;
 /** What the batch record PDF is made from: the batch with its master version, issuer and signatures. */
 export async function recordInput(q: Sql, l: LoadedBatch): Promise<RecordInput> {

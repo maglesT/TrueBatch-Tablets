@@ -31,9 +31,11 @@ export interface WorkItem {
 }
 export interface PickItem { itemId: string; code: string; name: string; active: boolean; type?: string | null; area?: string | null }
 
-// ---- routes: #/ (My work), #/batch/12, #/batch/12/step/0.1.0.1, #/batch/12/approve ----
-export interface Route { batch?: number; step?: string; approve?: boolean }
+// ---- routes: #/ (My work), #/batch/12, #/batch/12/step/0.1.0.1, #/batch/12/approve, #/release (To review), #/release/12 ----
+export interface Route { batch?: number; step?: string; approve?: boolean; release?: number | 'list' }
 export function parseRoute(hash: string): Route {
+  const r = /^#\/release(?:\/(\d+))?$/.exec(hash);
+  if (r) return { release: r[1] ? Number(r[1]) : 'list' };
   const m = /^#\/batch\/(\d+)(?:\/(?:step\/([\d.]+)|(approve)))?$/.exec(hash);
   return m ? { batch: Number(m[1]), ...(m[2] ? { step: m[2] } : {}), ...(m[3] ? { approve: true } : {}) } : {};
 }
@@ -49,6 +51,8 @@ export function useRoute(): Route {
 export const go = (to: string) => { window.location.hash = to; };
 export const batchLink = (id: number) => `#/batch/${id}`;
 export const stepLink = (id: number, step: string) => `#/batch/${id}/step/${step}`;
+export const releaseLink = (id: number) => `#/release/${id}`;
+export const pdfLink = (id: number) => `/api/batches/${id}/pdf`;
 
 // ---- the block library, read once ----
 let blocks: Promise<Block[]> | null = null;

@@ -8,7 +8,8 @@ import { batchView, deviations, lateItems, lineQuantity, openSteps, type EventKi
 import type { LoadedBatch } from './routes/batches.js';
 import { pageFrame, plant, runs } from './pdf.js';
 
-export interface Signature { objectType: string; objectId: number; printedName: string; meaning: string; signedAt: Date }
+// A signature of the batch; `step` is the step instance of a step signature.
+export interface Signature { objectType: string; objectId: number; printedName: string; meaning: string; signedAt: Date; step: string | null }
 export interface RecordInput extends LoadedBatch { versionNo: number; issuedByName: string; signatures: Signature[] }
 
 const MEANING: Record<string, string> = {
@@ -125,11 +126,9 @@ export function batchRecordDoc(r: RecordInput, by: string, printedAt = new Date(
   })));
 
   // Every signature of the batch with its meaning.
-  const stepEvent = new Map(events.map((e) => [e.id, e]));
   content.push(heading('Signatures'));
   content.push(table([150, 140, 130, '*'], ['Meaning', 'Signed by', 'When', 'What was signed'], r.signatures.map((s) => {
-    const e = s.objectType === 'step_event' ? stepEvent.get(s.objectId) : undefined;
-    const what = s.objectType === 'batch' ? `Batch ${r.batch.batchNo}` : e ? stepLabel(`${e.stage}.${e.sub}.${e.step}.${e.round}`) : 'The batch record';
+    const what = s.objectType === 'batch' ? `Batch ${r.batch.batchNo}` : s.step ? stepLabel(s.step) : 'The batch record';
     return [small(MEANING[s.meaning] ?? s.meaning), small(s.printedName), small(plant(s.signedAt)), small(what)];
   })));
 

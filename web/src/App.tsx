@@ -5,14 +5,18 @@ import { MyWork } from './floor/MyWork.js';
 import { BatchScreen } from './floor/BatchScreen.js';
 import { go, useRoute } from './api-floor.js';
 import { Masters } from './designer/Masters.js';
+import { ToReview } from './release/ToReview.js';
+import { ReleaseScreen } from './release/ReleaseScreen.js';
 
 type Page = 'home' | 'masters';
 
 export function App() {
   const [me, setMe] = useState<Me | null | undefined>(undefined);
   const [page, setPage] = useState<Page>('home');
-  // Floor screens: #/batch/12, #/batch/12/step/0.1.0.1, #/batch/12/approve (the tablet's back button works).
+  // Floor screens: #/batch/12, #/batch/12/step/0.1.0.1, #/batch/12/approve (the tablet's back button works); the QC
+  // and QA screens: #/release, #/release/12.
   const route = useRoute();
+  const release = route.release;
 
   const refresh = useCallback(async () => {
     try {
@@ -42,9 +46,12 @@ export function App() {
       <header className="bar">
         <span className="brand"><img className="brand-mark" src="/truebatch-mark.svg" alt="TrueBatch" /><span><b>TrueBatch Tablets</b><small>by Medhanta</small></span></span>
         <nav>
-          <button className={page === 'home' && !route.batch ? 'tab on' : 'tab'} onClick={() => { setPage('home'); go('#/'); }}>My work</button>
+          <button className={page === 'home' && !route.batch && !release ? 'tab on' : 'tab'} onClick={() => { setPage('home'); go('#/'); }}>My work</button>
+          {['qc.approve', 'qa.release'].some((c) => can(me, c)) && (
+            <button className={release ? 'tab on' : 'tab'} onClick={() => { setPage('home'); go('#/release'); }}>To review</button>
+          )}
           {['master.author', 'master.check', 'master.approve', 'view'].some((c) => can(me, c)) && (
-            <button className={page === 'masters' ? 'tab on' : 'tab'} onClick={() => { setPage('masters'); go('#/'); }}>Master records</button>
+            <button className={page === 'masters' && !release ? 'tab on' : 'tab'} onClick={() => { setPage('masters'); go('#/'); }}>Master records</button>
           )}
         </nav>
         <span className="who">
@@ -53,8 +60,10 @@ export function App() {
         </span>
       </header>
       <main className="page">
-        {page === 'home' && (route.batch ? <BatchScreen me={me} id={route.batch} step={route.step} approve={route.approve} /> : <MyWork me={me} />)}
-        {page === 'masters' && <Masters me={me} />}
+        {release ? (release === 'list' ? <ToReview me={me} /> : <ReleaseScreen me={me} id={release} />) : (<>
+          {page === 'home' && (route.batch ? <BatchScreen me={me} id={route.batch} step={route.step} approve={route.approve} /> : <MyWork me={me} />)}
+          {page === 'masters' && <Masters me={me} />}
+        </>)}
       </main>
     </>
   );
