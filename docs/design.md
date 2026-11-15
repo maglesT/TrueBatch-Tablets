@@ -45,10 +45,13 @@ answering) or **ok**.
   `product_name` and `master_version` at the end (family_code is the master version's number) and publishes
   `material_use_v1`: per signed weighing step its lot, material and net quantity (status dispensed, or corrected with
   the corrected quantity); MMS reduces the lot's stock by reading it (owner decision), nothing is sent. `0011`: a
-  machine or room is in use by its **stage**, not its step: `equipment_use_v1` has one row per batch, stage, sub-batch
-  and machine or room, from the first start of a step of the stage that names it to the moment the stage closed (the
-  batch event `stage_closed`, recorded once by the action that closes it, `0010`), so the Logbook marks it dirty after
-  the stage; a machine in two stages has two uses. Both views add `step_name` at the end ("Granulation › Granulate to
+  machine or room is in use by its **batch**, not its step or stage (cleaning is due between batches, not between the
+  stages of one batch): `equipment_use_v1` has one row per batch and machine or room (sub-batches included), from the
+  first start of a step of the batch that names it until every stage of the batch that names it, or whose rooms allow
+  its room (by code or area), has closed (the batch event `stage_closed`, recorded once by the action that closes it,
+  `0010`), or the production approval or rejection if earlier. So the binder preparation and the granulation in RM-104
+  are one use, not dirty between them, and the Logbook marks it dirty after the last; another batch is another use. A
+  picked machine or room keeps its room's area for this. Both views add `step_name` at the end ("Granulation › Granulate to
   an end point", kept with the step's start); `step` stays the keys. `material_use_v1` gives the quantity in the
   material's unit in master data, read when the step is signed done (g and mg exactly in kg for a kg material).
 - **Where machines are**: a stage that works machines or names a room chooses the rooms it may run in (master check,

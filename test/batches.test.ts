@@ -179,7 +179,7 @@ describe('walking a stage', () => {
     expect((await sign('ravi', id, '0.1.1.1', 'check')).statusCode).toBe(200);
     const b = await batch(id);
     expect(b.stages[0]).toMatchObject({ key: 'binder', closed: true });
-    // The check that closed the preparation recorded it once (equipment_use_v1 ends the stage's uses then).
+    // The check that closed the preparation recorded it once (equipment_use_v1 reads it to end the batch's uses).
     expect(await t.owner`select payload from batch_events where batch_id = ${id} and kind = 'stage_closed'`).toEqual([{ payload: { stage: 0 } }]);
     expect(b.steps.find((s) => s.id === '1.1.0.1')!.state).toBe('open');
     expect(b.timers).toMatchObject([{ id: 'hold:0:1', state: 'running' }]);

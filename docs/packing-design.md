@@ -62,9 +62,10 @@ QA release of the packed batch. Built the Logbook way, as TrueBatch Tablets is.
   status) for MMS finished goods later; `equipment_use_v1` (the line and rooms used, for the Logbook) and
   `material_use_v1` (per signed issue step its lot, packing material and quantity issued in the material's unit, for
   MMS to reduce the lot's stock) with TrueBatch Tablets' names and columns
-  (`packing/migrations/0102_packing_equipment_and_material_use.sql`). `0103`: the line is in use for its whole
-  packing stage and dirty after it (the line named at issue and the line clearance after packing are not uses; that
-  clearance is not refused because the line is dirty), `step_name` at the end of both, quantities in the material's
+  (`packing/migrations/0102_packing_equipment_and_material_use.sql`). `0103`: one use of the line per packing batch:
+  it is in use by the batch through its packing and its reconciliation and line clearance (stages in the line's
+  rooms), and dirty after the batch (the line named at issue and the line clearance after packing do not start a use;
+  that clearance is not refused because the line is dirty), `step_name` at the end of both, quantities in the material's
   master-data unit (a count in e.g. nos), and `deviation_note_v1` with TrueBatch Tablets' columns (source_ref
   `truebatch_packing:note:<id>`), so the Deviations system files packing's notes too (late periodic checks).
 

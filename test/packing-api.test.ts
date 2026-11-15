@@ -201,6 +201,12 @@ describe('a packing batch from a released bulk batch', () => {
     await step('1.1.4.1', { vacuum: '500', tested: '20', leaking: '0', packingDone: 'yes' });
     await step('1.1.5.1', yes('appearance', 'complete', 'samplesKept', 'packingDone'));
     await step('1.1.6.1', { cartons: '10', ...yes('leaflet', 'count', 'coded', 'packingDone') });
+    // The packing stage is closed: the line stays in use by the batch (its reconciliation and line clearance run in the
+    // packing rooms, PK-01's area), not dirty before the batch is finished with it.
+    const lineUse = async () => (await t.owner.unsafe(`select ended_at is not null as ended from ${t.schema}_report.equipment_use_v1 where equipment_code = 'BL-01'
+      and batch_number = (select batch_no from batches where id = $1)`, [id]))[0];
+    expect(await t.owner`select 1 from batch_events where batch_id = ${id} and kind = 'stage_closed' and payload->>'stage' = '1'`).toHaveLength(1);
+    expect(await lineUse()).toEqual({ ended: false });
     const fg = await step('2.1.0.1', { packs: '9800', cartons: '980', samples: '40', returnedWeight: '0.375', rejectWeight: '0.125' });
     expect(fg.results.accountability).toMatchObject({ check: { pass: true } });
     await step('2.1.1.1', { used: '1176', destroyed: '20', returned: '54' });
@@ -252,6 +258,7 @@ describe('a packing batch from a released bulk batch', () => {
     // per lot, in the material's unit, as TrueBatch Tablets publishes what it dispensed.
     const batchNo = (await loadBatch(t.sql, id))!.batch.batchNo;
     // One use of the line, for its whole packing stage (not the line named at issue, nor the clearance after packing).
+    expect(await lineUse()).toEqual({ ended: true });
     const eq = await t.owner.unsafe(`select equipment_code, equipment_type, room_code, step, step_name, ended_at is not null as ended from ${t.schema}_report.equipment_use_v1 where batch_number = $1`, [batchNo]);
     expect(eq).toEqual([{ equipment_code: 'BL-01', equipment_type: 'blister line', room_code: 'PK-01', step: 'packing/clearance', step_name: 'Packing › Line clearance before packing', ended: true }]);
     const used = await t.owner.unsafe(`select lot_number, material_code, material_master_id, quantity::text, unit, step, status

@@ -1,10 +1,12 @@
 -- TrueBatch Tablets Packing's published views, as TrueBatch Tablets' (db/migrations/0011, 0008), owner 15 Nov 2026 from
 -- the run of TP260001. Columns are only added at the end (create or replace keeps the grants set_link gave).
 --
--- equipment_use_v1: ONE use per batch, stage and machine or room, from the first start of a step of the stage that
--- names it to the moment the stage closed (batch event 'stage_closed'): the packing line is in use for its whole
--- packing stage and dirty after it. The line named when the batch is issued (bulk-issue: the line the order is for)
--- and in the line clearance after packing (it clears the line the batch has just used) are not uses. step_name added.
+-- equipment_use_v1: ONE use per packing batch and line or room, as TrueBatch Tablets' (db/migrations/0011): from the
+-- first start of a step that names it until every stage of the batch that names it, or whose rooms allow its room, has
+-- closed (batch event 'stage_closed'), or the production approval or rejection if earlier: the packing line is in use
+-- by the batch through its packing and its reconciliation and line clearance, and dirty after the batch. The line named
+-- when the batch is issued (bulk-issue: the line the order is for) and in the line clearance after packing (it clears
+-- the line the batch has just used) do not start a use. step_name added.
 -- material_use_v1: the quantity issued in the material's unit in master data, as read when the step was signed done
 -- (a count in e.g. nos; grams exactly in kg when master data counts the material in kg); step_name added.
 -- deviation_note_v1 (new): every deviation note (a late periodic check, a result out of limits), with the columns of
@@ -19,36 +21,45 @@ end $$;
 create or replace view equipment_use_v1 with (security_barrier) as
 select b.batch_no as batch_number, u.value->>'code' as equipment_code, u.value->>'type' as equipment_type, u.value->>'room' as room_code,
   (v.doc->'stages'->u.stage->>'key') || '/' || (v.doc->'stages'->u.stage->'steps'->u.step->>'key') as step,
-  u.started_at, coalesce(c.at, a.at) as ended_at, now() as read_at, greatest(u.last, c.at, a.at) as data_as_of,
+  u.started_at, case when c.closed then least(c.at, d.at) else d.at end as ended_at, now() as read_at, greatest(u.last, c.at, d.at) as data_as_of,
   coalesce(u.place, (v.doc->'stages'->u.stage->>'name') || ' › ' || (v.doc->'stages'->u.stage->'steps'->u.step->>'key')) as step_name
 from (
-  select distinct on (x.batch_id, x.stage, x.sub, x.value->>'code') x.batch_id, x.stage, x.sub, x.step, x.value, t.started_at, t.place,
-    max(x.at) over (partition by x.batch_id, x.stage, x.sub, x.value->>'code') as last
+  select n.batch_id, (array_agg(n.stage order by n.started_at nulls last, n.stage, n.sub, n.step, n.round))[1] as stage,
+    (array_agg(n.step order by n.started_at nulls last, n.stage, n.sub, n.step, n.round))[1] as step,
+    (array_agg(n.value order by n.started_at nulls last, n.stage, n.sub, n.step, n.round))[1] as value,
+    (array_agg(n.place order by n.started_at nulls last, n.stage, n.sub, n.step, n.round))[1] as place,
+    min(n.started_at) as started_at, max(n.at) as last, array_agg(distinct n.stage) as stages
   from (
-    select distinct on (e.batch_id, e.stage, e.sub, e.step, e.round, f.key) e.batch_id, e.stage, e.sub, e.step, e.round, f.value, e.at
-    from step_events e cross join lateral jsonb_each(e.payload->'values') f
-    where e.kind in ('value', 'corrected') and jsonb_typeof(f.value) = 'object' and f.value ? 'itemId'
-    order by e.batch_id, e.stage, e.sub, e.step, e.round, f.key, e.id desc
-  ) x
-  join batches xb on xb.id = x.batch_id
-  join master_versions xv on xv.id = xb.master_version_id
-  cross join lateral (
-    select min(y.at) as started_at, (array_agg(y.payload->>'where' order by y.id))[1] as place from step_events y
-    where y.batch_id = x.batch_id and y.stage = x.stage and y.sub = x.sub and y.step = x.step and y.round = x.round and y.kind = 'started'
-  ) t
-  where xv.doc->'stages'->x.stage->'steps'->x.step->'block'->>'id' not in ('bulk-issue', 'pack-clearance-after')
-  order by x.batch_id, x.stage, x.sub, x.value->>'code', t.started_at nulls last, x.step, x.round
+    select x.batch_id, x.stage, x.sub, x.step, x.round, x.value, x.at, t.started_at, t.place
+    from (
+      select distinct on (e.batch_id, e.stage, e.sub, e.step, e.round, f.key) e.batch_id, e.stage, e.sub, e.step, e.round, f.value, e.at
+      from step_events e cross join lateral jsonb_each(e.payload->'values') f
+      where e.kind in ('value', 'corrected') and jsonb_typeof(f.value) = 'object' and f.value ? 'itemId'
+      order by e.batch_id, e.stage, e.sub, e.step, e.round, f.key, e.id desc
+    ) x
+    join batches xb on xb.id = x.batch_id
+    join master_versions xv on xv.id = xb.master_version_id
+    cross join lateral (
+      select min(y.at) as started_at, (array_agg(y.payload->>'where' order by y.id))[1] as place from step_events y
+      where y.batch_id = x.batch_id and y.stage = x.stage and y.sub = x.sub and y.step = x.step and y.round = x.round and y.kind = 'started'
+    ) t
+    where xv.doc->'stages'->x.stage->'steps'->x.step->'block'->>'id' not in ('bulk-issue', 'pack-clearance-after')
+  ) n
+  group by n.batch_id, n.value->>'code'
 ) u
 join batches b on b.id = u.batch_id
 join master_versions v on v.id = b.master_version_id
+cross join lateral (
+  select bool_and(z.at is not null) as closed, max(z.at) as at
+  from jsonb_array_elements(v.doc->'stages') with ordinality m(st, i)
+  left join batch_events z on z.batch_id = u.batch_id and z.kind = 'stage_closed' and z.payload->>'stage' = (m.i - 1)::text
+  where (m.i - 1)::int = any(u.stages) or exists (
+    select 1 from jsonb_array_elements_text(m.st->'roomTypes') r
+    where lower(r) in (lower(u.value->>'room'), lower(coalesce(u.value->>'area', case when u.value->>'room' = u.value->>'code' then u.value->>'type' end))))
+) c
 left join lateral (
-  select min(z.at) as at from batch_events z where z.batch_id = u.batch_id and z.kind = 'stage_closed' and z.payload->>'stage' = u.stage::text
-) c on true
-left join lateral (
-  select max(z.at) as at from step_events z
-  where c.at is null and z.batch_id = u.batch_id and z.stage = u.stage and z.sub = u.sub and z.kind in ('done', 'checked', 'not_applicable')
-    and exists (select 1 from batch_events w where w.batch_id = u.batch_id and w.kind in ('production_approved', 'rejected'))
-) a on true;
+  select min(z.at) as at from batch_events z where z.batch_id = u.batch_id and z.kind in ('production_approved', 'rejected')
+) d on true;
 
 create or replace view material_use_v1 with (security_barrier) as
 select b.batch_no as batch_number, cur.lot as lot_number, m.m->>'code' as material_code, m.m->>'materialItemId' as material_master_id,

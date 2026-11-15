@@ -1,12 +1,14 @@
 -- Published views, as the Logbook and MMS read them (owner, 15 Nov 2026, from the run of batch TB260004). Columns are
 -- only added at the end (create or replace keeps the grants the platform's set_link gave).
 --
--- equipment_use_v1: ONE use per batch, stage, sub-batch and machine or room: started_at is the first start of a step
--- of the stage that names it, ended_at the moment the stage closed (batch event 'stage_closed', 0010), so the Logbook
--- marks it dirty after the stage, not after each step. A machine named in two stages has two uses. `step` stays the
--- keys "stage/step" of that first step; step_name (added at the end) is it in words, "Granulation › Granulate to an
--- end point", as the step's start recorded it (older steps: the stage name and the step's key). A batch that
--- production approved or rejected holds nothing: an older batch's stage with no 'stage_closed' ends at its last step.
+-- equipment_use_v1: ONE use per batch and machine or room (its sub-batches included): cleaning is due between batches,
+-- not between the stages of one batch. started_at is the first start of a step of the batch that names it; the use
+-- stays open (the Logbook: in use by the batch) until every stage of the batch that names it, or whose rooms
+-- (roomTypes) allow its room by code or area, has closed (batch event 'stage_closed', 0010); ended_at is the last of
+-- those closes, or the batch's production approval or rejection if earlier. So a room or machine used by the binder
+-- preparation and the granulation is not dirty between them, and is dirty after the last. `step` stays the keys
+-- "stage/step" of the first step that names it; step_name (added at the end) is it in words, "Granulation › Granulate
+-- to an end point", as the step's start recorded it (older steps: the stage name and the step's key).
 -- material_use_v1: the quantity in the material's unit in master data, as read when the step was signed done
 -- (payload.stockUnit): grams and milligrams are given exactly in kg when master data counts the material in kg; a count
 -- in the master-data unit (e.g. nos). Without that unit, the quantity stays in the step's unit. step_name added at the end.
@@ -20,34 +22,44 @@ end $$;
 create or replace view equipment_use_v1 with (security_barrier) as
 select b.batch_no as batch_number, u.value->>'code' as equipment_code, u.value->>'type' as equipment_type, u.value->>'room' as room_code,
   (v.doc->'stages'->u.stage->>'key') || '/' || (v.doc->'stages'->u.stage->'steps'->u.step->>'key') as step,
-  u.started_at, coalesce(c.at, a.at) as ended_at, now() as read_at, greatest(u.last, c.at, a.at) as data_as_of,
+  u.started_at, case when c.closed then least(c.at, d.at) else d.at end as ended_at, now() as read_at, greatest(u.last, c.at, d.at) as data_as_of,
   coalesce(u.place, (v.doc->'stages'->u.stage->>'name') || ' › ' || (v.doc->'stages'->u.stage->'steps'->u.step->>'key')) as step_name
 from (
-  -- each machine or room once per stage and sub-batch, from the step that names it first (its current value)
-  select distinct on (x.batch_id, x.stage, x.sub, x.value->>'code') x.batch_id, x.stage, x.sub, x.step, x.value, t.started_at, t.place,
-    max(x.at) over (partition by x.batch_id, x.stage, x.sub, x.value->>'code') as last
+  -- each machine or room once per batch, from the step that names it first (its current value), with the stages that name it
+  select n.batch_id, (array_agg(n.stage order by n.started_at nulls last, n.stage, n.sub, n.step, n.round))[1] as stage,
+    (array_agg(n.step order by n.started_at nulls last, n.stage, n.sub, n.step, n.round))[1] as step,
+    (array_agg(n.value order by n.started_at nulls last, n.stage, n.sub, n.step, n.round))[1] as value,
+    (array_agg(n.place order by n.started_at nulls last, n.stage, n.sub, n.step, n.round))[1] as place,
+    min(n.started_at) as started_at, max(n.at) as last, array_agg(distinct n.stage) as stages
   from (
-    select distinct on (e.batch_id, e.stage, e.sub, e.step, e.round, f.key) e.batch_id, e.stage, e.sub, e.step, e.round, f.value, e.at
-    from step_events e cross join lateral jsonb_each(e.payload->'values') f
-    where e.kind in ('value', 'corrected') and jsonb_typeof(f.value) = 'object' and f.value ? 'itemId'
-    order by e.batch_id, e.stage, e.sub, e.step, e.round, f.key, e.id desc
-  ) x
-  cross join lateral (
-    select min(y.at) as started_at, (array_agg(y.payload->>'where' order by y.id))[1] as place from step_events y
-    where y.batch_id = x.batch_id and y.stage = x.stage and y.sub = x.sub and y.step = x.step and y.round = x.round and y.kind = 'started'
-  ) t
-  order by x.batch_id, x.stage, x.sub, x.value->>'code', t.started_at nulls last, x.step, x.round
+    select x.batch_id, x.stage, x.sub, x.step, x.round, x.value, x.at, t.started_at, t.place
+    from (
+      select distinct on (e.batch_id, e.stage, e.sub, e.step, e.round, f.key) e.batch_id, e.stage, e.sub, e.step, e.round, f.value, e.at
+      from step_events e cross join lateral jsonb_each(e.payload->'values') f
+      where e.kind in ('value', 'corrected') and jsonb_typeof(f.value) = 'object' and f.value ? 'itemId'
+      order by e.batch_id, e.stage, e.sub, e.step, e.round, f.key, e.id desc
+    ) x
+    cross join lateral (
+      select min(y.at) as started_at, (array_agg(y.payload->>'where' order by y.id))[1] as place from step_events y
+      where y.batch_id = x.batch_id and y.stage = x.stage and y.sub = x.sub and y.step = x.step and y.round = x.round and y.kind = 'started'
+    ) t
+  ) n
+  group by n.batch_id, n.value->>'code'
 ) u
 join batches b on b.id = u.batch_id
 join master_versions v on v.id = b.master_version_id
+-- the stages that name it or may run in its room (a room's area is its type; a machine's, the area recorded with it): all closed?
+cross join lateral (
+  select bool_and(z.at is not null) as closed, max(z.at) as at
+  from jsonb_array_elements(v.doc->'stages') with ordinality m(st, i)
+  left join batch_events z on z.batch_id = u.batch_id and z.kind = 'stage_closed' and z.payload->>'stage' = (m.i - 1)::text
+  where (m.i - 1)::int = any(u.stages) or exists (
+    select 1 from jsonb_array_elements_text(m.st->'roomTypes') r
+    where lower(r) in (lower(u.value->>'room'), lower(coalesce(u.value->>'area', case when u.value->>'room' = u.value->>'code' then u.value->>'type' end))))
+) c
 left join lateral (
-  select min(z.at) as at from batch_events z where z.batch_id = u.batch_id and z.kind = 'stage_closed' and z.payload->>'stage' = u.stage::text
-) c on true
-left join lateral (
-  select max(z.at) as at from step_events z
-  where c.at is null and z.batch_id = u.batch_id and z.stage = u.stage and z.sub = u.sub and z.kind in ('done', 'checked', 'not_applicable')
-    and exists (select 1 from batch_events w where w.batch_id = u.batch_id and w.kind in ('production_approved', 'rejected'))
-) a on true;
+  select min(z.at) as at from batch_events z where z.batch_id = u.batch_id and z.kind in ('production_approved', 'rejected')
+) d on true;
 
 create or replace view material_use_v1 with (security_barrier) as
 select b.batch_no as batch_number, cur.lot as lot_number, line.l->>'code' as material_code, line.l->>'materialItemId' as material_master_id,

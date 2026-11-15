@@ -109,7 +109,10 @@ async function readValues(app: FastifyInstance, doc: MasterDoc, key: StepKey, ra
       const type = 'type' in item ? item.type : item.area;
       const no = 'type' in item ? machineRefusal(stage, f, item, rooms) : roomRefusal(stage, item);
       if (no) { problems.push(no); continue; }
-      out[name] = { itemId: item.itemId, code: item.code, name: item.name, version: item.version, type, room: 'room' in item ? item.room : item.code };
+      // The area of the room it stands in, so a later stage that runs in that area keeps it in use by the batch (equipment_use_v1).
+      const room = 'room' in item ? item.room : item.code;
+      const area = 'area' in item ? item.area : rooms.find((r) => r.code === room)?.area ?? null;
+      out[name] = { itemId: item.itemId, code: item.code, name: item.name, version: item.version, type, room, area };
       pulled = await pullItem(app, block, f, item, batchNo);
     } else {
       const v = readValue(f, x, '');
@@ -254,7 +257,8 @@ async function stockUnit(app: FastifyInstance, doc: MasterDoc, key: StepKey): Pr
 
 /**
  * A stage closed by this action, recorded once as a batch event 'stage_closed' (the engine works it out: every step
- * done, checked or not applicable). A machine or room is in use by its stage until then (equipment_use_v1).
+ * done, checked or not applicable). A machine or room is in use by the batch until the last stage that names it, or
+ * may run in its room, has closed (equipment_use_v1).
  */
 async function recordClosedStages(tx: Tx, id: number, before: readonly StageView[], person: number) {
   const l = (await loadBatch(tx, id))!;

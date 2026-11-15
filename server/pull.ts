@@ -27,7 +27,8 @@ export async function pullItem(app: FastifyInstance, block: Block, f: BlockField
   if (r.state !== 'ok' || r.value === 'stale') return hand('logbook', r.state === 'absent' ? 'absent' : 'down');
   const s = r.value;
   if (!s) return refused(`${item.code} is not in the Logbook, so it cannot be used.`);
-  // The line clearance after packing clears the line this batch has just used (dirty after its packing stage).
+  // The line clearance after packing clears the line this batch has just used (it may already be dirty: a stage that
+  // names no rooms does not keep the line in use, equipment_use_v1).
   if (!s.fitForUse && block.id !== 'pack-clearance-after') return refused(`${item.code} is not fit for use (Logbook): ${s.blockers.join('; ') || s.state}.`);
   if (s.inUseBatch && s.inUseBatch !== batchNo) return refused(`${item.code} is in use by batch ${s.inUseBatch} (Logbook).`);
   const source: Source = { from: 'logbook', asOf: s.checkedAt, shown: [`${item.code}: ${s.state}`, ...s.warnings].join('; ') };
