@@ -112,6 +112,30 @@ same numbers as ANSI/ASQ Z1.4 and ISO 2859-1 single sampling, normal inspection.
 copied. "AQL 0" for critical defects is treated as a plant rule: accept 0, reject 1, at the code
 letter's sample size.
 
+## Calculation checks in the master check
+
+Error-proofing at master-building time (owner decision of 15 November 2026), not GMP rules. The master check
+(`shared/master/checks.ts`) shows each on its item, with its path. Tests: `test/master-checks.test.ts`
+("calculation check").
+
+| | Check | Where |
+|---|---|---|
+| ⛔ | Water counted twice: hydrate or solvate MW together with a water/LOD correction | C5 in T9, on the formula line |
+| ⛔ | Potency "as parent/base" or "as element" with a salt, ester, hydrate or compound factor | C5 in T9, on the formula line |
+| ⛔ | Molecules per salt unit ignored: a hemi-salt at 1 molecule per unit with a MW at least twice the other form's | T11, on the formula line |
+| ⛔ | Negative filler: a compensating filler that cannot take the adjustments even at the nominal certificate values (salt factor, overage) | T10, on the filler |
+| ⛔ | IU, CFU or activity units turned into a mass | T18, on the formula line |
+| ⛔ | Negative water or solvent (T17); weight-variation content uniformity on coated tablets other than film-coated (T14) | the templates; no block of the library uses T14 or T17 yet |
+| ⚠️ | (a) Label basis: an API with a salt factor or a salt name: is the strength stated as the formula form or the other form, for this master's market? | formula line |
+| ⚠️ | (b) A herbal or extract line: raw-herb equivalent or extract weight? | formula line |
+| ⚠️ | (c) A ratio or % in a step instruction that involves the API: as weighed, as base or as anhydrous? | step |
+| ⚠️ | (d) The API potency-adjusted at dispensing (T9/T18) and a line set again from an in-process granule or blend assay (T18): confirm intended, with a reason, or remove one | the in-process line |
+| ⚠️ | (e) A salt factor written in the formula that differs from the molecular-weight ratio of the named forms by more than 0.5 %: confirm, with a reason, or correct it (the quantity uses the molecular weights) | formula line |
+
+A ⚠️ needs an answer: one of its choices, with a reason for (d) and (e). The answer is kept in the master document
+(`answers`, by warning and item) and shown in the review and changes views. It counts while the warning reads the same
+as when it was answered; until then the warning blocks "Send for review" and approval like a ⛔.
+
 ## Pharmacopoeia rules written from the chapters (paraphrased; no chapter text copied)
 
 - **T14 (USP <905> / Ph. Eur. 2.9.40).**

@@ -55,6 +55,24 @@ describe('master review and approval', () => {
     expect(await state(id)).toBe('draft');
   });
 
+  it('calculation checks: a warning that needs an answer blocks "Send for review" until the author answers it in the master', async () => {
+    const doc = tablet();
+    doc.formula[4]!.adjust = { content: { formulaQuantityIs: 'dry', contentSource: 'in-process result' } };
+    const { id } = await draft(doc);
+    const checks = (await as('author', 'GET', `/api/master-versions/${id}/checks`)).json() as { problems: { message: string; question?: { key: string } }[] };
+    const q = checks.problems.find((p) => p.question?.key === 'double-adjustment/mcc')!;
+    expect(q.message).toMatch(/corrected twice/);
+    expect((await review(id, 'author')).refusals.submit).toBe('The master check shows 1 problem to fix or answer first (TB-01).');
+    expect((await act('author', id, 'submit')).json().error).toBe('master_has_errors');
+    // The answer is saved with the draft, kept in the master document and signed with it.
+    const answered = { ...doc, answers: { 'double-adjustment/mcc': { about: q.message, choice: 'intended', reason: 'Blend assay sets the tablet weight; dispensing uses the nominal potency' } } };
+    expect((await as('author', 'PUT', `/api/master-versions/${id}`, { doc: answered })).statusCode).toBe(200);
+    expect((await review(id, 'author')).refusals.submit).toBeNull();
+    expect((await act('author', id, 'submit')).statusCode).toBe(200);
+    const saved = (await as('checker', 'GET', `/api/master-versions/${id}`)).json() as { doc: { answers: Record<string, { choice: string }> } };
+    expect(saved.doc.answers['double-adjustment/mcc']!.choice).toBe('intended');
+  });
+
   it('TB-02 the author cannot check their own version; a second person checks it', async () => {
     const { id } = await draft();
     expect((await act('author', id, 'submit')).statusCode).toBe(200);

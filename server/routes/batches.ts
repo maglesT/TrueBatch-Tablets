@@ -9,7 +9,7 @@ import { masterVersion } from './masters.js';
 import { batchRecordDoc, type RecordInput, type Signature } from '../batch-record.js';
 import { render, sendPdf } from '../pdf.js';
 import { findBlock } from '../../shared/blocks/index.js';
-import { masterChecks } from '../../shared/master/checks.js';
+import { blocking, masterChecks } from '../../shared/master/checks.js';
 import type { MasterDoc, Step } from '../../shared/master/schema.js';
 import {
   ACTIONS, BATCH_ACTIONS, batchRefusal, batchView, doneProblems, evaluate, lateItems, openSteps, parseKey, readValue, refusal, review, timers,
@@ -182,7 +182,7 @@ export function batchRoutes(app: FastifyInstance, sql: Sql) {
         const v = await masterVersion(tx, b.data.masterVersionId, true);
         if (v?.state !== 'effective') throw new StepError(409, 'not_effective', ['Only an effective master version can be issued.']);
         // Approval will refuse a version with errors; until that workflow exists, issuing checks it too.
-        const errors = masterChecks(v.doc).filter((p) => p.level === 'error');
+        const errors = masterChecks(v.doc).filter(blocking);
         if (errors.length) throw new StepError(409, 'master_has_errors', errors.map((p) => `${p.path}: ${p.message}`));
         const [c] = await tx<{ n: number; yy: string }[]>`
           insert into batch_counters (year, last_no) values (extract(year from now() at time zone ${PLANT_TZ})::int, 1)

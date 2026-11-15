@@ -6,7 +6,7 @@ import { parseId, requirePermission, type Permission, type SessionUser } from '.
 import { usableItem, type Master } from '../master.js';
 import { SignError, authenticateSigner, contentHash, sign, type Meaning } from '../signatures.js';
 import { BLOCKS } from '../../shared/blocks/index.js';
-import { masterChecks } from '../../shared/master/checks.js';
+import { blocking, masterChecks } from '../../shared/master/checks.js';
 import { masterSchema, type MasterDoc, type MasterState } from '../../shared/master/schema.js';
 
 // Master versions: the model, the table, the draft routes, and the review and approval workflow (TB-02). A version
@@ -168,8 +168,9 @@ export function reviewRefusal(action: ReviewAction, l: Loaded, user: SessionUser
   const passed = round.find((e) => e.kind === 'passed');
   const author = l.authors.includes(user.id);
   if (action === 'submit' || action === 'approve') {
-    const errors = masterChecks(l.v.doc).filter((p) => p.level === 'error');
-    if (errors.length) return no(409, 'master_has_errors', `The master check shows ${errors.length} problem${errors.length === 1 ? '' : 's'} to fix first (TB-01).`);
+    // TB-01, and the calculation checks: errors, and warnings that need an answer and have none.
+    const open = masterChecks(l.v.doc).filter(blocking);
+    if (open.length) return no(409, 'master_has_errors', `The master check shows ${open.length} problem${open.length === 1 ? '' : 's'} to fix or answer first (TB-01).`);
   }
   if (action === 'pass') {
     if (author) return no(403, 'author_cannot_check', 'The person who wrote this version cannot check it: a second person checks it.');

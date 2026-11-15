@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { BLOCKS } from '../shared/blocks/index.js';
 import { blockProblems, type Block } from '../shared/blocks/format.js';
-import { masterChecks } from '../shared/master/checks.js';
+import { blocking, masterChecks } from '../shared/master/checks.js';
 import { masterSchema, type MasterDoc } from '../shared/master/schema.js';
 import { tablet } from './engine-fixture.js';
 
@@ -11,6 +11,7 @@ function after(change: (d: MasterDoc) => void) {
   change(d);
   return masterChecks(d).map((p) => `${p.level} ${p.rule ?? '-'} ${p.path}: ${p.message}`);
 }
+const errors = (change: (d: MasterDoc) => void) => after(change).filter((p) => p.startsWith('error'));
 const step = (d: MasterDoc, stage: string, key: string) => d.stages.find((s) => s.key === stage)!.steps.find((t) => t.key === key)!;
 
 describe('blocks are data', () => {
@@ -71,14 +72,14 @@ describe('master checks', () => {
   });
 
   it('TB-13 adjustment settings the templates library refuses are errors (same basis, overage, salt factor)', () => {
-    expect(after((d) => {
+    expect(errors((d) => {
       d.formula[0]!.adjust = { salt: { from: { name: 'base', mw: '383.4' }, to: { name: 'sodium sesquihydrate', mw: '432.4', hydrateOrSolvate: true } }, potency: { basis: 'anhydrous' } };
     })).toEqual([expect.stringMatching(/^error TB-13 formula\[0\]\.adjust: Same-basis rule \(C5\): the standard quantity already uses the hydrate/)]);
     expect(after((d) => { d.formula[0]!.adjust = { potency: { basis: 'as is' } }; }))
       .toEqual(['error TB-13 formula[0].adjust: Say whether the standard quantity is the anhydrous weight or the hydrate/solvate weight (same-basis rule C5)']);
     expect(after((d) => { d.formula[0]!.adjust = { overage: { percent: '5.0', maxPercent: '3.0' } }; }))
       .toEqual(['error - formula[0].adjust: The overage 5.0 % is above the 3.0 % the master allows']);
-    expect(after((d) => { d.formula[0]!.adjust = { salt: { from: { name: 'base', mw: '383.4' }, to: { name: 'hemifumarate', mw: '0' } } }; }))
+    expect(errors((d) => { d.formula[0]!.adjust = { salt: { from: { name: 'base', mw: '383.4' }, to: { name: 'hemifumarate', mw: '0' } } }; }))
       .toEqual(['error - formula[0].adjust: Molecular weights must be more than zero']);
     expect(after((d) => { d.formula[1]!.adjust = { compensates: ['nothing'] }; })).toEqual(['error - formula[1].adjust.compensates: No other formula line nothing to compensate']);
   });
@@ -117,4 +118,96 @@ describe('master checks', () => {
     expect(after((d) => { delete step(d, 'granulation', 'dry').settings.lodLimit; })).toEqual(['error - stages[1].steps[4].settings.lodLimit: LOD limit is not set']);
     expect(after((d) => { d.stages[1]!.uses = ['coating']; })).toEqual(['warning - stages[0]: No stage uses the preparation Binder solution', 'error - stages[1].uses: coating is not an earlier stage']);
   });
+});
+
+// Calculation checks (owner decision of 15 November 2026): error-proofing of the calculations at master-building time.
+// They are not GMP rules. Refusals are ⛔ errors; the warnings need an answer, kept in the master document.
+describe('calculation checks', () => {
+  type Change = (d: MasterDoc) => void;
+  const salt = (to: { name: string; mw: string; moleculesPerUnit?: number; hydrateOrSolvate?: boolean }, extra: object = {}) =>
+    (d: MasterDoc) => { d.formula[0]!.adjust = { salt: { from: { name: 'base', mw: '383.4' }, to }, ...extra }; };
+  const only = (level: string, path: string) => (change: Change) => after(change).filter((p) => p.startsWith(`${level} `) && p.includes(` ${path}: `));
+
+  it.each<[string, Change, Change, RegExp]>([
+    ['water counted twice (hydrate MW and a water/LOD correction)',
+      salt({ name: 'sodium sesquihydrate', mw: '432.4', hydrateOrSolvate: true }, { potency: { basis: 'anhydrous' } }),
+      salt({ name: 'sodium', mw: '405.4' }, { potency: { basis: 'anhydrous' } }), /would count the water twice/],
+    ['potency as parent with a salt factor',
+      salt({ name: 'sodium', mw: '405.4' }, { potency: { basis: 'as is', potencyAs: 'parent' } }),
+      (d) => { d.formula[0]!.adjust = { potency: { basis: 'as is', potencyAs: 'parent' } }; }, /factor is already inside it/],
+    ['potency as element with a compound factor',
+      salt({ name: 'calcium carbonate', mw: '100.09' }, { potency: { basis: 'as is', potencyAs: 'element' } }),
+      (d) => { d.formula[0]!.adjust = { potency: { basis: 'as is', potencyAs: 'element' } }; }, /factor is already inside it/],
+    ['molecules per salt unit ignored (a hemi-salt at 1 molecule per unit)',
+      salt({ name: 'hemifumarate', mw: '883.1' }), salt({ name: 'hemifumarate', mw: '883.1', moleculesPerUnit: 2 }), /is a hemi-salt/],
+    ['IU or CFU turned into a mass (a content per gram for a formula in mg)',
+      (d) => { d.formula[0]!.adjust = { content: { formulaQuantityIs: 'dry', nominalContent: '5000 IU/g' } }; },
+      (d) => { d.formula[0]!.adjust = { content: { formulaQuantityIs: 'dry', nominalContent: '98.0 %' } }; }, /must be in IU/],
+  ])('calculation check ⛔ %s: shown on the formula line with a plain message', (_what, bad, fixed, message) => {
+    const errors = only('error', 'formula[0].adjust');
+    expect(errors(bad)).toEqual([expect.stringMatching(message)]);
+    expect(errors(fixed)).toEqual([]);
+  });
+
+  it('calculation check ⛔ negative filler: a compensating filler that cannot take the overage even at an assay of 100 %', () => {
+    const mccCompensates = (overage: string) => (d: MasterDoc) => { d.formula[0]!.adjust = { ...d.formula[0]!.adjust, overage: { percent: overage } }; d.formula[4]!.adjust = { compensates: ['api'] }; };
+    // 100 000 tablets: 10.000 kg API × 1.20 = 12.000 kg; 2.000 kg more than the 1.750 kg of MCC
+    expect(only('error', 'formula[4].adjust.compensates')(mccCompensates('20.0')))
+      .toEqual([expect.stringMatching(/^error TB-13 formula\[4\]\.adjust\.compensates: At the nominal certificate values: Not enough Microcrystalline cellulose to compensate.*-0\.250 kg of Microcrystalline cellulose\. The batch weight cannot be kept$/)]);
+    expect(only('error', 'formula[4].adjust.compensates')(mccCompensates('10.0'))).toEqual([]);
+  });
+
+  it('calculation check ⛔ weight variation on coated tablets and negative solvent: no block of the library uses T14 or T17 yet', () => {
+    // When a block uses them, their refusals reach the master check through the block's settings like the others.
+    expect(BLOCKS.flatMap((b) => b.calcs.map((c) => c.template)).filter((t) => t === 'T14' || t === 'T17')).toEqual([]);
+  });
+
+  const hcl: Change = (d) => { d.formula[0]!.name = 'Examplol hydrochloride'; };
+  const herbal: Change = (d) => { d.formula[4]!.name = 'Withania root extract'; };
+  const premix: Change = (d) => { step(d, 'granulation', 'charge-api').instruction = 'Premix with lactose 1:4, then charge.'; };
+  const double: Change = (d) => { d.formula[4]!.adjust = { content: { formulaQuantityIs: 'dry', contentSource: 'in-process result' } }; };
+  // 405.4 ÷ 383.4 = 1.0574: 1.10 is 4.0 % off, 1.060 is 0.2 % off
+  const factor = (f: string): Change => (d) => { d.formula[0]!.adjust = { salt: { from: { name: 'base', mw: '383.4' }, to: { name: 'sodium', mw: '405.4' }, factor: f } }; };
+  it.each<[string, Change, Change, string, string, string]>([
+    ['(a) label basis per market', hcl, () => {}, 'label-basis/api', 'formula[0]', 'as Examplol hydrochloride'],
+    ['(b) herbal or extract line', herbal, () => {}, 'herbal/mcc', 'formula[4]', 'extract weight'],
+    ['(c) ratio in a step instruction with the API', premix, (d) => { step(d, 'granulation', 'mill').instruction = 'Mill 10 % of the granules first.'; }, 'ratio-basis/granulation/charge-api', 'stages[1].steps[2]', 'as weighed'],
+    ['(d) potency adjusted at dispensing and again from a blend assay', double, (d) => { delete d.formula[0]!.adjust; double(d); }, 'double-adjustment/mcc', 'formula[4].adjust', 'intended'],
+    ['(e) salt factor differing from the molecular weights by more than 0.5 %', factor('1.10'), factor('1.060'), 'salt-factor/api', 'formula[0].adjust.salt', 'confirmed'],
+  ])('calculation check ⚠️ %s: fires, passes, and once answered no longer blocks', (_what, fires, passes, key, path, choice) => {
+    const d = tablet();
+    fires(d);
+    const q = masterChecks(d).find((p) => p.question?.key === key)!;
+    expect(q).toMatchObject({ level: 'warning', path, question: { options: expect.arrayContaining([choice]) } });
+    expect(blocking(q)).toBe(true);
+    // passes: the warning is not there
+    const ok = tablet();
+    passes(ok);
+    expect(masterChecks(ok).some((p) => p.question?.key === key)).toBe(false);
+    // answered (with a reason where one is needed): shown as answered, not blocking
+    d.answers = { [key]: { about: q.message, choice, reason: q.question!.needsReason ? 'Per the development report' : '' } };
+    const answered = masterChecks(d).find((p) => p.question?.key === key)!;
+    expect(answered.question!.answer).toMatchObject({ choice });
+    expect(blocking(answered)).toBe(false);
+  });
+
+  it('calculation check ⚠️ an answer counts only while it fits: a choice from the list, a reason where needed, the warning as answered', () => {
+    const d = tablet();
+    double(d);
+    const q = masterChecks(d).find((p) => p.question?.key === 'double-adjustment/mcc')!;
+    const answer = (a: object) => { d.answers = { 'double-adjustment/mcc': { about: q.message, choice: 'intended', reason: 'Validated', ...a } }; return masterChecks(d).find((p) => p.question?.key === 'double-adjustment/mcc')!; };
+    expect(blocking(answer({}))).toBe(false);
+    expect(blocking(answer({ reason: ' ' }))).toBe(true);
+    expect(blocking(answer({ choice: 'maybe' }))).toBe(true);
+    expect(blocking(answer({ about: 'an older wording' }))).toBe(true);
+  });
+});
+
+it('calculation check ⚠️ the messages say what to answer, in plain words', () => {
+  const d = tablet();
+  d.formula[0]!.adjust = { salt: { from: { name: 'base', mw: '383.4' }, to: { name: 'sodium', mw: '405.4' }, factor: '1.10' } };
+  expect(masterChecks(d).map((p) => `${p.path}: ${p.message}`)).toEqual([
+    "formula[0]: Label claim for this master's market: is the strength of Examplol stated as base or as sodium? The formula gives 100.0 mg of base per tablet.",
+    'formula[0].adjust.salt: The salt factor 1.10 written for Examplol differs by 4.0 % from the molecular weights of base and sodium (factor 1.0574), which the batch quantity uses. Confirm with a reason, or correct the factor or the molecular weights.',
+  ]);
 });
