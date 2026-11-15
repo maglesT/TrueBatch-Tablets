@@ -103,7 +103,7 @@ export function StepSettings({ doc, si, ti, onChange }: { doc: MasterDoc; si: nu
             onChange={(v) => opt('onlyIf', v ? { header: 'coreBatch', limit: { high: v, unit: 'kg' } } : undefined)} /></label>
           <label>Order-critical: must come after<select value={step.orderAfter ?? ''} onChange={(e) => opt('orderAfter', e.target.value || undefined)}>
             <option value="">(not order-critical)</option>{doc.stages[si]!.steps.filter((t) => t.key !== step.key).map((t) => <option key={t.key} value={t.key}>{t.key}</option>)}</select></label>
-          {/coat|spray/.test(block.id) && <>
+          {/^(coat|spray-coat)$/.test(block.id) && <>
             <label>Liquid to apply<input aria-label="Liquid to apply" placeholder="e.g. 971 g" value={step.applyPerCharge?.liquid ?? ''} onChange={(e) => opt('applyPerCharge', e.target.value ? { liquid: e.target.value, charge: step.applyPerCharge?.charge ?? '' } : undefined)} /></label>
             {step.applyPerCharge && <label>per charge of<input aria-label="per charge of" placeholder="e.g. 150 g" value={step.applyPerCharge.charge} onChange={(e) => opt('applyPerCharge', { ...step.applyPerCharge!, charge: e.target.value })} /></label>}
           </>}
