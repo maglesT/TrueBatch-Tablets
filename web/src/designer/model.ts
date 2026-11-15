@@ -104,9 +104,11 @@ export const HEADER_LABEL: Record<(typeof HEADER_VALUES)[number], { label: strin
 
 export const stepTitle = (doc: MasterDoc, t: Step, j?: number) => `${j === undefined ? '' : `${j + 1}. `}${title(doc, t)}`;
 
-/** A new step from a block, with its default instruction and signatures. */
+// Settings a new step starts with (the author may change them): the usual dispensing tolerance.
+const DEFAULT_SETTINGS: Record<string, Step['settings']> = { weigh: { tolerance: '0.5' }, lubricate: { tolerance: '0.5' } };
+/** A new step from a block, with its default instruction, signatures and settings. */
 export function stepFrom(block: Block, taken: string[]): Step {
-  return { key: newKey(block.id, taken), block: { id: block.id, version: block.version }, settings: {}, checker: block.checker,
+  return { key: newKey(block.id, taken), block: { id: block.id, version: block.version }, settings: { ...DEFAULT_SETTINGS[block.id] }, checker: block.checker,
     waitForCheck: false, critical: false, flow: block.stop ? { kind: 'repeat-until', maxRounds: 10 } : block.qaHold ? { kind: 'qa-hold' } : { kind: 'none' },
     ...(block.periodic ? { everyMinutes: block.periodic.maxMinutes } : {}) };
 }

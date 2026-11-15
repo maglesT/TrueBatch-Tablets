@@ -89,6 +89,9 @@ export function readValue(f: BlockField, raw: unknown, unit: string): Value | { 
 }
 
 const MISSING = Symbol('missing');
+// An optional "$name?" that is not set, or an object of a list holding one ({ name: 'binder 2', quantity: '$binder2?' }).
+const unset = (x: unknown, inputs: Record<string, unknown>): boolean => (typeof x === 'string' ? x.startsWith('$') && x.endsWith('?') && inputs[x.slice(1, -1)] === undefined
+  : !!x && typeof x === 'object' && !Array.isArray(x) && Object.values(x).some((v) => typeof v === 'string' && unset(v, inputs)));
 /**
  * Replaces each "$name" by its input; MISSING when one is not there yet (the calculation then waits). "$name?" is an
  * optional setting or field: left out when not set. "$prev.name" is the same field or calculation in the previous round.
@@ -98,8 +101,8 @@ function resolve(x: unknown, inputs: Record<string, unknown>): unknown {
   if (typeof x === 'string' && x.startsWith('$')) return x.slice(1) in inputs ? inputs[x.slice(1)] : MISSING;
   if (Array.isArray(x)) {
     const a = x.map((y) => resolve(y, inputs));
-    // An optional entry that is not set is left out of the list (e.g. the second stage of a staged test).
-    return a.includes(MISSING) ? MISSING : a.filter((v, i) => v !== undefined || !(typeof x[i] === 'string' && x[i].endsWith('?')));
+    // An optional entry that is not set is left out of the list (e.g. the second stage of a staged test, a second binder).
+    return a.includes(MISSING) ? MISSING : a.filter((_, i) => !unset(x[i], inputs));
   }
   if (x && typeof x === 'object') {
     const o: Record<string, unknown> = {};

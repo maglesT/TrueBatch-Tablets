@@ -79,10 +79,23 @@ describe('master designer', () => {
     }
     const dc = skeletonStages('direct-compression-uncoated', header);
     expect(dc.map((s) => s.steps.map((t) => t.block.id).join(' '))).toEqual(['line-clearance weigh sift dry-mix stage-yield',
-      'line-clearance punch-die-check compress punch-die-check tablet-reconciliation']);
+      'line-clearance punch-die-check compress friability disintegration punch-die-check tablet-reconciliation']);
     expect(dc[1]!.steps[2]!.settings.meanLimit).toEqual({ low: '237.5', high: '262.5', unit: 'mg' });
+    expect(dc[1]!.steps.filter((t) => t.block.id === 'punch-die-check').map((t) => t.name)).toEqual(['Punch and die check — before compression', 'Punch and die check — after compression']);
+    expect(dc[0]!.steps[1]!.settings).toEqual({ tolerance: '0.5' });
     const wg = skeletonStages('wet-granulation-film-coated', header);
-    expect(wg.find((s) => s.key === 'coating')!.steps[1]).toMatchObject({ block: { id: 'spray-coat' }, everyMinutes: 30, flow: { kind: 'repeat-until' } });
+    const at = (stage: string, step: string) => wg.find((s) => s.key === stage)!.steps.find((t) => t.key === step)!;
+    expect(at('coating', 'coat')).toMatchObject({ block: { id: 'spray-coat' }, everyMinutes: 30, flow: { kind: 'repeat-until' } });
+    // Later stages' yields on the actual input; the coating gain on the actual core mean; the end point checked.
+    expect(at('blending', 'yield').settings.theoretical).toEqual({ ref: 'granulation/yield/output' });
+    expect(at('coating', 'yield')).toMatchObject({ block: { id: 'tablet-reconciliation' }, settings: { theoretical: { ref: 'compression/yield/goodTablets' }, meanWeight: { ref: 'coating/coat/meanWeight' } } });
+    expect(at('coating', 'coat').settings.coreWeight).toEqual({ ref: 'compression/compress/meanWeight' });
+    expect(at('granulation', 'granulate').checker).toBe(true);
+  });
+
+  it('a weigh step added from the library starts with the usual tolerance', () => {
+    expect(stepFrom(block('weigh'), []).settings).toEqual({ tolerance: '0.5' });
+    expect(stepFrom(block('sift'), []).settings).toEqual({});
   });
 
   it('copy to a new batch size scales typed batch quantities, not limits or quantities per tablet', () => {

@@ -52,6 +52,20 @@ describe('the standard tablet blocks', () => {
     const doc = using('binder-solution', NEW[1]![1]);
     expect(evaluate(doc, [], { stage: 0, sub: 1, step: 0, round: 1 }, {}).makeUp).toMatchObject({ ok: true, value: '0.9', unit: 'kg' });
   });
+
+  it('a binder solution may dissolve several materials (a binder and polysorbate): their quantities count together in the make-up', () => {
+    const doc = using('binder-solution', { ...NEW[1]![1], binder2: '0.020 kg' });
+    const r = evaluate(doc, [], { stage: 0, sub: 1, step: 0, round: 1 }, {}).makeUp;
+    expect(r).toMatchObject({ ok: true, value: '1.08', unit: 'kg', shown: expect.stringContaining('0.020 kg second material') });
+    expect(masterChecks(doc).map((p) => p.message)).toEqual([]);
+  });
+
+  it('an overage may be set on any line, not only the API: a coating powder made with 10 % spray loss', () => {
+    const doc = using('weigh', { target: { formula: 'x', adjusted: true }, tolerance: '0.5' });
+    doc.formula[0]!.adjust = { overage: { percent: '10' } };
+    expect(evaluate(doc, [], { stage: 0, sub: 1, step: 0, round: 1 }, {}).target).toMatchObject({ ok: true, value: '0.11', unit: 'kg' });
+    expect(masterChecks(doc).map((p) => p.message)).toEqual([]);
+  });
 });
 
 /** Records a step's values (results from the engine) and signs it done, checked by a second person when it needs it. */

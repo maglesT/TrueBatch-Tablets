@@ -40,9 +40,15 @@ test('TB-02 build a master from a skeleton, fix a master-check problem, then che
   // The process: 2 stages, each starting with line clearance (TB-10); the dry-mix step of blending is removed, leaving 4.
   await author.getByRole('button', { name: 'Process', exact: true }).click();
   await expect(author.locator('.steps-col .olist li').first()).toContainText('Line clearance');
-  await author.locator('.steps-col').getByRole('button', { name: /4\. Dry mix for a time/ }).click();
+  // Remove and move are there without selecting the step first.
   await author.getByRole('button', { name: 'Remove Dry mix for a time' }).click();
   await expect(author.locator('.steps-col .olist li')).toHaveCount(4);
+  // The stage yield: its theoretical quantity, used in two sentences, is one input; More options opens per step.
+  await author.locator('.steps-col').getByRole('button', { name: /4\. Stage yield/ }).click();
+  await expect(author.locator('.settings-col').getByLabel('Theoretical quantity', { exact: true })).toHaveCount(1);
+  await author.getByText('More options').click();
+  await author.locator('.steps-col').getByRole('button', { name: /3\. Sift/ }).click();
+  await expect(author.locator('.settings-col details.more')).not.toHaveAttribute('open');
 
   // The master check shows what is missing; its link selects the step, and the template sentence takes the input.
   const check = author.getByRole('complementary', { name: 'Master check' });

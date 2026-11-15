@@ -126,7 +126,7 @@ function AdjustPanel({ doc, line, onChange, problems, onAnswer }: { doc: MasterD
   return (
     <div className="card adjust">
       <div className="d-section-head"><h2>Adjustment of {line.name} at dispensing</h2><span className="muted small">Worked out with the lot's certificate values; the templates refuse settings that would count water twice.</span></div>
-      {line.role === 'api' || a.potency || a.content || a.salt || a.overage ? (
+      {line.role === 'api' || a.potency || a.content || a.salt ? (
         <>
           <fieldset className="checklist">
             <legend>Salt form (T11)</legend>
@@ -171,15 +171,16 @@ function AdjustPanel({ doc, line, onChange, problems, onAnswer }: { doc: MasterD
               </div>
             )}
           </fieldset>
-          <fieldset className="checklist">
-            <legend>Overage (T16)</legend>
-            <div className="form-grid">
-              <label>Overage (%)<Decimal label="Overage percent" placeholder="none" value={a.overage?.percent} onChange={(v) => put({ ...a, overage: v ? { ...a.overage, percent: v } : undefined })} /></label>
-              {a.overage && <label>Highest overage allowed (%)<Decimal label="Highest overage allowed" value={a.overage.maxPercent} onChange={(v) => put({ ...a, overage: { ...a.overage!, maxPercent: v || undefined } })} /></label>}
-            </div>
-          </fieldset>
         </>
       ) : null}
+      {/* An overage on any line, e.g. a coating powder's spray loss (T16). */}
+      <fieldset className="checklist">
+        <legend>Overage (T16)</legend>
+        <div className="form-grid">
+          <label>Overage (%)<Decimal label="Overage percent" placeholder="none" value={a.overage?.percent} onChange={(v) => put({ ...a, overage: v ? { ...a.overage, percent: v } : undefined })} /></label>
+          {a.overage && <label>Highest overage allowed (%)<Decimal label="Highest overage allowed" value={a.overage.maxPercent} onChange={(v) => put({ ...a, overage: { ...a.overage!, maxPercent: v || undefined } })} /></label>}
+        </div>
+      </fieldset>
       {line.role !== 'api' && (
         <fieldset className="checklist">
           <legend>Compensating filler (T10)</legend>
