@@ -14,8 +14,11 @@ batch status (production approval, QC approval, QA release or rejection, `shared
 Screens: the master designer with review and QA approval (`web/src/designer/`), the shop floor (`web/src/floor/`) and
 the QC and QA release screens with the audit-trail review (`web/src/release/`). The batch record PDF
 (`GET /api/batches/:id/pdf`, `server/batch-record.ts`) is made with pdfmake and embedded Noto fonts, as the Logbook
-makes its copies. Line clearance is a standard block; the process skeletons start every stage with it. Still to come:
-the links to MMS, Logbook (room and equipment status for line clearance), Deviations and QMS.
+makes its copies. Line clearance is a standard block; the process skeletons start every stage with it. The links to
+Deviations, QMS, Logbook and MMS (`server/links.ts`, `docs/design.md` "Links") are optional: with a link the value is
+pulled and cannot be typed over; without it, or while it is down, it is typed by hand with a second-person check and
+listed for QA. TrueBatch publishes `report.batch_fact_v1`, `equipment_use_v1` and `deviation_note_v1`
+(`db/migrations/0006_report_views.sql`).
 
 ## Develop
 Needs Node 22 and PostgreSQL 16.
@@ -25,6 +28,8 @@ npm install
 export DATABASE_URL=postgres://truebatch_owner:dev@localhost:5432/truebatch_dev DB_APP_ROLE=truebatch_app
 # Medhanta core: people, sign-in, TrueBatch permissions and master data are managed there
 export MASTER_DATA_DATABASE_URL=postgres://truebatch_app:...@<core db>:5432/master_data   # read through its report views
+# Optional links, each set by the platform only while the link is on:
+# DEVIATIONS_DATABASE_URL, QMS_DATABASE_URL, LOGBOOK_DATABASE_URL, MMS_DATABASE_URL
 export OIDC_ISSUER=https://<core domain>/oidc OIDC_CLIENT_SECRET=... OIDC_REDIRECT_URI=http://localhost:3000/cb
 npm run migrate
 npm run dev        # API on :3000
@@ -38,7 +43,7 @@ gets its own schema. The test login must be able to create roles and databases (
 
 ## On the platform
 `ops/manifest.draft.json` is the draft of the product's platform manifest (permissions, back-channel logout, the
-master-data views it reads). The app reads its database from `TRUEBATCH_DATABASE_URL` and runs as the restricted login
+views it reads from master data and the four linked products, and the views it publishes). The app reads its database from `TRUEBATCH_DATABASE_URL` and runs as the restricted login
 `truebatch_app`, which cannot change or delete audit rows or signatures. Migrations run as the database owner.
 
 ## Conventions

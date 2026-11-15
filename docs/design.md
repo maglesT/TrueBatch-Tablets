@@ -13,6 +13,30 @@ and size), not the Batchwright way.
 - Optional links: MMS (lots, status, assay, LOD), Logbook (equipment and room status), Deviations, QMS (change
   control numbers). Every link has a hand-entry fallback with a second-person check.
 
+## Links
+Owner decisions of 15 November 2026. Built as the Logbook's link clients: one client (`server/links.ts`) reads each
+provider's report views live through `<PROVIDER>_DATABASE_URL`, which the platform writes only while the link is on;
+nothing is copied or cached. A read is **absent** (no URL: not licensed or switched off), **down** (refused or not
+answering) or **ok**.
+- **Ok: pull only.** The value comes from the provider, as read, and is kept with the record (PL-07); it cannot be
+  typed over.
+- **Absent or down: by hand.** The value is typed from the label or certificate, the step needs a second-person check,
+  the value is stored with source `hand` (and whether the link was absent or down), and QA's review lists it.
+- **Deviations** (`deviation_v1`): a note's reference must exist; while the link answers its status is Deviations'
+  (closed or rejected there counts as closed) and QA cannot close it by hand. By hand: a QA person other than the one
+  who typed the number closes it.
+- **QMS** (`change_v1`, planned): the change control at approval must exist and be QA-approved, in a step of
+  `CHANGE_STEPS`. By hand: another person makes the version effective.
+- **Logbook** (`equipment_status_v1`, planned): a machine or room must be fit for use and not in use by another batch;
+  the Logbook's reasons are shown word for word; a status older than 5 minutes counts as down. Line clearance takes
+  clean, cleaned on and cleaned by from it. By hand: the status-label questions, each answered yes.
+- **MMS** (`lot_v1`, `lot_test_v1`, planned, with numbers): the lot must exist, be the line's material, released, in
+  date and not past retest; assay, water, LOD and content come as numbers in %, the assay on the master's basis. By
+  hand: the lot label's status and date, the certificate values and their report number.
+- **Published** (`db/migrations/0006_report_views.sql`): `batch_fact_v1` and `equipment_use_v1` with Batchwright's
+  names and columns, so the Logbook and Deviations read TrueBatch as they read Batchwright, and `deviation_note_v1`
+  for Deviations to file notes later.
+
 ## Rules and where they are enforced
 - 22 TrueBatch GMP rules (EU GMP Part I and Annex 11, 21 CFR 211 and Part 11, Revised Schedule M), listed in
   `rules.md`. Each is checked **once, in the app**.
