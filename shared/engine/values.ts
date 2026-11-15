@@ -67,8 +67,12 @@ export function readValue(f: BlockField, raw: unknown, unit: string): Value | { 
 }
 
 const MISSING = Symbol('missing');
-/** Replaces each "$name" by its input; MISSING when one is not there yet (the calculation then waits). */
+/**
+ * Replaces each "$name" by its input; MISSING when one is not there yet (the calculation then waits). "$name?" is an
+ * optional setting: left out when not set.
+ */
 function resolve(x: unknown, inputs: Record<string, unknown>): unknown {
+  if (typeof x === 'string' && x.endsWith('?') && x.startsWith('$')) return inputs[x.slice(1, -1)];
   if (typeof x === 'string' && x.startsWith('$')) return x.slice(1) in inputs ? inputs[x.slice(1)] : MISSING;
   if (Array.isArray(x)) { const a = x.map((y) => resolve(y, inputs)); return a.includes(MISSING) ? MISSING : a; }
   if (x && typeof x === 'object') {

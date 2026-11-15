@@ -291,3 +291,20 @@ describe('calculations come from the templates library', () => {
     expect(gain).toMatchObject({ ok: true, value: '3', check: { pass: true } });
   });
 });
+
+describe('yield accountability (T4)', () => {
+  const values = { output: { value: '24.500', unit: 'kg' }, samples: { value: '0.200', unit: 'kg' }, rejects: { value: '0.100', unit: 'kg' } };
+  const key = { stage: 2, sub: 1, step: 1, round: 1 };
+  it.each([
+    ['with accountability limits', true],
+    ['without accountability limits', false],
+  ])('TB-18 yield and accountability are worked out %s; the limits only add the check', (_what, limits) => {
+    const doc = tablet();
+    if (!limits) delete doc.stages[2]!.steps[1]!.settings.accountabilityLimit;
+    const r = evaluate(doc, [], key, values);
+    // (24.500 + 0.200 + 0.100) ÷ 25.000 × 100 = 99.20 %; yield 24.500 ÷ 25.000 × 100 = 98.00 %
+    expect(r.accountability).toMatchObject({ ok: true, value: '99.2' });
+    expect((r.accountability as { check?: unknown }).check !== undefined).toBe(limits);
+    expect(r.yield).toMatchObject({ ok: true, value: '98', check: { pass: true } });
+  });
+});
