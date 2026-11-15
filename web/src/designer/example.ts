@@ -33,6 +33,7 @@ function defaults(doc: MasterDoc, si: number, ti: number): Record<string, Value>
       out[f.name] = String((c4?.args.expected as string[] | undefined)?.[0] ?? f.options?.[0] ?? 'yes');
       continue;
     }
+    if (f.kind === 'timer') { out[f.name] = EXAMPLE_START; continue; }
     if (f.kind !== 'number') { out[f.name] = 'EXAMPLE-1'; continue; }
     let v = '1.000';
     for (const c of b.calcs) {
@@ -46,6 +47,7 @@ function defaults(doc: MasterDoc, si: number, ti: number): Record<string, Value>
   return out;
 }
 
+const EXAMPLE_START = '2026-11-15 08:00';
 const CERTIFICATE: Record<string, string> = { assay: '99.0', water: '0.5', lod: '0.5', content: '98.0' };
 const asNum = (v: unknown): Num | undefined => {
   if (isNum(v)) return v;
@@ -65,6 +67,12 @@ function follow(b: Block, step: Step, values: Record<string, Value>, res: (n: st
       const t1 = b.calcs.find((x) => x.name === num(a.value) && x.template === 'T1');
       const centre = res(num(around.centre)); const tare = t1 && values[num((t1.args as { b: string }).b)];
       if (t1 && centre && isNum(tare)) set(num((t1.args as { a: string }).a), new Dec(centre.value).plus(tare.value), centre.unit);
+    }
+    // A time from start to end: the end is the start plus the middle of the time limits.
+    const minutes = c.template === 'T13' ? lim(num(a.limit)) : undefined;
+    const unit = (step.settings[num(a.limit)] as Limit | undefined)?.unit;
+    if (minutes && values[num(a.start)] === EXAMPLE_START && !fixed.has(num(a.end))) {
+      values[num(a.end)] = new Date(Date.parse(`${EXAMPLE_START}:00Z`) + Number(minutes) * 60_000 * (unit === 'h' ? 60 : unit === 's' ? 1 / 60 : 1)).toISOString().slice(0, 16).replace('T', ' ');
     }
     const t = res(num(a.theoretical ?? a.before ?? a.input));
     if (!t) continue;

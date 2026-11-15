@@ -2,6 +2,7 @@
 // plain words, a field the operator records, a calculation worked out earlier, or a setting the master fills (a slot).
 import type { Block } from '../../../shared/blocks/index.js';
 import { findBlock } from '../../../shared/blocks/index.js';
+import { refsIn } from '../../../shared/blocks/format.js';
 import type { Limit, MasterDoc, SettingValue } from '../../../shared/master/schema.js';
 import { HEADER_LABEL, unitLabel } from './model.js';
 
@@ -32,20 +33,29 @@ export function sentence(block: Block, c: Calc): Part[] {
     }
     case 'T5': return [`The ${label} is the ${a.mode === 'loss' ? 'loss' : 'gain'} from `, p(a.before), ' to ', p(a.after),
       `, as a percentage of ${a.base === 'start' ? 'the starting weight' : a.base === 'final' ? 'the final weight' : 'the named stage'}`, ...limit(), '.'];
-    case 'T7': return [`The ${label} is the mean of `, p(a.readings), ...limit(', which must be '), '.'];
+    case 'T7': return [`The ${label} is the mean of `, p(a.readings), ...limit(', which must be '), ...(a.rsdLimit ? ['; the RSD must be ', p(a.rsdLimit)] : []), '.'];
+    case 'T13': return [`The ${label} is the time from `, p(a.start), ' to ', p(a.end), ...limit(), '.'];
     case 'C1': {
       const around = a.around as { centre: unknown; plusMinusPercent?: unknown; plusMinus?: unknown } | undefined;
       if (around) return [p(a.value), ' must be within ± ', p(around.plusMinusPercent ?? around.plusMinus), around.plusMinusPercent ? ' % of ' : ' of ', p(around.centre), '.'];
       return [p(a.value), ' must be ', p(a.limit), '.'];
     }
     case 'C3': {
-      const band = a.band as { plusMinusPercent: unknown }; const outer = a.outer as { plusMinusPercent: unknown } | undefined;
+      const band = a.band as { plusMinusPercent?: unknown; limit?: unknown }; const outer = a.outer as { plusMinusPercent: unknown } | undefined;
+      if (band.limit) return ['Each of ', p(a.readings), ' must be ', p(band.limit), '.'];
       return ['Each of ', p(a.readings), ' must be within ± ', p(band.plusMinusPercent), ` % of the mean, with at most ${String(a.allowedOutside ?? 0)} outside`,
         ...(outer ? [', and none outside ± ', p(outer.plusMinusPercent), ' %'] : []), '.'];
     }
     case 'C4': return [`${String(a.question)}: the answer must be "${(a.expected as string[]).join('" or "')}".`];
     case 'F2': return [p(a.current), ' must not differ by more than ', p((a.limit as { maxChange: unknown }).maxChange), ' from the previous round.'];
-    default: return [`The ${label} is worked out from `, ...Object.values(a).flatMap((x, i) => [i ? ', ' : '', p(x)]), '.'];
+    default: {
+      // The inputs it is worked out from, then the limits it must meet.
+      const names = [...new Set(refsIn(a))];
+      const isLimit = (n: string) => block.settings.some((x) => x.name === n && x.kind === 'limit');
+      const ins = names.filter((n) => !isLimit(n));
+      return [`The ${label} is worked out from `, ...ins.flatMap((n, i) => [i === 0 ? '' : i === ins.length - 1 ? ' and ' : ', ', p(`$${n}`)]),
+        ...names.filter(isLimit).flatMap((n, i) => [i ? ' and ' : '; it must be ', p(`$${n}`)]), '.'];
+    }
   }
 }
 
