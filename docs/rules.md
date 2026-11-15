@@ -32,6 +32,27 @@ Clauses: the binding clauses each rule rests on (US: 21 CFR 211 and Part 11; EU:
 | TB-21 | QC approval, then QA review and release or rejection by e-signature; all changes and deviations shown; release blocked until linked deviations are closed | US 211.22(a); 211.192; 211.165(a); EU C4 4.27; A11 9, 15 (only if certifying here); IN SCHM 1 PQS (i); 11.3.6-11.3.9; 18.5.12; 19.8.1 | `test/release.test.ts`, `test/batches.test.ts`, `test/links.test.ts` (Deviations status) |
 | TB-22 | A complete copy (PDF) with its signatures and changes | US 11.10(b); 211.180(c); EU A11 8.1, 8.2; C4 4.27; IN SCHM 17.2.8 ("readily available") | `test/batches.test.ts`, `e2e/release.spec.ts` |
 
+## Packing rules (TrueBatch Tablets Packing)
+
+The 9 packing rules of the minimum register, section E (owner, 15 November 2026: packing is a separate product,
+"TrueBatch Tablets Packing", with the shared engine). Each uses the mechanisms of the rules above: the master and its
+check (TB-01, TB-02), issue (TB-03), entries, signatures and second-person checks (TB-04 to TB-08), deviation notes
+(TB-09), in-process checks and periodic checks (TB-14, TB-15), reconciliation that blocks release (TB-18) and QA
+release (TB-21, TB-22), which apply to the packing record unchanged (QA releases it without a QC approval). The tests
+name the packing rule; the tests of the shared rules cover the packing record through the same engine and routes.
+
+| Rule | Requirement | Clauses | Tests |
+|------|-------------|---------|-------|
+| TB-P1 | A packing master per product, pack type and size (and destination): its packing materials with codes, where the batch number, dates and MRP are printed, line clearance before and after, and IPCs with limits | US 211.186(b); EU C4 4.19; IN SCHM 17.3.7 | `test/packing.test.ts` |
+| TB-P2 | A packing record per packing batch, linked to the RELEASED bulk batch: quantities, responsible people, checks, specimens and problems | US 211.188(b)(6),(8),(9),(13); EU C4 4.21; IN SCHM 17.3.9 | `test/packing.test.ts`, `test/packing-api.test.ts` (bulk released, read from TrueBatch Tablets; typed from its labels without the link), `e2e/packing.spec.ts` |
+| TB-P3 | Line clearance before and after packing, checked by a second person; strips and blisters formed and sealed within limits and leak tested periodically | US 211.130(e); 211.188(b)(6); EU C4 4.19(f),(g), C5 5.50; IN SCHM 17.3.9.2, 18.5.2; SCHM-VIII 7.1-7.4 | `test/packing.test.ts` |
+| TB-P4 | Printed and other packing materials issued only by their signed and checked step, from a released lot of the master's material; every component checked against the packing master at line start | US 211.125(a),(b),(f), 211.130(d); EU C5 5.52 | `test/packing.test.ts` |
+| TB-P5 | Coding (batch number, dates, MRP) checked at the start and at intervals; the camera challenged; packs inspected on line; line samples never returned; the customer's serialisation checked (codes of this batch, no serial twice, reconciled), never generated | US 211.122(g), 211.130(c), 211.134; EU C5 5.55-5.60; IN SCHM 18.5.4-18.5.9 | `test/packing.test.ts` |
+| TB-P6 | Bulk tablets and every printed material reconciled (issued = used + destroyed + returned); a gap needs a deviation note and blocks release until its number is linked; batch-coded leftovers destroyed and recorded | US 211.125(c)-(e), 211.192; EU C4 4.21(h), C5 5.61, 5.62; IN SCHM 18.2.3, 18.5.10, 18.5.11 | `test/packing.test.ts`, `test/packing-api.test.ts` |
+| TB-P7 | One active packing order per line; the line is named on the record, with the product and batch | US 211.130(a); EU C5 5.49, 5.51; IN SCHM 18.5.1, 18.5.3 | `test/packing-api.test.ts` |
+| TB-P8 | The expiry is worked out from the approved shelf life and the bulk's date of manufacture, never typed | US 211.137; EU C4 4.16; IN SCHM 17.3.1.2 | `test/packing.test.ts` |
+| TB-P9 | Label data per destination (India domestic: dates and MRP); the coding check compares the printed data with the batch record | IN SCHM 17.3.1.2; US 211.137 (expiry) | `test/packing.test.ts` |
+
 ## Notes: safety rules built into the calculation templates
 
 These notes record which TrueBatch rule each template safety rule protects. They are not rule rows, and they add no
