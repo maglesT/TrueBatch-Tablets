@@ -7,7 +7,8 @@ import { findBlock, type Block } from '../blocks/index.js';
 import { Dec, c1WithinLimits, findUnit, t10Compensating, t11SaltFactor, t2Total, t8BatchScaling, type Q } from '../templates/index.js';
 import { decimalsOf } from '../templates/core.js';
 import { evaluate, lineQuantity } from '../engine/values.js';
-import type { Answer, FormulaLine, Limit, MasterDoc, SettingValue } from './schema.js';
+import { materialLines, type Answer, type FormulaLine, type Limit, type MasterDoc, type SettingValue } from './schema.js';
+import { packingChecks } from './packing.js';
 
 /** A warning the author answers: one of the options, with a reason when `needsReason`. */
 export interface Question { key: string; options: string[]; needsReason: boolean; answer?: Answer }
@@ -28,42 +29,9 @@ export function masterChecks(doc: MasterDoc): Problem[] {
   const warn = (path: string, message: string) => out.push({ level: 'warning', path, message });
   const twice = (keys: string[], path: string) => keys.forEach((k, i) => keys.indexOf(k) !== i && error(`${path}[${i}]`, `The key ${k} is used twice`));
 
-  // The formula: the core materials (not coating, not a solvent removed in processing) make the core weight.
-  twice(doc.formula.map((l) => l.key), 'formula');
-  const core = doc.formula.filter((l) => l.place !== 'coating' && l.role !== 'solvent');
-  const total = t2Total({ values: core.map((l) => `${l.mgPerTablet} mg`), unit: 'mg' });
-  if (!core.length) error('formula', 'The formula has no core materials');
-  else if (total.ok && !total.value.eq(new Dec(doc.header.coreWeightMg))) {
-    error('formula', `The core materials add up to ${total.value.toString()} mg per tablet, not the theoretical core weight ${doc.header.coreWeightMg} mg`);
-  }
-  if (doc.header.coatedWeightMg && new Dec(doc.header.coatedWeightMg).lt(doc.header.coreWeightMg)) error('header.coatedWeightMg', 'The coated weight is below the core weight');
-  if (doc.formula.some((l) => l.place === 'coating') && !doc.header.coatedWeightMg) error('header.coatedWeightMg', 'A coated product needs the theoretical coated weight');
-  doc.formula.forEach((l, i) => {
-    const a = l.adjust;
-    if (!a) return;
-    if (a.potency && a.content) error(`formula[${i}].adjust`, 'A line is adjusted for potency (T9) or for content (T18), not both');
-    for (const k of a.compensates ?? []) if (k === l.key || !doc.formula.some((x) => x.key === k)) error(`formula[${i}].adjust.compensates`, `No other formula line ${k} to compensate`);
-    const values = { ...SAMPLE, content: nominal(l) };
-    if (a.content?.contentSource === 'in-process result' && !a.content.resultType) {
-      error(`formula[${i}].adjust`, `State what the in-process result for ${l.name} is: the content (% w/w) or a relative assay in % of theoretical (F0205: a % of theoretical read as the content gives about a third of the dose)`);
-    }
-    const r = lineQuantity(doc, [], HERE, { ...l, adjust: { ...a, compensates: undefined } }, true, values);
-    if (!r.ok) error(`formula[${i}].adjust`, r.message, a.potency ? 'TB-13' : undefined);
-    // A compensating filler that would go below zero even at the nominal certificate values (salt factor, overage).
-    const others = (a.compensates ?? []).map((k) => doc.formula.find((x) => x.key === k)).filter((x): x is FormulaLine => !!x && x.key !== l.key);
-    const quantity = (x: FormulaLine, adjusted: boolean) => {
-      const r = lineQuantity(doc, [], HERE, x, adjusted, { ...SAMPLE, content: nominal(x) });
-      return r.ok ? { value: r.value, unit: r.unit } : undefined;
-    };
-    const std = quantity(l, false);
-    const adj = others.map((x) => ({ name: x.name, standard: quantity(x, false), adjusted: quantity(x, true) }));
-    if (std && adj.length && adj.every((x) => x.standard && x.adjusted)) {
-      const t10 = t10Compensating({ fillers: [{ name: l.name, standard: std }], adjusted: adj as { name: string; standard: Q; adjusted: Q }[] });
-      if (!t10.ok) error(`formula[${i}].adjust.compensates`, `At the nominal certificate values: ${t10.message.replace(/; raise a deviation$/, '')}`, 'TB-13');
-    }
-  });
-  formulaSums(doc, error);
-  calculationChecks(doc, out);
+  // A packing master (it has a pack) has its own checks instead of the formula and calculation checks.
+  if (doc.pack) out.push(...packingChecks(doc));
+  else formulaChecks(doc, out, error);
 
   twice(doc.stages.map((s) => s.key), 'stages');
   doc.stages.forEach((s, si) => {
@@ -71,12 +39,12 @@ export function masterChecks(doc: MasterDoc): Problem[] {
     twice(s.steps.map((t) => t.key), `${path}.steps`);
     if (s.kind === 'sub-batch' && !s.count) error(path, 'A sub-batch stage needs the number of sub-batches');
     if (s.produces && !s.produces.holdHours) error(`${path}.produces`, `The intermediate ${s.produces.name} has no hold time`, 'TB-01');
-    if (s.kind !== 'preparation' && !s.steps.some((t) => findBlock(t.block)?.gmp === 'yield')) error(path, `Stage ${s.name} has no yield step`);
+    if (!doc.pack && s.kind !== 'preparation' && !s.steps.some((t) => findBlock(t.block)?.gmp === 'yield')) error(path, `Stage ${s.name} has no yield step`);
     if (s.kind === 'preparation' && !doc.stages.some((x) => x.uses.includes(s.key))) warn(path, `No stage uses the preparation ${s.name}`);
     // TB-10: a stage worked in a room starts with line clearance.
     const clearance = s.steps.findIndex((t) => findBlock(t.block)?.gmp === 'line-clearance');
     if (s.roomTypes.length && clearance < 0) error(path, `Stage ${s.name} is worked in a room but has no line clearance step`, 'TB-10');
-    if (clearance > 0) warn(`${path}.steps[${clearance}]`, `Line clearance is not the first step of ${s.name}`);
+    if (clearance > 0 && !doc.pack) warn(`${path}.steps[${clearance}]`, `Line clearance is not the first step of ${s.name}`);
     for (const u of s.uses) {
       const pi = doc.stages.findIndex((x) => x.key === u);
       if (pi < 0 || pi >= si) error(`${path}.uses`, `${u} is not an earlier stage`);
@@ -86,6 +54,7 @@ export function masterChecks(doc: MasterDoc): Problem[] {
       const p = `${path}.steps[${ti}]`;
       const block = findBlock(st.block);
       if (!block) return void error(`${p}.block`, `No block ${st.block.id} version ${st.block.version}`);
+      if (block.packing && !doc.pack) error(p, `${block.name} is a packing step: a tablet master cannot use it`);
       if (!st.checker && (block.gmp || st.critical)) error(p, `${block.gmp ? `A ${block.gmp.replace('line-clearance', 'line clearance')} step` : 'A critical step'} needs a second-person check`, 'TB-08');
       if (st.critical && st.flow.kind === 'optional-with-reason') error(`${p}.flow`, 'A critical step cannot be optional');
       if (st.waitForCheck && !st.checker) warn(p, 'The next step waits for a check this step does not have');
@@ -124,6 +93,46 @@ export function masterChecks(doc: MasterDoc): Problem[] {
     });
   });
   return out;
+}
+
+/** The formula: the core materials (not coating, not a solvent removed in processing) make the core weight. */
+function formulaChecks(doc: MasterDoc, out: Problem[], error: (path: string, message: string, rule?: string) => void): void {
+  const twice = (keys: string[], path: string) => keys.forEach((k, i) => keys.indexOf(k) !== i && error(`${path}[${i}]`, `The key ${k} is used twice`));
+  twice(doc.formula.map((l) => l.key), 'formula');
+  const core = doc.formula.filter((l) => l.place !== 'coating' && l.role !== 'solvent');
+  const total = t2Total({ values: core.map((l) => `${l.mgPerTablet} mg`), unit: 'mg' });
+  if (!core.length) error('formula', 'The formula has no core materials');
+  else if (total.ok && !total.value.eq(new Dec(doc.header.coreWeightMg))) {
+    error('formula', `The core materials add up to ${total.value.toString()} mg per tablet, not the theoretical core weight ${doc.header.coreWeightMg} mg`);
+  }
+  if (doc.header.coatedWeightMg && new Dec(doc.header.coatedWeightMg).lt(doc.header.coreWeightMg)) error('header.coatedWeightMg', 'The coated weight is below the core weight');
+  if (doc.formula.some((l) => l.place === 'coating') && !doc.header.coatedWeightMg) error('header.coatedWeightMg', 'A coated product needs the theoretical coated weight');
+  doc.formula.forEach((l, i) => {
+    const a = l.adjust;
+    if (!a) return;
+    if (a.potency && a.content) error(`formula[${i}].adjust`, 'A line is adjusted for potency (T9) or for content (T18), not both');
+    for (const k of a.compensates ?? []) if (k === l.key || !doc.formula.some((x) => x.key === k)) error(`formula[${i}].adjust.compensates`, `No other formula line ${k} to compensate`);
+    const values = { ...SAMPLE, content: nominal(l) };
+    if (a.content?.contentSource === 'in-process result' && !a.content.resultType) {
+      error(`formula[${i}].adjust`, `State what the in-process result for ${l.name} is: the content (% w/w) or a relative assay in % of theoretical (F0205: a % of theoretical read as the content gives about a third of the dose)`);
+    }
+    const r = lineQuantity(doc, [], HERE, { ...l, adjust: { ...a, compensates: undefined } }, true, values);
+    if (!r.ok) error(`formula[${i}].adjust`, r.message, a.potency ? 'TB-13' : undefined);
+    // A compensating filler that would go below zero even at the nominal certificate values (salt factor, overage).
+    const others = (a.compensates ?? []).map((k) => doc.formula.find((x) => x.key === k)).filter((x): x is FormulaLine => !!x && x.key !== l.key);
+    const quantity = (x: FormulaLine, adjusted: boolean) => {
+      const r = lineQuantity(doc, [], HERE, x, adjusted, { ...SAMPLE, content: nominal(x) });
+      return r.ok ? { value: r.value, unit: r.unit } : undefined;
+    };
+    const std = quantity(l, false);
+    const adj = others.map((x) => ({ name: x.name, standard: quantity(x, false), adjusted: quantity(x, true) }));
+    if (std && adj.length && adj.every((x) => x.standard && x.adjusted)) {
+      const t10 = t10Compensating({ fillers: [{ name: l.name, standard: std }], adjusted: adj as { name: string; standard: Q; adjusted: Q }[] });
+      if (!t10.ok) error(`formula[${i}].adjust.compensates`, `At the nominal certificate values: ${t10.message.replace(/; raise a deviation$/, '')}`, 'TB-13');
+    }
+  });
+  formulaSums(doc, error);
+  calculationChecks(doc, out);
 }
 
 const nominal = (l: FormulaLine) => (l.adjust?.content?.resultType === 'percent of theoretical' ? SAMPLE.assay : l.adjust?.content?.nominalContent ?? SAMPLE.assay);
@@ -305,7 +314,7 @@ function settingProblem(doc: MasterDoc, si: number, ti: number, kind: Block['set
   }
   if ('formula' in v) {
     if (kind !== 'material' && kind !== 'quantity') return `A formula line is given where a ${kind} is wanted`;
-    return doc.formula.some((l) => l.key === v.formula) ? null : `No formula line ${v.formula}`;
+    return materialLines(doc).some((l) => l.key === v.formula) ? null : `No formula line ${v.formula}`;
   }
   if ('header' in v) {
     if (kind !== 'quantity') return `A header value is given where a ${kind} is wanted`;
