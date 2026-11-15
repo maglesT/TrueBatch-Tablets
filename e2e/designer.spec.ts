@@ -68,6 +68,9 @@ test('TB-02 build a master from a skeleton, fix a master-check problem, then che
   await author.getByLabel('Hardness limits: highest').fill('120');
   await author.getByLabel('Thickness limits: lowest').fill('3.8');
   await author.getByLabel('Thickness limits: highest').fill('4.2');
+  // TB-11: blending names no rooms in the skeleton; the check opens its stage settings, where the rooms are picked.
+  await check.getByRole('button', { name: /Stage Blending: choose the rooms/ }).click();
+  await author.getByLabel('Add to rooms this stage may run in (an area, or a room)').selectOption('Blending');
   await expect(check).toContainText('No problems');
   await expect(author.getByRole('status')).toHaveText('All changes saved');
 

@@ -32,6 +32,8 @@ master.products_.push({ ...item('pk-1', 'PK-001', 'Examplol 100 mg tablets, 10 x
 master.materials_.push({ ...item('pm-foil', 'PM-101', 'Printed aluminium foil'), category: 'packing', unit: 'm' },
   { ...item('pm-ctn', 'PM-103', 'Carton'), category: 'packing', unit: 'units' });
 master.equipment_.push({ ...item('ln-1', 'BL-01', 'Blister line 1'), kind: 'equipment', type: 'blister line', room: 'PK-01' });
+// The line stands in a packing room (the packing stages allow the Packing area).
+master.rooms_.splice(0, master.rooms_.length, { ...item('rm-pk1', 'PK-01', 'Packing hall 1'), area: 'Packing', grade: 'D' });
 
 const sql = connect(TEST_DATABASE_URL, { role: PACKING_APP_ROLE, searchPath: S });
 const bulk = connect(TEST_DATABASE_URL, { role: PACKING_APP_ROLE, link: true });
