@@ -7,8 +7,10 @@ type Raw = string | string[];
  * One field as the block describes it. Live (onSave): a typed value is saved when the person leaves the field, a tap
  * on yes/no, a choice or a machine saves at once (TB-04). In a dialog (onChange) it only reports the value.
  */
-export function FieldInput({ f, unit, saved, picks = [], disabled, out, onSave, onChange }: {
+export function FieldInput({ f, unit, saved, picks = [], options = [], disabled, out, onSave, onChange }: {
   f: BlockField; unit: string; saved?: Value; picks?: PickItem[]; disabled?: boolean;
+  // A lot: the lots a link offers, to pick from (typing stays possible when the link is absent or down).
+  options?: string[];
   // Readings out of their band (from the results), shown red.
   out?: Set<number>;
   onSave?: (raw: Raw) => Promise<void>; onChange?: (raw: Raw) => void;
@@ -84,8 +86,11 @@ export function FieldInput({ f, unit, saved, picks = [], disabled, out, onSave, 
       ? <div className="recorded">{saved !== undefined && <span>{valueText(saved)}</span>}<button type="button" className="big" disabled={disabled} onClick={() => void save('now')}>{saved === undefined ? 'Record the time now' : 'Record again'}</button></div>
       : <p className="muted">The server records the time when you save.</p>;
   } else {
-    input = <input id={id} className="text" autoComplete="off" value={raw as string} disabled={disabled} maxLength={f.kind === 'lot' ? 60 : 2000}
-      placeholder={f.kind === 'lot' ? 'Type the lot number from the label' : undefined} onChange={(e) => set(e.target.value)} onBlur={blurSave} onKeyDown={enter} />;
+    input = <>
+      <input id={id} className="text" autoComplete="off" value={raw as string} disabled={disabled} maxLength={f.kind === 'lot' ? 60 : 2000} list={options.length ? `${id}-list` : undefined}
+        placeholder={f.kind === 'lot' ? (options.length ? 'Pick the lot from MMS' : 'Type the lot number from the label') : undefined} onChange={(e) => set(e.target.value)} onBlur={blurSave} onKeyDown={enter} />
+      {options.length > 0 && <datalist id={`${id}-list`}>{options.map((o) => <option key={o} value={o} />)}</datalist>}
+    </>;
   }
   return (
     <div className="fl-field">

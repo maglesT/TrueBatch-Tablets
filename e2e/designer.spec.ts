@@ -17,7 +17,7 @@ async function sign(page: Page) {
   await expect(dialog).toBeHidden();
 }
 
-test('TB-02 build a master from a skeleton, fix a master-check problem, then check, approve and make it effective', async ({ browser }) => {
+test('TB-02 build a master from a skeleton, fix a master-check problem, then check, approve and (another QA person) make it effective', async ({ browser }) => {
   const author = await as(browser, 'author1');
   await author.getByRole('button', { name: 'New master' }).click();
   await author.getByLabel('Product').fill('PRD-001');
@@ -87,8 +87,13 @@ test('TB-02 build a master from a skeleton, fix a master-check problem, then che
   await qa.getByRole('button', { name: 'Continue to sign' }).click();
   await sign(qa);
   await expect(qa.locator('.d-title')).toContainText('Approved');
-  await qa.getByRole('button', { name: 'Make effective' }).click();
-  await qa.getByRole('dialog').getByRole('button', { name: 'Make effective' }).click();
-  await expect(qa.locator('.d-title')).toContainText('Effective');
-  await expect(qa.locator('.timeline')).toContainText('change control CC-2026-031');
+  // No QMS link here: the number was typed by hand, so another person makes the version effective.
+  await expect(qa.getByRole('button', { name: 'Make effective' })).toBeDisabled();
+  await expect(qa.locator('.review-actions')).toContainText('another person makes the version effective');
+  const qa2 = await as(browser, 'qa2');
+  await qa2.getByRole('row', { name: /PRD-001/ }).getByRole('button', { name: 'Open' }).click();
+  await qa2.getByRole('button', { name: 'Make effective' }).click();
+  await qa2.getByRole('dialog').getByRole('button', { name: 'Make effective' }).click();
+  await expect(qa2.locator('.d-title')).toContainText('Effective');
+  await expect(qa2.locator('.timeline')).toContainText('change control CC-2026-031');
 });

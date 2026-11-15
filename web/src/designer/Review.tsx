@@ -5,6 +5,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { ApiError, can, plantTime, type Me } from '../api.js';
 import { addComment, getReview, reviewAction, STATE_LABEL, type MasterEvent, type ReviewAction, type ReviewData, type Version } from '../api-designer.js';
 import { SignDialog } from '../components/SignDialog.js';
+import { useLinked } from '../api-floor.js';
 import type { MasterDoc } from '../../../shared/master/schema.js';
 import { describeMaster, diffMasters, type DiffSection } from './describe.js';
 import { placeLabel } from './model.js';
@@ -25,6 +26,8 @@ export function Review({ me, version, doc, blocked, onChanged, onGo }: {
   const [doing, setDoing] = useState<ReviewAction | null>(null);
   const [cc, setCc] = useState('');
   const [ccDone, setCcDone] = useState(false);
+  // QA-approved change controls in QMS, to pick from (empty without the link).
+  const changes = useLinked<{ number: string; title: string | null }>(doing === 'approve' ? '/api/change-controls' : null, 'changes');
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
   const load = async () => setData(await getReview(version.id));
@@ -38,7 +41,9 @@ export function Review({ me, version, doc, blocked, onChanged, onGo }: {
     catch (e) { setError(e instanceof ApiError ? (e.problems[0] ?? e.message) : String(e)); }
   };
   const shown: ReviewAction[] = (['submit', 'pass', 'return', 'approve', 'make-effective'] as const).filter((a) =>
-    data.actions.includes(a) || (a === 'submit' && version.state === 'draft' && can(me, 'master.author')));
+    data.actions.includes(a) || (a === 'submit' && version.state === 'draft' && can(me, 'master.author'))
+    // QA who typed the change control by hand sees why another person makes the version effective.
+    || (a === 'make-effective' && version.state === 'approved' && can(me, 'master.approve')));
   const sections: DiffSection[] = view === 'changes' && data.previous ? diffMasters(data.previous.doc, doc)
     : describeMaster(doc).map((s) => ({ ...s, change: 'same', lines: s.lines.map((l) => ({ ...l, change: 'same' })) }));
   const changed = data.previous ? diffMasters(data.previous.doc, doc).filter((s) => s.change !== 'same').length : 0;
@@ -109,8 +114,9 @@ export function Review({ me, version, doc, blocked, onChanged, onGo }: {
       )}
       {doing === 'approve' && !ccDone && (
         <Dialog title="Approve: change control" onCancel={close} onSubmit={() => (cc.trim() ? setCcDone(true) : setError('Type the change control number.'))} submit="Continue to sign" error={error}>
-          <label>Change control number<input autoFocus value={cc} onChange={(e) => setCc(e.target.value)} placeholder="e.g. CC-2026-014" /></label>
-          <p className="muted small">The change control under which this version is introduced (typed for now; the QMS link comes later).</p>
+          <label>Change control number<input autoFocus value={cc} onChange={(e) => setCc(e.target.value)} list="cc-picks" placeholder={changes.length ? 'Pick the change control from QMS' : 'e.g. CC-2026-014'} /></label>
+          {changes.length > 0 && <datalist id="cc-picks">{changes.map((c) => <option key={c.number} value={c.number}>{c.title}</option>)}</datalist>}
+          <p className="muted small">The QA-approved change control under which this version is introduced. Without the QMS link it is typed, and another person makes the version effective.</p>
         </Dialog>
       )}
       {doing === 'return' && (

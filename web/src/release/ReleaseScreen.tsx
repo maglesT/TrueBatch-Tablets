@@ -3,8 +3,9 @@ import { api, can, MEANING_LABEL, type Me } from '../api.js';
 import { SignDialog } from '../components/SignDialog.js';
 import {
   blockOf, changed, go, headline, pdfLink, plainClock, plainError, stepOf, stepTitle, tone, useBlocks, valueText, words,
-  type BatchDetail, type Block, type FloorEvent, type TimerRow, type Value,
+  type BatchDetail, type Block, type FloorEvent, type Source, type TimerRow, type Value,
 } from '../api-floor.js';
+import { PROVIDER_NAME } from '../../../shared/engine/links.js';
 import { BatchHeader } from '../floor/BatchScreen.js';
 import { ReasonDialog } from '../floor/ReasonDialog.js';
 import '../floor/floor.css';
@@ -19,7 +20,11 @@ interface Review {
   late: { timer: TimerRow; notes: FloorEvent[] }[];
   outOfLimits: { step: string; calc: string; shown: string; notes: FloorEvent[] }[];
   inputChanged: { step: string; changes: FloorEvent[] }[];
-  deviations: { note: number; step: string; reference: string; text: string; open: boolean; closed?: { personName: string; at: string; payload: { reason?: string } } }[];
+  deviations: { note: number; step: string; reference: string; text: string; open: boolean; status?: string; closedAt?: string | null; closed?: { personName: string; at: string; payload: { reason?: string } } }[];
+  // Owner 15 Nov 2026: every value typed by hand because a link was absent or down, and the Deviations link's state.
+  hand: (Extract<Source, { from: 'hand' }> & { step: string; field: string; event: number; personName: string | null; at: string })[];
+  unlinked: { number: string; status: string; title: string | null }[];
+  deviationsLink: string;
   notApplicable: FloorEvent[];
   batchEvents: { id: number; kind: string; payload: { reportNo?: string; reason?: string }; personName: string; at: string }[];
   signatures: { objectType: string; printedName: string; meaning: string; signedAt: string; step: string | null }[];
@@ -58,7 +63,8 @@ export function ReleaseScreen({ me, id }: { me: Me; id: number }) {
   const openDevs = r.deviations.filter((x) => x.open);
   const qcTurn = d.batch.status === 'production approved';
   const qaTurn = d.batch.status === 'QC approved';
-  const blockers = [...openDevs.map((x) => `Deviation ${x.reference} (${name(x.step)}) is open: close it first.`), ...d.batch.yieldOut.map(plain)];
+  const blockers = [...openDevs.map((x) => `Deviation ${x.reference} (${name(x.step)}) is ${x.status ? `${x.status} in the Deviations system: it is closed there.` : 'open: close it first.'}`), ...d.batch.yieldOut.map(plain)];
+  const handLabel = (step: string, field: string) => field === 'reference' ? 'deviation number' : field.includes('.') ? field : fieldLabel(step, field);
 
   const sign = async ({ proof }: { proof: string }) => {
     if (!signing) return;
@@ -87,7 +93,9 @@ export function ReleaseScreen({ me, id }: { me: Me; id: number }) {
         <Kpi n={r.late.length} label="Late (timers ran over)" tone="bad" />
         <Kpi n={r.outOfLimits.length} label="Out of limits" tone="bad" />
         <Kpi n={openDevs.length} label={`Open deviations (of ${r.deviations.length})`} tone="bad" />
+        <Kpi n={r.hand.length} label="Typed by hand (link off or down)" tone="warn" />
       </div>
+      {r.deviationsLink === 'down' && <p className="notice warn">The Deviations link is down: the deviation statuses shown are TrueBatch's own (closed by hand).</p>}
 
       <section className="dash-panel" aria-label="Review of the record and its audit trail">
         <div className="panel-head"><h2>Review of the record and its audit trail</h2>
@@ -110,8 +118,13 @@ export function ReleaseScreen({ me, id }: { me: Me; id: number }) {
           <li key={x.step}><b>{name(x.step)}</b><small>{x.changes.map((e) => `${e.personName}, ${plainClock(e.at)}`).join(' · ')}</small></li>))}</Group>}
         <Group title="Deviation notes" empty="No deviation note has a deviation number.">{r.deviations.map((x) => (
           <li key={x.note} className={x.open ? 'bad' : 'ok'}><b>{x.reference} · {name(x.step)}</b><span>{x.text}</span>
-            <small>{x.open ? 'Open: QA closes it before release' : `Closed by ${x.closed?.personName}, ${plainClock(x.closed?.at ?? '')}: ${x.closed?.payload.reason ?? ''}`}</small>
-            {x.open && !decided && can(me, 'qa.release') && <button onClick={() => setClosing(x)}>Close the deviation…</button>}</li>))}</Group>
+            <small>{x.status ? `${x.status} in the Deviations system${x.closedAt ? `, ${plainClock(x.closedAt)}` : ''}` : x.open ? 'Open: QA closes it before release' : `Closed by ${x.closed?.personName}, ${plainClock(x.closed?.at ?? '')}: ${x.closed?.payload.reason ?? ''}`}</small>
+            {x.open && !x.status && !decided && can(me, 'qa.release') && <button onClick={() => setClosing(x)}>Close the deviation…</button>}</li>))}</Group>
+        {r.unlinked.length > 0 && <Group title="Deviations naming this batch that no note links" empty="">{r.unlinked.map((x) => (
+          <li key={x.number} className="bad"><b>{x.number}</b><span>{x.title}</span><small>{x.status} in the Deviations system</small></li>))}</Group>}
+        <Group title="Typed by hand (a link was off or down)" empty="Every linked value came through its link.">{r.hand.map((h, i) => (
+          <li key={i}><b>{name(h.step)} · {handLabel(h.step, h.field)}</b><span>{PROVIDER_NAME[h.link]} {h.state === 'down' ? 'link was down' : 'not linked'}</span>
+            <small>{h.personName}, {plainClock(h.at)}</small></li>))}</Group>
         <Group title="Steps not applicable" empty="Every step was done.">{r.notApplicable.map((e) => (
           <li key={e.id}><b>{name(idOf(e))}</b><span>{e.payload.reason}</span><small>{e.personName}, {plainClock(e.at)}</small></li>))}</Group>
         <Group title={`Signatures (${r.signatures.length})`} empty="No signatures.">{r.signatures.map((s, i) => (
