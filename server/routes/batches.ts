@@ -6,6 +6,8 @@ import { parseId, requirePermission, type SessionUser } from '../auth.js';
 import { usableItem } from '../master.js';
 import { SignError, authenticateSigner, contentHash, sign, signBody } from '../signatures.js';
 import { masterVersion } from './masters.js';
+import { batchRecordDoc, type RecordInput, type Signature } from '../batch-record.js';
+import { render, sendPdf } from '../pdf.js';
 import { findBlock } from '../../shared/blocks/index.js';
 import { masterChecks } from '../../shared/master/checks.js';
 import type { MasterDoc, Step } from '../../shared/master/schema.js';
@@ -54,6 +56,20 @@ export async function loadBatch(q: Sql | Tx, id: number): Promise<LoadedBatch | 
 // What a batch-level signer is shown: the record as it stands, by its last events (the signature is refused if
 // anything was added since).
 const batchContent = (l: LoadedBatch) => ({ batch: l.batch.id, batchNo: l.batch.batchNo, lastStepEvent: l.events.at(-1)?.id ?? 0, lastBatchEvent: l.batchEvents.at(-1)?.id ?? 0 });
+/** Every signature of the batch: its issue, its steps and its batch-level decisions, in order. */
+const batchSignatures = (q: Sql, id: number) => q<Signature[]>`
+  select s.object_type as "objectType", s.object_id::int as "objectId", s.printed_name as "printedName", s.meaning, s.signed_at as "signedAt"
+  from signatures s
+  where (s.object_type = 'batch' and s.object_id = ${id})
+     or (s.object_type = 'step_event' and s.object_id in (select e.id from step_events e where e.batch_id = ${id}))
+     or (s.object_type = 'batch_event' and s.object_id in (select e.id from batch_events e where e.batch_id = ${id}))
+  order by s.signed_at, s.id`;
+/** What the batch record PDF is made from: the batch with its master version, issuer and signatures. */
+export async function recordInput(q: Sql, l: LoadedBatch): Promise<RecordInput> {
+  const v = await masterVersion(q, l.batch.masterVersionId);
+  const [issuer] = await q<{ name: string }[]>`select full_name as name from users where id = ${l.batch.issuedBy}`;
+  return { ...l, versionNo: v!.versionNo, issuedByName: issuer?.name ?? '', signatures: [...await batchSignatures(q, l.batch.id)] };
+}
 const batchHash = (l: LoadedBatch) => contentHash('batch', l.batch.id, batchContent(l));
 const view = (l: LoadedBatch) => batchView(l.doc, l.events, l.batchEvents, l.now);
 
@@ -199,6 +215,26 @@ export function batchRoutes(app: FastifyInstance, sql: Sql) {
     return out;
   });
 
+  // To review: for QC the production-approved batches, for QA the QC-approved ones (TB-21), oldest decision first.
+  app.get('/api/batches/to-review', { preHandler: requirePermission('truebatch.qc.approve', 'truebatch.qa.release') }, async (req) => {
+    const ids = await sql<{ id: number }[]>`
+      select b.id::int from batches b
+      where exists (select 1 from batch_events e where e.batch_id = b.id and e.kind = 'production_approved')
+        and not exists (select 1 from batch_events e where e.batch_id = b.id and e.kind in ('released', 'rejected'))
+      order by b.issued_at limit 200`;
+    const out = [];
+    for (const { id } of ids) {
+      const l = (await loadBatch(sql, id))!;
+      const bv = view(l);
+      const waiting = bv.status === 'production approved' ? 'QC' : 'QA';
+      if (!req.user!.permissions.includes(waiting === 'QC' ? 'truebatch.qc.approve' : 'truebatch.qa.release')) continue;
+      const last = l.batchEvents.filter((e) => e.kind !== 'deviation_closed').at(-1)!;
+      out.push({ id, batchNo: l.batch.batchNo, productCode: l.doc.header.productCode, productName: l.doc.header.productName, status: bv.status, waiting,
+        since: last.at, by: last.personName, openDeviations: bv.deviations.filter((d) => d.open).length, actions: BATCH_NAMES.filter((a) => a !== 'close-deviation' && !batchRefusal(a, bv, req.user!)) });
+    }
+    return out;
+  });
+
   // The batch with, per step, its state, current values, why it is not open, the actions open to this person, and
   // the timers. All computed from the step events; nothing is stored.
   app.get<{ Params: { id: string } }>('/api/batches/:id', anyUser, async (req, reply) => {
@@ -237,16 +273,19 @@ export function batchRoutes(app: FastifyInstance, sql: Sql) {
     const id = parseId(req.params.id);
     const l = id === null ? null : await loadBatch(sql, id);
     if (!l) return reply.code(404).send({ error: 'not_found' });
-    const signatures = await sql`
-      select s.object_type as "objectType", s.object_id::int as "objectId", s.printed_name as "printedName", s.meaning, s.signed_at as "signedAt"
-      from signatures s
-      where (s.object_type = 'batch' and s.object_id = ${id})
-         or (s.object_type = 'step_event' and s.object_id in (select e.id from step_events e where e.batch_id = ${id}))
-         or (s.object_type = 'batch_event' and s.object_id in (select e.id from batch_events e where e.batch_id = ${id}))
-      order by s.signed_at, s.id`;
+    const signatures = await batchSignatures(sql, l.batch.id);
     const names = new Map(l.events.map((e) => [e.person, e.personName]));
     const r = review(l.doc, l.events, l.batchEvents, l.now);
     return { status: view(l).status, ...r, corrections: r.corrections.map((c) => ({ ...c, personName: names.get(c.person) ?? null })), signatures };
+  });
+
+  // TB-22: the batch record as a PDF: a complete copy with its values, calculations, changes, notes and signatures.
+  app.get<{ Params: { id: string } }>('/api/batches/:id/pdf', anyUser, async (req, reply) => {
+    const id = parseId(req.params.id);
+    const l = id === null ? null : await loadBatch(sql, id);
+    if (!l) return reply.code(404).send({ error: 'not_found' });
+    const def = batchRecordDoc(await recordInput(sql, l), req.user!.fullName);
+    return sendPdf(reply, `batch-record-${l.batch.batchNo}`, await render(def));
   });
 
   // Production approval, QC approval, release or rejection (each an e-signature), and QA closing a deviation note.
