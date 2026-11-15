@@ -6,6 +6,7 @@ import { buildApp } from '../server/app.js';
 import globalSetup from '../test/global-setup.js';
 import { TEST_DATABASE_URL, TEST_PROOF_KEY, fakeMaster, fakeSignOn, seedUser } from '../test/helpers.js';
 import { E2E_PORT, E2E_SCHEMA, USERS } from './config.js';
+import { seedMasterData } from './master-data.js';
 
 await globalSetup();
 const owner = connect(TEST_DATABASE_URL);
@@ -22,6 +23,8 @@ await schemaOwner.end();
 const master = fakeMaster();
 master.products_.push({ itemId: 'p', code: 'PRD-050', name: 'Demolol 50 mg tablets', version: 1, active: true, strength: null, dosageForm: 'tablet' });
 master.materials_.push({ itemId: 'm', code: 'MAT-010', name: 'Demolol', version: 1, active: true, category: null, unit: 'kg' });
+// The designer journey's products, materials, equipment and rooms.
+seedMasterData(master);
 
 const sql = connect(TEST_DATABASE_URL, { role: 'truebatch_app', searchPath: E2E_SCHEMA });
 const app = await buildApp({ sql, signOn: fakeSignOn(), proofKey: TEST_PROOF_KEY, master,

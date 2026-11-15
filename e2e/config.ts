@@ -10,5 +10,8 @@ export const USERS: Record<string, Permission[]> = {
   qa1: ['truebatch.qa.release', 'truebatch.master.approve'],
   // Writes the fixture master and issues the batch of the floor journey.
   iss1: ['truebatch.master.author', 'truebatch.batch.issue'],
+  // The master designer journey: an author and a second-person checker (qa1 approves).
+  author1: ['truebatch.master.author'],
+  mcheck1: ['truebatch.master.check'],
   norole: [],
 };
