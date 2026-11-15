@@ -7,6 +7,7 @@ import type { Action, EventKind, Payload, State, StepKey } from '../../shared/en
 import type { Stored, Value } from '../../shared/engine/values.js';
 import { PROVIDER_NAME, type Source } from '../../shared/engine/links.js';
 import { stepTitle as sharedStepTitle } from '../../shared/engine/batch.js';
+import { plantText } from '../../shared/plant-time.js';
 
 export type { Block, BlockField, MasterDoc, Step, Action, State, StepKey, Stored, Value, Source };
 
@@ -38,7 +39,7 @@ export interface PickItem { itemId: string; code: string; name: string; active: 
 /** Where a value came from, in plain words. */
 export const sourceWords = (s: Source | undefined) => (!s ? '' : s.from === 'hand'
   ? `Typed by hand: ${PROVIDER_NAME[s.link]} ${s.state === 'down' ? 'link is down' : 'is not linked'}. A second person checks it.`
-  : `From ${PROVIDER_NAME[s.from]}: ${s.shown}`);
+  : `From ${PROVIDER_NAME[s.from]}: ${plantText(s.shown)}`);
 
 /** A pick list read through a link (pull, don't type): empty when the link is absent or down, and then the value is typed. */
 export function useLinked<T>(url: string | null, list: string): T[] {
@@ -113,13 +114,12 @@ export const STATUS_CHIP: Record<string, string> = {
 };
 
 const isItem = (v: Value): v is { itemId: string; code: string; name: string; version: number } => typeof v === 'object' && !Array.isArray(v) && 'itemId' in v;
-const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
 export function valueText(v: Value | undefined): string {
   if (v === undefined) return '—';
   if (Array.isArray(v)) return v.map((x) => x.value).join(', ') + (v[0]?.unit ? ` ${v[0].unit}` : '');
   if (isItem(v)) return `${v.code} · ${v.name}`;
   if (typeof v === 'object') return `${v.value}${v.unit ? ` ${v.unit}` : ''}`;
-  return ISO.test(v) ? plainClock(v) : v;
+  return plantText(v);
 }
 /** What an input holds for a recorded value. */
 export function rawOf(v: Value | undefined): string | string[] {
@@ -173,7 +173,7 @@ export function tone(r: Stored | undefined): 'ok' | 'bad' | 'warn' | null {
 }
 
 /** A server message in plain words: times in plant time, each sentence ended. */
-export const words = (t: string) => t.replace(/\d{4}-\d{2}-\d{2}T[\d:.]+Z/g, (iso) => plainClock(iso)).replace(/([^.])$/, '$1.');
+export const words = (t: string) => plantText(t).replace(/([^.])$/, '$1.');
 
 /** Plain words for a refused action. */
 export function plainError(e: unknown): string {

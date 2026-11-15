@@ -10,6 +10,7 @@ import { FieldInput } from './Fields.js';
 import { ReasonDialog } from './ReasonDialog.js';
 import { CERTIFICATE, fieldLabel, handEntered, LINK_OF } from '../../../shared/engine/links.js';
 import { notYetText } from '../../../shared/engine/batch.js';
+import { plantText } from '../../../shared/plant-time.js';
 import { materialLines } from '../../../shared/master/schema.js';
 
 type Dialog = { kind: 'done' | 'repeat' | 'check' | 'na' | 'send-back' | 'note' } | { kind: 'na-sign'; reason: string } | { kind: 'correct'; field: BlockField };
@@ -292,7 +293,7 @@ function ResultCard({ label, r, big, stop }: { label: string; r: Stored; big?: b
   const h = headline(r);
   // The stop check of a repeat-until round is not a failure until the rounds run out (the server says which: notYet).
   const cls = stop && t === 'bad' ? '' : t ?? '';
-  const shown = (x: string) => (stop ? notYetText(x) : x);
+  const shown = (x: string) => plantText(stop ? notYetText(x) : x);
   const word = t === 'ok' ? 'Within limits' : t === 'bad' ? (stop ? 'Not yet: repeat' : 'Out of limits') : t === 'warn' ? 'Alert' : null;
   return (
     <div className={`result ${cls}${big ? ' big' : ''}`}>
@@ -319,7 +320,7 @@ function Summary({ row, block }: { row: StepRow; block: Block }) {
 function Replaced({ h, field, names, label }: { h: History | null; field: string; names: Map<number | null, string | null>; label?: string }) {
   const list = h?.replaced.filter((r) => r.field === field) ?? [];
   return <>{list.map((r, i) => (
-    <p key={i} className="was">{label && `${label}: `}<s>{valueText(r.was)}</s> → {valueText(r.now)} · corrected by {names.get(r.person) ?? '—'}, {plainClock(r.at)}: “{r.reason}”</p>
+    <p key={i} className="corrected">{label && `${label}: `}<s>{valueText(r.was)}</s> → {valueText(r.now)} · corrected by {names.get(r.person) ?? '—'}, {plainClock(r.at)}: “{r.reason}”</p>
   ))}</>;
 }
 

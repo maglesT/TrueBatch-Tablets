@@ -7,6 +7,7 @@ import type { Step } from '../shared/master/schema.js';
 import { batchView, deviations, fieldLabel, handFields, lateItems, lineQuantity, notYetText, openSteps, PROVIDER_NAME, deviationStatusWords, stepTitle, type DeviationStatus, type EventKind, type Source, type Stored, type StepView, type Value } from '../shared/engine/index.js';
 import type { LoadedBatch } from './routes/batches.js';
 import { pageFrame, plant, runs } from './pdf.js';
+import { plantText } from '../shared/plant-time.js';
 
 // A signature of the batch; `step` is the step instance of a step signature.
 export interface Signature { objectType: string; objectId: number; printedName: string; meaning: string; signedAt: Date; step: string | null }
@@ -27,13 +28,12 @@ const STATE: Record<string, string> = {
 
 const RED = '#b3261e';
 const isItem = (v: Value): v is { itemId: string; code: string; name: string; version: number } => typeof v === 'object' && !Array.isArray(v) && 'itemId' in v;
-const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
 export function valueText(v: Value | undefined): string {
   if (v === undefined) return '—';
   if (Array.isArray(v)) return v.map((x) => x.value).join(', ') + (v[0]?.unit ? ` ${v[0].unit}` : '');
   if (isItem(v)) return `${v.code} · ${v.name} (v${v.version})`;
   if (typeof v === 'object') return `${v.value}${v.unit ? ` ${v.unit}` : ''}`;
-  return ISO.test(v) ? plant(v) : v;
+  return plantText(v);
 }
 /** The value at the end of a worked line ("… = 10.152 kg"). */
 const endOf = (r: Stored) => (r.ok ? (/=\s*([^=;]+)$/.exec(r.shown)?.[1]?.trim() ?? `${r.value} ${r.unit}`) : '');
@@ -175,7 +175,7 @@ function valueLines(block: Block, v: StepView, who: (id: number | null) => strin
 }
 
 // Where a value came from: pulled through a link (as read), or typed by hand while the link was off or down.
-const sourceText = (s: Source | undefined) => (!s ? '' : s.from === 'hand' ? ` (BY HAND: ${PROVIDER_NAME[s.link]} ${s.state === 'down' ? 'link down' : 'not linked'})` : ` (${s.shown})`);
+const sourceText = (s: Source | undefined) => (!s ? '' : s.from === 'hand' ? ` (BY HAND: ${PROVIDER_NAME[s.link]} ${s.state === 'down' ? 'link down' : 'not linked'})` : ` (${plantText(s.shown)})`);
 
 /** The worked calculation lines, with the limits and pass or fail. */
 function resultLines(block: Block, st: Step, v: StepView, who: (id: number | null) => string): Content[] {
@@ -185,7 +185,7 @@ function resultLines(block: Block, st: Step, v: StepView, who: (id: number | nul
     const checks = checksOf(r);
     // A round whose stop check is not reached yet is not out of limits: the rounds go on.
     const notYet = name === v.notYet;
-    const text = (t: string) => (notYet ? notYetText(t) : t);
+    const text = (t: string) => plantText(notYet ? notYetText(t) : t);
     return [
       small(`${label(name)}: ${text(r.shown)}`),
       ...checks.filter(([, c]) => c.shown !== r.shown).map(([, c]) => small(text(c.shown), { margin: [8, 0, 0, 0] })),

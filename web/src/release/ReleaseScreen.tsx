@@ -115,7 +115,7 @@ export function ReleaseScreen({ me, id }: { me: Me; id: number }) {
           <li key={l.timer.id} className={l.notes.length ? '' : 'bad'}><b>{l.timer.label}</b><span>Due {plainClock(l.timer.at)}</span>
             <small>{l.notes.length ? l.notes.map((n) => `${n.payload.reference ? `${n.payload.reference}: ` : ''}${n.payload.text} (${n.personName})`).join(' · ') : 'No deviation note'}</small></li>))}</Group>
         <Group title="Out of limits" empty="Every value was within its limits.">{r.outOfLimits.map((o, i) => (
-          <li key={i} className="bad"><b>{name(o.step)}</b><span>{o.shown}</span>
+          <li key={i} className="bad"><b>{name(o.step)}</b><span>{words(o.shown)}</span>
             <small>{o.notes.length ? o.notes.map((n) => `Note${n.payload.reference ? ` ${n.payload.reference}` : ''}: ${n.payload.text} (${n.personName}, ${plainClock(n.at)})`).join(' · ') : 'No note'}</small></li>))}</Group>
         {r.inputChanged.length > 0 && <Group title="Worked out again after an input changed" empty="">{r.inputChanged.map((x) => (
           <li key={x.step}><b>{name(x.step)}</b><small>{x.changes.map((e) => `${e.personName}, ${plainClock(e.at)}`).join(' · ')}</small></li>))}</Group>}
