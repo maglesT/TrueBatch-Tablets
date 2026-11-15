@@ -54,9 +54,8 @@ export function lateItems(doc: MasterDoc, events: readonly StepEvent[], now: Dat
 const FINISHED = ['done', 'checked', 'not_applicable'];
 const isYield = (doc: MasterDoc, v: StepView) => findBlock(doc.stages[v.key.stage]!.steps[v.key.step]!.block)?.gmp === 'yield';
 
-// qc: whether QC approves before QA releases. A packing record (its master has a pack) has no QC approval: QA
-// releases it after production approval (owner, 15 Nov 2026: no QC permission in TrueBatch Tablets Packing).
-export interface BatchView { status: BatchStatus; open: string[]; late: string[]; deviations: Deviation[]; yieldOut: string[]; qc: boolean }
+// QC approves before QA releases, for a packing record too (owner, 15 Nov 2026: "QC signs first").
+export interface BatchView { status: BatchStatus; open: string[]; late: string[]; deviations: Deviation[]; yieldOut: string[] }
 
 /** The batch status, and what stands in the way of the next signature; `read`: the deviations as Deviations has them now. */
 export function batchView(doc: MasterDoc, events: readonly StepEvent[], batchEvents: readonly BatchEvent[], now: Date, read?: ReadonlyMap<string, DeviationStatus> | null): BatchView {
@@ -72,7 +71,7 @@ export function batchView(doc: MasterDoc, events: readonly StepEvent[], batchEve
   const has = (k: BatchEventKind) => batchEvents.some((e) => e.kind === k);
   const status: BatchStatus = has('released') ? 'released' : has('rejected') ? 'rejected' : has('qc_approved') ? 'QC approved'
     : has('production_approved') ? 'production approved' : open.length ? 'in production' : 'manufacturing complete';
-  return { status, open, late, deviations: devs, yieldOut, qc: !doc.pack };
+  return { status, open, late, deviations: devs, yieldOut };
 }
 
 /** Why the person may not do the batch action now; null when they may. */
@@ -91,9 +90,7 @@ export function batchRefusal(action: BatchAction, v: BatchView, user: { id?: num
   }
   // TB-20: the record is complete before production signs.
   if (action === 'production-approve' && v.status === 'in production') return no(...v.open);
-  if (action === 'qc-approve' && !v.qc) return no('A packing record has no QC approval: QA releases it after production approval.');
-  const from = !v.qc && (action === 'release' || action === 'reject') ? 'production approved' : rule.from;
-  if (v.status !== from) return no(`Not possible while the batch is ${v.status}.`);
+  if (v.status !== rule.from) return no(`Not possible while the batch is ${v.status}.`);
   if (action === 'production-approve') return no(...v.late);
   if (action === 'qc-approve') return null;
   // TB-21: release or rejection only with every linked deviation closed; TB-18: a yield out of limits blocks release.

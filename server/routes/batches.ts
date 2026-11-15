@@ -314,7 +314,7 @@ export function batchRoutes(app: FastifyInstance, sql: Sql) {
     for (const { id } of ids) {
       const l = (await loadBatch(sql, id))!;
       const bv = view(l, (await deviationsRead(app, l)).read);
-      const waiting = bv.status === 'production approved' && bv.qc ? 'QC' : 'QA';
+      const waiting = bv.status === 'production approved' ? 'QC' : 'QA';
       if (!req.user!.permissions.includes(waiting === 'QC' ? 'truebatch.qc.approve' : 'truebatch.qa.release')) continue;
       const last = l.batchEvents.filter((e) => e.kind !== 'deviation_closed').at(-1)!;
       out.push({ id, batchNo: l.batch.batchNo, productCode: l.doc.header.productCode, productName: l.doc.header.productName, status: bv.status, waiting,

@@ -7,7 +7,7 @@ QA release of the packed batch. Built the Logbook way, as TrueBatch Tablets is.
 - **Its own product on the platform**: its own tile, licence, database (`truebatch_packing`), app login
   (`truebatch_packing_app`), sign-on client (`truebatch_packing`) and permissions (`truebatch_packing.view`,
   `.master.author`, `.master.check`, `.master.approve`, `.batch.issue`, `.batch.operate`, `.batch.check`,
-  `.batch.supervise`, `.qa.release`). The platform allows only lower case and `_` in product, database and permission
+  `.batch.supervise`, `.qc.approve`, `.qa.release`). The platform allows only lower case and `_` in product, database and permission
   names, so the product is written `truebatch_packing`, not `truebatch-packing`.
 - **The same code**: one server (`server/`), one engine, block library, templates, master document and checks
   (`shared/`), one set of screens (`web/src`). Nothing is copied. `server/product.ts` says which product a server is;
@@ -50,7 +50,10 @@ QA release of the packed batch. Built the Logbook way, as TrueBatch Tablets is.
   or file reference), camera challenge at the start, sample codes at the start, at intervals and at the end (GTIN,
   batch, expiry of this batch; well-formed serial; no serial twice in the batch), and reconciliation (received =
   printed OK + rejected + destroyed + unused). No serial register, no regulator reporting.
-- **Release**: production approval, then QA release or rejection by e-signature; there is no QC approval in packing.
+- **Release** (owner, 15 November 2026: "QC signs first", as for tablets): production approval, then QC approval by
+  e-signature (`truebatch_packing.qc.approve`, meaning `qc_approved`, with the QC report number: the finished packed
+  product was tested and complies), then QA release or rejection by e-signature. QA cannot release or reject before
+  QC has approved. `packing_batch_v1` shows QC_APPROVED in between (`packing/migrations/0101_packing_qc_status.sql`).
 - **Published**: `packing_batch_v1` (packing order, coded batch number, products, pack, dates, packs and cartons,
   status) for MMS finished goods later.
 

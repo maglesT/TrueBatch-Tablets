@@ -12,7 +12,7 @@ import { packing } from './packing-fixture.js';
 
 // TrueBatch Tablets Packing through its own server: its own permission codes, a packing batch issued from a RELEASED
 // bulk batch read from TrueBatch Tablets' batch_fact_v1 (a fake provider schema, read with packing's restricted login),
-// the hand fallback with a second person, one active order per line, the whole record run to QA release without QC,
+// the hand fallback with a second person, one active order per line, the whole record run to QC approval and QA release,
 // the packing record PDF, its published view, and its insert-only tables.
 
 let t: TestApp;
@@ -46,7 +46,7 @@ beforeAll(async () => {
   t.master.equipment_.push({ ...item('ln-1', 'BL-01', 'Blister line 1'), kind: 'equipment', type: 'blister line', room: 'PK-01' },
     { ...item('ln-2', 'BL-02', 'Blister line 2'), kind: 'equipment', type: 'blister line', room: 'PK-02' });
   const people = {
-    author: P('master.author', 'view'), issuer: P('batch.issue'), op1: P('batch.operate'), chk1: P('batch.check'), sup1: P('batch.supervise'), qa1: P('qa.release'),
+    author: P('master.author', 'view'), issuer: P('batch.issue'), op1: P('batch.operate'), chk1: P('batch.check'), sup1: P('batch.supervise'), qc1: P('qc.approve'), qa1: P('qa.release'),
   };
   for (const [name, perms] of Object.entries(people)) {
     await seedUser(t.owner, name, perms);
@@ -61,7 +61,7 @@ afterAll(async () => {
 });
 
 const as = (who: string, method: 'GET' | 'POST', url: string, body?: object) => call(t.app, cookies[who]!, method, url, body);
-type Batch = { batch: { status: string; contentHash: string; qc: boolean; actions: string[] }; steps: { id: string; state: string; actions: string[]; contentHash: string; values: Record<string, unknown>;
+type Batch = { batch: { status: string; contentHash: string; actions: string[] }; steps: { id: string; state: string; actions: string[]; contentHash: string; values: Record<string, unknown>;
   source: Record<string, { from: string }>; handFields: { name: string }[]; results: Record<string, { ok: boolean; shown?: string; check?: { pass: boolean } }>; problems: string[] }[] };
 const get = async (id: number, who = 'op1') => (await as(who, 'GET', `/api/batches/${id}`)).json() as Batch;
 let mv = 0;
@@ -154,7 +154,7 @@ describe('a packing batch from a released bulk batch', () => {
     }
   });
 
-  it('TB-P6 the packing record runs to the end: materials issued and reconciled, checks alongside the line, finished goods; QA releases it without QC, and the line is free again', async () => {
+  it('TB-P6 the packing record runs to the end: materials issued and reconciled, checks alongside the line, finished goods; QC approves it, then QA releases it, and the line is free again', async () => {
     const id = first;
     const step = async (key: string, values: Record<string, unknown>) => {
       let s = (await get(id)).steps.find((x) => x.id === key)!;
@@ -195,8 +195,22 @@ describe('a packing batch from a released bulk batch', () => {
     let b = await get(id, 'sup1');
     expect(b.batch.status).toBe('manufacturing complete');
     expect((await as('sup1', 'POST', `/api/batches/${id}/production-approve`, { proof: proofFor('sup1'), contentHash: b.batch.contentHash })).statusCode).toBe(200);
+    // TB-21: QC signs first (the finished packed product tested and complies, with the QC report number), then QA releases.
     b = await get(id, 'qa1');
-    expect(b.batch).toMatchObject({ status: 'production approved', qc: false, actions: ['release', 'reject'] });
+    expect(b.batch).toMatchObject({ status: 'production approved', actions: [] });
+    const early = await as('qa1', 'POST', `/api/batches/${id}/release`, { proof: proofFor('qa1'), contentHash: b.batch.contentHash });
+    expect(early.statusCode).toBe(409);
+    expect(early.json()).toMatchObject({ problems: ['Not possible while the batch is production approved.'] });
+    expect(((await as('qa1', 'GET', '/api/batches/to-review')).json() as { id: number }[]).find((x) => x.id === id)).toBeUndefined();
+    const forQc = (await as('qc1', 'GET', '/api/batches/to-review')).json() as { id: number; waiting: string; actions: string[] }[];
+    expect(forQc.find((x) => x.id === id)).toMatchObject({ waiting: 'QC', actions: ['qc-approve'] });
+    b = await get(id, 'qc1');
+    const qc = await as('qc1', 'POST', `/api/batches/${id}/qc-approve`, { proof: proofFor('qc1'), contentHash: b.batch.contentHash, reportNo: 'QC-26-0101' });
+    expect(qc.statusCode, qc.body).toBe(200);
+    const [qcRow] = await t.owner.unsafe(`select status from ${t.schema}_report.packing_batch_v1 where batch_number = $1`, [(await loadBatch(t.sql, id))!.batch.batchNo]);
+    expect(qcRow).toEqual({ status: 'QC_APPROVED' });
+    b = await get(id, 'qa1');
+    expect(b.batch).toMatchObject({ status: 'QC approved', actions: ['release', 'reject'] });
     const toReview = (await as('qa1', 'GET', '/api/batches/to-review')).json() as { id: number; waiting: string }[];
     expect(toReview.find((x) => x.id === id)).toMatchObject({ waiting: 'QA' });
     const rel = await as('qa1', 'POST', `/api/batches/${id}/release`, { proof: proofFor('qa1'), contentHash: b.batch.contentHash });
@@ -205,7 +219,7 @@ describe('a packing batch from a released bulk batch', () => {
 
     // TB-22 for packing: the packing record PDF, with the pack, the bulk and the packing materials.
     const pdf = JSON.stringify(batchRecordDoc(await recordInput(t.sql, (await loadBatch(t.sql, id))!), 'QA'));
-    for (const text of ['Packing record TP', 'TrueBatch Tablets Packing', 'batch TB260001', 'expiry 10/2028', 'Packing materials', 'Lot FOIL-1: 1250 m', '1176 m used']) expect(pdf).toContain(text);
+    for (const text of ['Packing record TP', 'TrueBatch Tablets Packing', 'batch TB260001', 'expiry 10/2028', 'QC report QC-26-0101', 'Packing materials', 'Lot FOIL-1: 1250 m', '1176 m used']) expect(pdf).toContain(text);
     const res = await as('qa1', 'GET', `/api/batches/${id}/pdf`);
     expect(res.headers['content-type']).toContain('application/pdf');
 
