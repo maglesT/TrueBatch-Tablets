@@ -83,7 +83,8 @@ export function parse(q: Q, what: string): Parsed {
   const v = num(valueText, what);
   const unit = findUnit(unitText);
   if (unit === undefined) refuse(`${what}: the unit "${unitText}" is not in the unit list`);
-  return { v, unit, text: unit.symbol === '' ? valueText.trim() : `${valueText.trim()} ${unit.symbol}` };
+  const shown = shownNumber(v, unit.symbol, { written: valueText });
+  return { v, unit, text: unit.symbol === '' ? shown : `${shown} ${unit.symbol}` };
 }
 
 /** Number of decimals as written: "50.300" -> 3, "105" -> 0. */
@@ -96,6 +97,22 @@ export function decimalsOf(text: string): number {
 /** Fixed decimals, half up, for display only. */
 export function fmt(v: Dec, decimals: number): string {
   return v.toFixed(decimals, Dec.ROUND_HALF_UP);
+}
+
+/**
+ * THE display rule for a number inside a worked line (display only: calculations always use the full value).
+ * A value written with at most 4 decimals (as typed, or a result written out exactly) is shown as written. A longer
+ * one (a full-precision result passed on) is shown at `decimals`, by default the unit's display decimals + 1 (kg 4,
+ * g and mg 3, % 2), and at least 4 significant figures when it is small. It is cut, not rounded, and "…" marks the
+ * cut, so a reader who rounds the shown figure gets the same result as the calculation.
+ */
+export function shownNumber(v: Dec, unit: string, o: { written?: string; decimals?: number } = {}): string {
+  const w = o.written?.trim();
+  if (w !== undefined && decimalsOf(w) <= 4) return w;
+  let dp = o.decimals ?? defaultDecimals(unit) + 1;
+  if (!v.isZero() && v.abs().lt(1)) dp = Math.max(dp, 3 - Math.floor(Dec.log10(v.abs()).toNumber()));
+  const cut = v.toFixed(dp, Dec.ROUND_DOWN);
+  return new Dec(cut).eq(v) ? fmt(v, dp) : `${cut}…`;
 }
 
 /** Display of a value with unit at a number of decimals: "98.6 %". */
@@ -191,7 +208,8 @@ export function isResult(x: unknown): x is ResultValue {
 export function parseAny(x: Q | ResultValue, what: string): Parsed {
   if (isResult(x)) {
     const u = unitOf(x.unit);
-    return { v: x.value, unit: u, text: show(x.value, u.symbol, defaultDecimals(u.symbol) + 1) };
+    const n = shownNumber(x.value, u.symbol);
+    return { v: x.value, unit: u, text: u.symbol === '' ? n : `${n} ${u.symbol}` };
   }
   return parse(x, what);
 }

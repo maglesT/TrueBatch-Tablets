@@ -61,7 +61,7 @@ export function Review({ me, version, doc, blocked, onChanged, onGo }: {
         </div>
         <div className="review-actions">
           {shown.map((a) => {
-            const why = a === 'submit' && blocked ? 'Fix the ⛔ problems of the master check first.' : data.refusals[a];
+            const why = a === 'submit' && blocked ? 'Fix the ⛔ problems and answer the ⚠️ calculation checks of the master check first.' : data.refusals[a];
             return (
               <div key={a}>
                 <button className={a === 'return' ? '' : 'primary'} disabled={!!why} onClick={() => { setError(''); setDoing(a); }}>{BUTTON[a]}</button>

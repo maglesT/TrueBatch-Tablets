@@ -67,7 +67,7 @@ describe('C1 limits centred on a value computed earlier', () => {
 
   it('C1: the worked line names the centre', () => {
     const r = ok(c1WithinLimits({ value: '790.0 mg', around: { centre: target, name: 'target weight from the blend assay', plusMinusPercent: '5.0' } }));
-    expect(r.shown).toBe('790.0 mg is +4.5 % from 756.048 mg (target weight from the blend assay); limit ± 5.0 %: within limits');
+    expect(r.shown).toBe('790.0 mg is +4.5 % from 756.048… mg (target weight from the blend assay); limit ± 5.0 %: within limits');
   });
 
   it.each([

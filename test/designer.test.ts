@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { BLOCKS, findBlock } from '../shared/blocks/index.js';
-import { masterChecks } from '../shared/master/checks.js';
+import { blocking, masterChecks } from '../shared/master/checks.js';
 import { masterSchema } from '../shared/master/schema.js';
 import { describeMaster, diffMasters } from '../web/src/designer/describe.js';
 import { dispensing, workedExample } from '../web/src/designer/example.js';
-import { earlierRefs, neededKind, scaleDoc } from '../web/src/designer/model.js';
+import { answerDoc, earlierRefs, neededKind, scaleDoc } from '../web/src/designer/model.js';
 import { sentence, sentenceText } from '../web/src/designer/sentences.js';
 import { SKELETON_LIST, skeletonStages } from '../web/src/designer/skeletons.js';
 import { tablet } from './engine-fixture.js';
@@ -85,5 +85,23 @@ describe('master designer', () => {
     const lines = diff.flatMap((s) => s.lines.filter((l) => l.change !== 'same').map((l) => `${s.title} ${l.key} ${l.change}`));
     expect(lines).toEqual(['Formula mcc changed', 'Stage 2: Granulation about changed', 'Stage 3: Compression yield removed']);
     expect(describeMaster(prev).map((s) => s.title)).toEqual(['Header', 'Formula', 'Stage 1: Binder solution', 'Stage 2: Granulation', 'Stage 3: Compression', 'Stage 4: Coating']);
+  });
+
+  it('calculation checks: the author answers a warning; the answer is kept in the master and shown in the review and changes views', () => {
+    const prev = tablet();
+    prev.formula[0]!.name = 'Examplol hydrochloride';
+    const warning = masterChecks(prev).find((p) => p.question?.key === 'label-basis/api')!;
+    expect(blocking(warning)).toBe(true);
+    expect(describeMaster(prev).at(-1)).toMatchObject({ title: 'Calculation checks', lines: [{ text: expect.stringMatching(/Not answered yet\.$/) }] });
+    const next = answerDoc(prev, warning, 'as Examplol hydrochloride', 'The label for this market states the salt');
+    expect(next.answers).toEqual({ 'label-basis/api': { about: warning.message, choice: 'as Examplol hydrochloride', reason: 'The label for this market states the salt' } });
+    expect(masterSchema.parse(next).answers).toEqual(next.answers);
+    expect(masterChecks(next).filter(blocking)).toEqual([]);
+    const line = describeMaster(next).at(-1)!.lines[0]!.text;
+    expect(line).toMatch(/^Formula › Examplol hydrochloride: Label claim .* Answered: as Examplol hydrochloride\. Reason: The label for this market states the salt\.$/);
+    expect(diffMasters(prev, next).flatMap((s) => s.lines.filter((l) => l.change !== 'same').map((l) => `${s.title} ${l.change}: ${l.text}`))).toEqual([`Calculation checks changed: ${line}`]);
+    // A changed item asks again: the answer was for the warning as it read then.
+    const changed = { ...next, formula: next.formula.map((l, i) => (i === 0 ? { ...l, mgPerTablet: '90.0' } : l)) };
+    expect(masterChecks(changed).find((p) => p.question?.key === 'label-basis/api')?.question?.answer).toBeUndefined();
   });
 });

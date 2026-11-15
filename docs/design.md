@@ -29,6 +29,17 @@ and size), not the Batchwright way.
 - Version 1: weights are typed (no balance connection).
 - PDF output as the Logbook does its exports.
 
+## Calculation checks
+Owner decision of 15 November 2026. The master check also runs calculation checks: error-proofing of the
+calculations while a master is built. They are **not GMP rules** and are not among the 22. A **refusal** (⛔) is a
+calculation the templates library refuses (water counted twice, a salt factor with a potency stated as parent or
+element, molecules per salt unit ignored, a negative filler or solvent, IU or CFU turned into a mass, weight
+variation on coated tablets other than film-coated); it shows on its item and must be fixed. A **warning** (⚠️) is a
+question of basis only the author can answer (label basis, herbal line, ratio basis, double adjustment, a written salt
+factor): the author picks an answer, with a reason where asked, and the answer is kept in the master document and
+shown to the checker and QA. An unanswered warning blocks "Send for review" like a refusal. The list is in
+`shared/templates/README.md`.
+
 ## Testing
 - Tests per rule and per template, and a few browser journeys.
 - No Batchwright machinery: no control register, mutation testing, golden batches, API contract package, CLI, sandbox,

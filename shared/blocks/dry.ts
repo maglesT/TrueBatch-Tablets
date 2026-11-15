@@ -10,5 +10,5 @@ export const dry: Block = {
     { name: 'lod', label: 'Loss on drying', kind: 'number', unit: '%' },
   ],
   settings: [{ name: 'lodLimit', label: 'LOD limit', kind: 'limit' }],
-  calcs: [{ name: 'lodCheck', label: 'LOD within limit', template: 'C1', args: { value: '$lod', limit: '$lodLimit' } }],
+  calcs: [{ name: 'lodCheck', label: 'LOD against limit', template: 'C1', args: { value: '$lod', limit: '$lodLimit' } }],
 };

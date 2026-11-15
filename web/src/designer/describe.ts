@@ -1,7 +1,9 @@
 // A master in plain sentences, section by section (header, formula, each stage), for the review view and for the
 // changes view against the previous version. Each line has a key, so two versions can be compared line by line.
 import { findBlock } from '../../../shared/blocks/index.js';
+import { masterChecks } from '../../../shared/master/checks.js';
 import type { FormulaLine, MasterDoc, Stage, Step } from '../../../shared/master/schema.js';
+import { placeLabel } from './model.js';
 import { sentence, sentenceText, settingText, slotsOf } from './sentences.js';
 
 export interface Line { key: string; text: string }
@@ -14,9 +16,9 @@ function adjustText(doc: MasterDoc, l: FormulaLine): string {
   const a = l.adjust;
   if (!a) return '';
   const out: string[] = [];
-  if (a.salt) out.push(`converted from the ${a.salt.from.name || 'formula form'} (MW ${a.salt.from.mw}${a.salt.from.moleculesPerUnit ? `, ${a.salt.from.moleculesPerUnit} per unit` : ''}) to the ${a.salt.to.name || 'dispensed form'} (MW ${a.salt.to.mw}${a.salt.to.moleculesPerUnit ? `, ${a.salt.to.moleculesPerUnit} per unit` : ''}${a.salt.to.hydrateOrSolvate ? ', with crystal water or solvent' : ''})`);
+  if (a.salt) out.push(`converted from the ${a.salt.from.name || 'formula form'} (MW ${a.salt.from.mw}${a.salt.from.moleculesPerUnit ? `, ${a.salt.from.moleculesPerUnit} per unit` : ''}) to the ${a.salt.to.name || 'dispensed form'} (MW ${a.salt.to.mw}${a.salt.to.moleculesPerUnit ? `, ${a.salt.to.moleculesPerUnit} per unit` : ''}${a.salt.to.hydrateOrSolvate ? ', with crystal water or solvent' : ''}${a.salt.factor ? `; salt factor written as ${a.salt.factor}` : ''})`);
   if (a.potency) out.push(`adjusted for the lot's assay on the ${a.potency.basis} basis${a.potency.standardIs ? `, the formula quantity being the ${a.potency.standardIs} weight` : ''}${a.potency.potencyAs ? `, potency stated as ${a.potency.potencyAs}` : ''}${a.potency.assayAbove100 === 'treat as 100' ? ', an assay above 100 % taken as 100 %' : ''}`);
-  if (a.content) out.push(`adjusted for the lot's content, the formula quantity being of the ${a.content.formulaQuantityIs === 'dry' ? 'pure material' : 'material as supplied'}${a.content.nominalContent ? ` (nominal ${a.content.nominalContent} %)` : ''}`);
+  if (a.content) out.push(`adjusted for the ${a.content.contentSource === 'in-process result' ? 'in-process' : "lot's"} content, the formula quantity being of the ${a.content.formulaQuantityIs === 'dry' ? 'pure material' : 'material as supplied'}${a.content.nominalContent ? ` (nominal ${a.content.nominalContent} %)` : ''}`);
   if (a.overage) out.push(`with ${a.overage.percent} % overage${a.overage.maxPercent ? ` (at most ${a.overage.maxPercent} %)` : ''}`);
   if (a.compensates?.length) out.push(`reduced or increased to make up for the adjusted quantity of ${a.compensates.map((k) => doc.formula.find((x) => x.key === k)?.name ?? k).join(' and ')}`);
   return `; at dispensing ${out.join(', then ')}`;
@@ -58,6 +60,10 @@ export function describeMaster(doc: MasterDoc): Section[] {
       { key: 'about', text: stageText(doc, s) },
       ...s.steps.map((t, j) => ({ key: t.key, text: stepText(doc, t, j) })),
     ] })),
+
+    // The calculation checks the author answered (or not yet), for the checker and QA; only when there are some.
+    ...[{ key: 'answers', title: 'Calculation checks', lines: masterChecks(doc).flatMap((p) => (p.question ? [{ key: p.question.key,
+      text: `${placeLabel(doc, p.path)}: ${p.message} ${p.question.answer ? `Answered: ${p.question.answer.choice}${p.question.answer.reason ? `. Reason: ${p.question.answer.reason}` : ''}.` : 'Not answered yet.'}` }] : [])) }].filter((s) => s.lines.length),
   ];
 }
 

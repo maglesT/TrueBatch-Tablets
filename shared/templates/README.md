@@ -20,6 +20,11 @@ with the rest of the suite (`npm test`, `npm run ci`). They need no database.
   - Some templates add their own fields (T4 `unaccounted`, T7 `stats`, T14 `decision` …).
 - **A refusal** is `{ ok: false, message }`. The message says in plain English what is wrong and what to do.
 - **Display decimals** can be set with `decimals`. Defaults: kg 3, g/mg 2, % 1.
+- **Numbers inside a worked line** follow one rule (`shownNumber` in `core.ts`): a value written with at most 4
+  decimals is shown as written; a full-precision value passed on from an earlier calculation is shown at the unit's
+  display decimals + 1 (kg 4, g and mg 3, % 2; at least 4 significant figures when small), cut and marked "…"
+  (`10.2553… kg`), so rounding the shown figure gives the same result. The value before rounding at a limit is shown
+  with 2 decimals more than the limit. Only the display is shortened; nothing is rounded inside a calculation.
 
 ## Units (`units.ts`)
 
@@ -69,7 +74,7 @@ difference. When it is compared with a limit written in °C, the difference unit
 | T8 | Batch scaling | per unit × count; % w/w × batch weight; rate × time; per area: mg/cm² × surface area (from the tooling record) × count; product of 2 or 3 recorded values (L × W × H) | quantity (kg by default; IU stay IU; lengths give mm² or mm³) | mode; result unit | count not a count; % outside 0–100; rate not per time |
 | T9 | Potency-adjusted quantity | standard quantity (or the T11 result), assay, basis, water / LOD / solvents | standard × 100 ÷ assay as is. As is = A × (100 − W) ÷ 100 (anhydrous), A × (100 − LOD) ÷ 100 (dried), A × (100 − LOI) ÷ 100 (ignited), A × (100 − W − S) ÷ 100 (anhydrous and solvent-free) | basis; `standardIs` anhydrous or hydrate/solvate; `assayExpressedAs`; `potencyAs` parent or element; assay above 100 % used or taken as 100 | **C5 rules** (below); missing water/LOD/solvents; assay ≤ 0; water/LOD outside 0 to <100 %; standard not a mass |
 | T10 | Compensating excipient | filler(s) with standard quantity (and ratio); adjusted materials (standard, adjusted) | filler = standard − Σ (adjusted − standard), shared over several fillers in a ratio (default: their standard quantities) | several adjusted materials at once (excesses + or −); several fillers | **any filler negative** (the batch weight cannot be kept); no filler; not masses |
-| T11 | Salt / base factor | quantity of form A; MW and molecules per unit of form A and form B; whether form B's MW includes crystal water/solvent | quantity × (MW B ÷ n B) ÷ (MW A ÷ n A) | any two named forms (base ↔ salt, salt ↔ salt, element ↔ compound, cocrystal); **molecules per formula unit** (default 1; hemifumarate, calcium salts = 2) | MW ≤ 0; molecules not a whole number ≥ 1; not a mass |
+| T11 | Salt / base factor | quantity of form A; MW and molecules per unit of form A and form B; whether form B's MW includes crystal water/solvent | quantity × (MW B ÷ n B) ÷ (MW A ÷ n A) | any two named forms (base ↔ salt, salt ↔ salt, element ↔ compound, cocrystal); **molecules per formula unit** (default 1; hemifumarate, calcium salts = 2) | MW ≤ 0; molecules not a whole number ≥ 1; **a hemi-salt at 1 molecule per unit with a MW at least twice the other form's** (the whole formula unit's MW: the dose would double); not a mass |
 | T12 | Quantity from dry basis | quantity, LOD | dry → as is: dry × 100 ÷ (100 − LOD); reverse: as is × (100 − LOD) ÷ 100 | direction | LOD outside 0 to <100 % |
 | T13 | Duration and hold time | start, end; or timed readings of a monitored value | end − start; or time counted only while the value is inside limits | unit min/h; limit (max and/or min); target time (accumulated mode) | end before start; bad or impossible date; readings out of time order |
 | T14 | Content uniformity acceptance value | 10 or 30 individual contents (% of label claim); or unit weights + assay + label claim | AV = \|M − X̄\| + k·s, with the stage decision | method: content uniformity, weight variation, large sample; target T; L1, L2; coating type; "individual results only" | **weight variation for sugar-coated or other coated tablets**; weight variation below 25 mg or 25 %; weight variation with "individual results only"; n not 10/30; large sample with ≤ 30 units |
@@ -106,6 +111,30 @@ C7 uses the MIL-STD-105E tables, which are US government work in the public doma
 same numbers as ANSI/ASQ Z1.4 and ISO 2859-1 single sampling, normal inspection. The ISO text is not
 copied. "AQL 0" for critical defects is treated as a plant rule: accept 0, reject 1, at the code
 letter's sample size.
+
+## Calculation checks in the master check
+
+Error-proofing at master-building time (owner decision of 15 November 2026), not GMP rules. The master check
+(`shared/master/checks.ts`) shows each on its item, with its path. Tests: `test/master-checks.test.ts`
+("calculation check").
+
+| | Check | Where |
+|---|---|---|
+| ⛔ | Water counted twice: hydrate or solvate MW together with a water/LOD correction | C5 in T9, on the formula line |
+| ⛔ | Potency "as parent/base" or "as element" with a salt, ester, hydrate or compound factor | C5 in T9, on the formula line |
+| ⛔ | Molecules per salt unit ignored: a hemi-salt at 1 molecule per unit with a MW at least twice the other form's | T11, on the formula line |
+| ⛔ | Negative filler: a compensating filler that cannot take the adjustments even at the nominal certificate values (salt factor, overage) | T10, on the filler |
+| ⛔ | IU, CFU or activity units turned into a mass | T18, on the formula line |
+| ⛔ | Negative water or solvent (T17); weight-variation content uniformity on coated tablets other than film-coated (T14) | the templates; no block of the library uses T14 or T17 yet |
+| ⚠️ | (a) Label basis: an API with a salt factor or a salt name: is the strength stated as the formula form or the other form, for this master's market? | formula line |
+| ⚠️ | (b) A herbal or extract line: raw-herb equivalent or extract weight? | formula line |
+| ⚠️ | (c) A ratio or % in a step instruction that involves the API: as weighed, as base or as anhydrous? | step |
+| ⚠️ | (d) The API potency-adjusted at dispensing (T9/T18) and a line set again from an in-process granule or blend assay (T18): confirm intended, with a reason, or remove one | the in-process line |
+| ⚠️ | (e) A salt factor written in the formula that differs from the molecular-weight ratio of the named forms by more than 0.5 %: confirm, with a reason, or correct it (the quantity uses the molecular weights) | formula line |
+
+A ⚠️ needs an answer: one of its choices, with a reason for (d) and (e). The answer is kept in the master document
+(`answers`, by warning and item) and shown in the review and changes views. It counts while the warning reads the same
+as when it was answered; until then the warning blocks "Send for review" and approval like a ⛔.
 
 ## Pharmacopoeia rules written from the chapters (paraphrased; no chapter text copied)
 

@@ -57,11 +57,15 @@ describe('T11 Salt / base factor (any two named forms)', () => {
     expect(ok(t11SaltFactor({ quantity, from, to })).value.toFixed(d as number)).toBe(want);
   });
 
-  it('T11: aliskiren: leaving molecules per unit at 1 gives double the dose (the trap the setting prevents)', () => {
-    // 3.125 × 1219.6 ÷ 551.8 = 6.9069 mg, twice the right 3.4535 mg
-    const wrong = ok(t11SaltFactor({ quantity: '3.125 mg', from: { name: 'aliskiren', mw: '551.8' }, to: { name: 'aliskiren hemifumarate', mw: '1219.6' } }));
+  it('T11: aliskiren: leaving molecules per unit at 1 would give double the dose, so it is refused', () => {
+    // 3.125 × 1219.6 ÷ 551.8 = 6.9069 mg would be twice the right 3.4535 mg: 1219.6 ÷ 551.8 = 2.21 ≥ 2
+    expect(refused(t11SaltFactor({ quantity: '3.125 mg', from: { name: 'aliskiren', mw: '551.8' }, to: { name: 'aliskiren hemifumarate', mw: '1219.6' } })))
+      .toBe('aliskiren hemifumarate is a hemi-salt and its molecular weight 1219.6 is that of the whole formula unit, which carries 2 drug molecules. Set 2 molecules per formula unit, or the dose would be doubled');
+    // the reverse direction, and a hemihydrate (water, not drug molecules) is not a hemi-salt
+    expect(refused(t11SaltFactor({ quantity: '3.125 mg', from: { name: 'aliskiren hemifumarate', mw: '1219.6' }, to: { name: 'aliskiren', mw: '551.8' } }))).toMatch(/hemi-salt/);
+    expect(t11SaltFactor({ quantity: '1 mg', from: { name: 'x', mw: '100' }, to: { name: 'x calcium hemipentahydrate', mw: '250' } }).ok).toBe(true);
     const right = ok(t11SaltFactor({ quantity: '3.125 mg', from: { name: 'aliskiren', mw: '551.8' }, to: { name: 'aliskiren hemifumarate', mw: '1219.6', moleculesPerUnit: 2 } }));
-    expect(wrong.value.div(right.value).toFixed(6)).toBe('2.000000');
+    expect(right.value.toFixed(4)).toBe('3.4535');
     expect(right.shown).toContain('(1219.6 ÷ 2)');
     expect(right.shown).toContain('2 molecules per aliskiren hemifumarate unit');
   });

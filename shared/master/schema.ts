@@ -79,7 +79,8 @@ export const lineSchema = z.object({
   // Settings of the adjustment templates, applied in this order: T11 salt factor, T9 potency or T18 content, T16
   // overage; or, for a filler, T10 compensation of the named lines.
   adjust: z.object({
-    salt: z.object({ from: form, to: form }).strict().optional(),
+    // `factor`: the salt factor as written in the formula; only checked against the molecular weights, never used.
+    salt: z.object({ from: form, to: form, factor: decimal.optional() }).strict().optional(),
     potency: z.object({
       basis: z.enum(['as is', 'anhydrous', 'dried', 'ignited', 'anhydrous and solvent-free']),
       standardIs: z.enum(['anhydrous', 'hydrate or solvate']).optional(),
@@ -104,10 +105,15 @@ export const headerSchema = z.object({
   coatedWeightMg: decimal.optional(),
 }).strict();
 
+// The author's answer to a calculation warning (checks.ts), keyed by the warning and its item. `about` is the warning
+// as answered: when the warning reads differently (the item changed), it needs a new answer.
+export const answerSchema = z.object({ about: text(1000), choice: text().min(1), reason: text(1000) }).strict();
+
 export const masterSchema = z.object({
   header: headerSchema,
   formula: z.array(lineSchema).max(100),
   stages: z.array(stageSchema).max(50),
+  answers: z.record(z.string().max(120), answerSchema).optional(),
 }).strict();
 
 export type MasterDoc = z.infer<typeof masterSchema>;
@@ -116,6 +122,7 @@ export type Step = z.infer<typeof stepSchema>;
 export type FormulaLine = z.infer<typeof lineSchema>;
 export type SettingValue = z.infer<typeof settingValueSchema>;
 export type Limit = z.infer<typeof limitSchema>;
+export type Answer = z.infer<typeof answerSchema>;
 
 export const MASTER_STATES = ['draft', 'in_review', 'approved', 'effective', 'retired'] as const;
 export type MasterState = (typeof MASTER_STATES)[number];

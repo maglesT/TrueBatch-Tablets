@@ -44,12 +44,18 @@ fieldset.plain { border: 0; padding: 0; margin: 0; min-width: 0; }
 .check-panel::before { content: ''; display: block; height: 3px; margin: -14px -14px 4px; border-radius: var(--radius) var(--radius) 0 0; background: var(--brand-gradient); }
 .cp-head { display: flex; gap: 8px; align-items: center; } .cp-head h2 { font-size: 1.05rem; }
 .cp-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-.cp-list button { display: grid; grid-template-columns: 22px 1fr; gap: 6px; text-align: left; justify-content: stretch; align-items: start; width: 100%; min-height: 0; padding: 8px 10px; font-size: 0.86rem; border-radius: 8px; }
-.cp-list li.error button { background: #fff5f4; border-color: #f5c6c1; }
-.cp-list li.warning button { background: #fffbea; border-color: #f1dfa6; }
+.cp-list > li > button { display: grid; grid-template-columns: 22px 1fr; gap: 6px; text-align: left; justify-content: stretch; align-items: start; width: 100%; min-height: 0; padding: 8px 10px; font-size: 0.86rem; border-radius: 8px; }
+.cp-list li.error > button { background: #fff5f4; border-color: #f5c6c1; }
+.cp-list li.warning > button { background: #fffbea; border-color: #f1dfa6; }
 .cp-where { display: flex; gap: 6px; align-items: center; font-weight: 650; font-size: 0.8rem; color: var(--brand-grey); margin-bottom: 2px; }
 .cp-rule { font-size: 0.7rem; font-weight: 700; padding: 0 6px; border-radius: 99px; background: #fff; border: 1px solid var(--line-strong); }
 .cp-invalid { margin: 0; font-size: 0.88rem; color: var(--bad); }
+.cp-answer { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 4px 0 0 28px; }
+.cp-answer select, .cp-answer input { min-width: 0; flex: 1 1 120px; font-size: 0.84rem; }
+.cp-answer button { min-height: 0; padding: 4px 10px; font-size: 0.82rem; }
+.check-panel .cp-answer select, .check-panel .cp-answer input { flex-basis: 100%; }
+p.cp-answer { display: block; }
+p.cp-answer .link { margin-left: 8px; }
 @media (max-width: 1180px) {
   .designer { grid-template-columns: minmax(0, 1fr); }
   .check-panel { position: static; order: -1; max-height: 220px; }

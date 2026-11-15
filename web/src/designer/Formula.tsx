@@ -6,6 +6,7 @@ import type { Problem } from '../../../shared/master/checks.js';
 import { lineQuantity, type Stored } from '../../../shared/engine/index.js';
 import { Dec, t2Total } from '../../../shared/templates/index.js';
 import type { FormulaLine, MasterDoc } from '../../../shared/master/schema.js';
+import { AnswerBox, type OnAnswer } from './CheckPanel.js';
 import { move, newKey } from './model.js';
 import { Decimal, Order, Picker } from './ui.js';
 
@@ -15,8 +16,8 @@ const PLACES = [['intragranular', 'Intragranular'], ['extragranular', 'Extragran
 const kg = (r: Stored) => (r.ok ? `${new Dec(r.value).toFixed(3)} ${r.unit}` : '—');
 const total = (lines: FormulaLine[]) => { const r = t2Total({ values: lines.map((l) => `${l.mgPerTablet || '0'} mg`), unit: 'mg' }); return r.ok ? r.value : null; };
 
-export function FormulaTable({ doc, onChange, md, masters, selected, onSelect, problems }: {
-  doc: MasterDoc; onChange: (d: MasterDoc) => void; md: MasterData; masters: MasterRow[]; selected?: number; onSelect: (i?: number) => void; problems: Problem[];
+export function FormulaTable({ doc, onChange, md, masters, selected, onSelect, problems, onAnswer }: {
+  doc: MasterDoc; onChange: (d: MasterDoc) => void; md: MasterData; masters: MasterRow[]; selected?: number; onSelect: (i?: number) => void; problems: Problem[]; onAnswer?: OnAnswer;
 }) {
   const [adding, setAdding] = useState(false);
   const lines = doc.formula;
@@ -76,7 +77,7 @@ export function FormulaTable({ doc, onChange, md, masters, selected, onSelect, p
           </div>
         ) : <div className="row"><button type="button" onClick={() => setAdding(true)}>+ Add a material</button></div>}
       </div>
-      {sel && selected !== undefined && <AdjustPanel doc={doc} line={sel} onChange={(l) => put(selected, l)} problems={problems.filter((p) => p.path.startsWith(`formula[${selected}]`))} />}
+      {sel && selected !== undefined && <AdjustPanel doc={doc} line={sel} onChange={(l) => put(selected, l)} problems={problems.filter((p) => p.path.startsWith(`formula[${selected}]`))} onAnswer={onAnswer} />}
     </>
   );
 }
@@ -99,7 +100,7 @@ function adjustSummary(a: Adjust | undefined): string {
 }
 
 /** The API "Adjustment" panel: the settings of the dispensing templates (T11, T9 or T18, T16, T10), in this order. */
-function AdjustPanel({ doc, line, onChange, problems }: { doc: MasterDoc; line: FormulaLine; onChange: (l: FormulaLine) => void; problems: Problem[] }) {
+function AdjustPanel({ doc, line, onChange, problems, onAnswer }: { doc: MasterDoc; line: FormulaLine; onChange: (l: FormulaLine) => void; problems: Problem[]; onAnswer?: OnAnswer }) {
   const a: Adjust = line.adjust ?? {};
   const put = (next: Adjust) => {
     const clean = Object.fromEntries(Object.entries(next).filter(([, v]) => v !== undefined && !(Array.isArray(v) && !v.length))) as Adjust;
@@ -129,7 +130,9 @@ function AdjustPanel({ doc, line, onChange, problems }: { doc: MasterDoc; line: 
             <legend>Salt form (T11)</legend>
             <label className="check"><input type="checkbox" checked={!!a.salt} onChange={(e) => put({ ...a, salt: e.target.checked ? { from: { name: 'base', mw: '' }, to: { name: '', mw: '' } } : undefined })} />
               The formula gives the quantity of another form (base, salt, element)</label>
-            {a.salt && <>{form('from', 'Form in the formula')}{form('to', 'Form dispensed')}</>}
+            {a.salt && <>{form('from', 'Form in the formula')}{form('to', 'Form dispensed')}
+              <label>Salt factor as written in the formula (optional, checked against the molecular weights)<Decimal label="Salt factor as written" placeholder="none" value={a.salt.factor}
+                onChange={(factor) => put({ ...a, salt: { ...a.salt!, factor: factor || undefined } })} /></label></>}
           </fieldset>
           <fieldset className="checklist">
             <legend>Adjust for the lot</legend>
@@ -159,6 +162,8 @@ function AdjustPanel({ doc, line, onChange, problems }: { doc: MasterDoc; line: 
                 <label>The formula quantity is<select value={a.content.formulaQuantityIs} onChange={(e) => put({ ...a, content: { ...a.content!, formulaQuantityIs: e.target.value as 'dry' } })}>
                   <option value="dry">of the pure (dry) material</option><option value="wet">of the material as supplied</option></select></label>
                 <label>Nominal content (%)<Decimal label="Nominal content" value={a.content.nominalContent} onChange={(v) => put({ ...a, content: { ...a.content!, nominalContent: v || undefined } })} /></label>
+                <label>The content comes from<select value={a.content.contentSource ?? 'certificate'} onChange={(e) => put({ ...a, content: { ...a.content!, contentSource: e.target.value === 'certificate' ? undefined : 'in-process result' } })}>
+                  <option value="certificate">the lot's certificate</option><option value="in-process result">an in-process result (granule or blend assay)</option></select></label>
               </div>
             )}
           </fieldset>
@@ -181,7 +186,7 @@ function AdjustPanel({ doc, line, onChange, problems }: { doc: MasterDoc; line: 
           )) : <p className="muted small">No adjusted material to compensate.</p>}
         </fieldset>
       )}
-      {problems.map((p, i) => <p key={i} className={p.level === 'error' ? 'error' : 'notice'}>{p.level === 'error' ? '⛔' : '⚠️'} {p.message}</p>)}
+      {problems.map((p, i) => <div key={i} className={p.level === 'error' ? 'error' : 'notice'}>{p.level === 'error' ? '⛔' : '⚠️'} {p.message}{p.question && <AnswerBox key={p.question.key} p={p} onAnswer={onAnswer} />}</div>)}
     </div>
   );
 }

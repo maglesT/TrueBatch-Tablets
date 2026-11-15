@@ -198,7 +198,7 @@ describe('done needs', () => {
     const refused = ev('value', '0.1.0.1', { min: 1, payload: { values: { reading: { value: '1', unit: '' } }, results: { readingCheck: { ok: false, message: 'bad limit' } } } });
     expect(view([ev('started', '0.1.0.1', { min: 0 }), refused], at(20))).toEqual(['bad limit']);
     const out = ev('value', '0.1.0.1', { min: 2, payload: { values: { reading: { value: '9', unit: '' } }, results: { readingCheck: fail as never } } });
-    expect(view([ev('started', '0.1.0.1', { min: 0 }), out], at(20))).toEqual(['Out of limits: Within limits. Add a deviation note first.']);
+    expect(view([ev('started', '0.1.0.1', { min: 0 }), out], at(20))).toEqual(['Out of limits: Result against limits. Add a deviation note first.']);
     expect(view([ev('started', '0.1.0.1', { min: 0 }), ev('note', '0.1.0.1', { min: 1 }), out], at(20))).toHaveLength(1);
     expect(view([ev('started', '0.1.0.1', { min: 0 }), out, ev('note', '0.1.0.1', { min: 3 })], at(20))).toEqual([]);
   });

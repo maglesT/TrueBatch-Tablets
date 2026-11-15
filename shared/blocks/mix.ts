@@ -9,5 +9,5 @@ export const mix: Block = {
     { name: 'speed', label: 'Speed', kind: 'number', unit: 'rpm' },
   ],
   settings: [{ name: 'speedLimit', label: 'Speed limits', kind: 'limit', optional: true }],
-  calcs: [{ name: 'speedCheck', label: 'Speed within limits', template: 'C1', args: { value: '$speed', limit: '$speedLimit' } }],
+  calcs: [{ name: 'speedCheck', label: 'Speed against limits', template: 'C1', args: { value: '$speed', limit: '$speedLimit' } }],
 };

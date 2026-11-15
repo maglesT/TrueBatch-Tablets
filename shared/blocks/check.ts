@@ -10,5 +10,5 @@ export const check: Block = {
     { name: 'unit', label: 'Unit', kind: 'text' },
     { name: 'limit', label: 'Limits', kind: 'limit' },
   ],
-  calcs: [{ name: 'readingCheck', label: 'Within limits', template: 'C1', args: { value: '$reading', limit: '$limit' } }],
+  calcs: [{ name: 'readingCheck', label: 'Result against limits', template: 'C1', args: { value: '$reading', limit: '$limit' } }],
 };

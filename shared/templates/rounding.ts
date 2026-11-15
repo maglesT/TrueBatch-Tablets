@@ -14,6 +14,7 @@
  */
 import { Dec } from './dec.js';
 import { refuse } from './refuse.js';
+import { shownNumber } from './core.js';
 import { convert, findUnit, type Unit } from './units.js';
 
 export interface Limit {
@@ -111,7 +112,7 @@ export function checkLimit(value: Dec, valueUnit: Unit | string, limit: Limit): 
   const r = roundHalfUp(v, action.decimals);
   const rText = r.toFixed(action.decimals);
   const where = inside(r, action, ls, hs);
-  const head = `${v.toSignificantDigits(12).toString()}${u} rounded to ${action.decimals} decimal${action.decimals === 1 ? '' : 's'} (as the limit is written) = ${rText}${u}; limit ${describe(action, lu.symbol, ls, hs)}`;
+  const head = `${shownNumber(v, lu.symbol, { decimals: action.decimals + 2 })}${u} rounded to ${action.decimals} decimal${action.decimals === 1 ? '' : 's'} (as the limit is written) = ${rText}${u}; limit ${describe(action, lu.symbol, ls, hs)}`;
   if (where !== 'ok') {
     return { pass: false, level: 'fail', rounded: `${rText}${u}`, shown: `${head}: OUT OF LIMITS (${where === 'low' ? 'below the lower' : 'above the upper'} limit)` };
   }

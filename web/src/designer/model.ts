@@ -3,6 +3,7 @@
 import { BLOCKS, findBlock, type Block } from '../../../shared/blocks/index.js';
 import { refsIn } from '../../../shared/blocks/format.js';
 import { Dec, findUnit, type Kind } from '../../../shared/templates/index.js';
+import type { Problem } from '../../../shared/master/checks.js';
 import type { HEADER_VALUES, MasterDoc, SettingValue, Stage, Step } from '../../../shared/master/schema.js';
 
 // The unit list as offered in pick lists (shared/templates/units.ts holds the same symbols with their kinds).
@@ -163,4 +164,10 @@ export function placeLabel(doc: MasterDoc, path: string): string {
   if (!s) return 'Process';
   const t = p.step === undefined ? undefined : s.steps[p.step];
   return t ? `${s.name} › ${stepTitle(t, p.step)}` : s.name;
+}
+
+/** The author's answer to a calculation warning, kept in the master document with the warning as answered. */
+export function answerDoc(doc: MasterDoc, p: Problem, choice: string, reason: string): MasterDoc {
+  if (!p.question) return doc;
+  return { ...doc, answers: { ...doc.answers, [p.question.key]: { about: p.message, choice, reason: reason.trim() } } };
 }
