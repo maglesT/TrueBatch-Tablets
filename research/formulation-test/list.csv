@@ -1,0 +1,1001 @@
+id,wave,api,tablet_type,release,process,dose,therapeutic_area,api_form,n_apis,special_handling
+F0001,1,abacavir sulfate,film-coated,IR,wet granulation high-shear,300 mg,HIV,"salt, 2 drug molecules per salt unit",1,none
+F0002,1,rilpivirine hydrochloride,film-coated,IR,direct compression,25 mg,HIV,salt,1,light
+F0003,1,dextromethorphan hydrobromide,lozenge,IR,moulding,15 mg,OTC (throat / cough / antacid),salt,1,none
+F0004,1,glutathione,film-coated,IR,direct compression,500 mg,OTC (throat / cough / antacid),peptide,1,oxygen
+F0005,1,amoxicillin trihydrate,chewable,IR,roller compaction,250 mg,antibacterial,hydrate,1,beta-lactam; paediatric
+F0006,1,cefotiam hexetil hydrochloride,film-coated,IR,roller compaction,200 mg,antibacterial,ester / prodrug,1,beta-lactam
+F0007,1,norfloxacin,film-coated,IR,wet granulation high-shear,400 mg,antibacterial,free base / neutral,1,none
+F0008,1,prulifloxacin,film-coated,IR,wet granulation high-shear,600 mg,antibacterial,ester / prodrug,1,none
+F0009,1,trimethoprim,scored / functional score,IR,MADG,200 mg,antibacterial,free base / neutral,1,none
+F0010,1,diloxanide furoate + metronidazole,uncoated,IR,roller compaction,250 mg + 200 mg,antiparasitic / antimalarial,ester / prodrug,2,none
+F0011,1,mefloquine hydrochloride,scored / functional score,IR,roller compaction,250 mg,antiparasitic / antimalarial,salt,1,none
+F0012,1,secnidazole,film-coated,IR,wet granulation high-shear,500 mg,antiparasitic / antimalarial,free base / neutral,1,none
+F0013,1,favipiravir,film-coated,IR,wet granulation high-shear,200 mg,antiviral,free base / neutral,1,potent / cytotoxic
+F0014,1,nirmatrelvir,film-coated,IR,continuous line,150 mg,antiviral,free base / neutral,1,none
+F0015,1,etidronate disodium,uncoated,IR,roller compaction,200 mg,bone,salt,1,none
+F0016,1,acenocoumarol,scored / functional score,IR,wet granulation fluid-bed,4 mg,cardiovascular,free base / neutral,1,narrow therapeutic index
+F0017,1,amlodipine besylate,orodispersible (ODT),IR,direct compression,5 mg,cardiovascular,salt,1,light
+F0018,1,atorvastatin calcium,orodispersible (ODT),IR,direct compression,20 mg,cardiovascular,"salt, 2 drug molecules per salt unit",1,oxygen
+F0019,1,bendroflumethiazide + nadolol,uncoated,IR,wet granulation high-shear,5 mg + 80 mg,cardiovascular,free base / neutral,2,none
+F0020,1,colesevelam hydrochloride,film-coated,IR,roller compaction,625 mg,cardiovascular,salt,1,moisture
+F0021,1,ethacrynic acid,uncoated,IR,wet granulation fluid-bed,25 mg,cardiovascular,free acid,1,none
+F0022,1,gemfibrozil,film-coated,IR,foam granulation,600 mg,cardiovascular,free acid,1,none
+F0023,1,imidapril hydrochloride,uncoated,IR,direct compression,10 mg,cardiovascular,salt,1,none
+F0024,1,lacidipine,film-coated,IR,wet granulation solvent,4 mg,cardiovascular,free base / neutral,1,light
+F0025,1,nitrendipine,scored / functional score,IR,wet granulation high-shear,20 mg,cardiovascular,free base / neutral,1,light
+F0026,1,perindopril arginine,film-coated,IR,roller compaction,5 mg,cardiovascular,salt,1,moisture
+F0027,1,sotalol hydrochloride,scored / functional score,IR,direct compression,80 mg,cardiovascular,salt,1,none
+F0028,1,spironolactone,mini-tablet,IR,direct compression,2.5 mg,cardiovascular,free base / neutral,1,paediatric
+F0029,1,deucravacitinib,film-coated,IR,direct compression,6 mg,dermatology,free base / neutral,1,none
+F0030,1,dapagliflozin + saxagliptin,film-coated,IR,drug layering,10 mg + 5 mg,diabetes / metabolic,solvate,2,incompatible APIs
+F0031,1,gliquidone,uncoated,IR,wet granulation fluid-bed,30 mg,diabetes / metabolic,free base / neutral,1,none
+F0032,1,tofogliflozin hydrate,film-coated,IR,wet granulation fluid-bed,20 mg,diabetes / metabolic,hydrate,1,none
+F0033,1,voglibose,uncoated,IR,wet granulation fluid-bed,0.2 mg,diabetes / metabolic,free base / neutral,1,none
+F0034,1,betamethasone sodium phosphate,soluble,IR,direct compression,0.5 mg,endocrine / hormones,salt,1,hormone
+F0035,1,oxandrolone,uncoated,IR,wet granulation fluid-bed,2.5 mg,endocrine / hormones,free base / neutral,1,hormone; controlled substance
+F0036,1,diphenoxylate hydrochloride + atropine sulfate,uncoated,IR,wet granulation fluid-bed,2.5 mg + 25 µg,gastrointestinal / hepatic,salt,2,controlled substance
+F0037,1,famotidine,orodispersible (ODT),IR,freeze-drying,20 mg,gastrointestinal / hepatic,free base / neutral,1,none
+F0038,1,ilaprazole,film-coated,enteric / DR,direct compression,10 mg,gastrointestinal / hepatic,free base / neutral,1,moisture
+F0039,1,mesalazine,uncoated,multiparticulate (MUPS),pellets compressed,1 g,gastrointestinal / hepatic,free acid,1,none
+F0040,1,methylnaltrexone bromide,film-coated,IR,direct compression,150 mg,gastrointestinal / hepatic,salt,1,none
+F0041,1,prochlorperazine maleate,uncoated,IR,wet granulation fluid-bed,5 mg,gastrointestinal / hepatic,salt,1,light
+F0042,1,tegoprazan,film-coated,IR,roller compaction,50 mg,gastrointestinal / hepatic,free base / neutral,1,none
+F0043,1,lusutrombopag,film-coated,IR,wet granulation fluid-bed,3 mg,haematology,free base / neutral,1,none
+F0044,1,Capparis spinosa + Cichorium intybus + Solanum nigrum + Terminalia arjuna + Cassia occidentalis + Achillea millefolium + Tamarix gallica,uncoated,IR,wet granulation high-shear,65 mg + 65 mg + 32 mg + 32 mg + 16 mg + 16 mg + 16 mg,herbal / Ayurvedic / homeopathic,extract with marker,7,none
+F0045,1,Commiphora wightii gum resin + Triphala (Triphala guggulu),uncoated,IR,moulding,500 mg,herbal / Ayurvedic / homeopathic,extract with marker,2,none
+F0046,1,Crataegus leaf and flower dry extract,film-coated,IR,roller compaction,450 mg,herbal / Ayurvedic / homeopathic,extract with marker,1,geriatric
+F0047,1,Harpagophytum procumbens root dry extract,film-coated,IR,wet granulation fluid-bed,480 mg,herbal / Ayurvedic / homeopathic,extract with marker,1,none
+F0048,1,Natrium chloratum D6 trituration,uncoated,IR,direct compression,0.25 µg (D6 in a 250 mg tablet),herbal / Ayurvedic / homeopathic,element / mineral,1,none
+F0049,1,Niuhuang Jiedu (artificial Calculus bovis + 7 ingredients),sugar-coated,IR,wet granulation high-shear,300 mg,herbal / Ayurvedic / homeopathic,extract with marker,8,none
+F0050,1,Thymus vulgaris herb dry extract + Primula veris root dry extract,film-coated,IR,direct compression,160 mg + 60 mg,herbal / Ayurvedic / homeopathic,extract with marker,2,none
+F0051,1,dotinurad,film-coated,IR,wet granulation fluid-bed,2 mg,immunology / rheumatology,free base / neutral,1,none
+F0052,1,upadacitinib hemihydrate,film-coated,ER hydrophilic matrix,roller compaction,15 mg,immunology / rheumatology,hydrate,1,potent / cytotoxic
+F0053,1,betahistine dihydrochloride,uncoated,ER hydrophilic matrix,wet granulation high-shear,48 mg,neurology,salt,1,moisture
+F0054,1,lamotrigine,film-coated,ER membrane-coated,wet granulation high-shear,100 mg,neurology,free base / neutral,1,paediatric
+F0055,1,modafinil,uncoated,IR,direct compression,100 mg,neurology,free base / neutral,1,controlled substance
+F0056,1,ponesimod,film-coated,IR,wet granulation fluid-bed,20 mg,neurology,free base / neutral,1,potent / cytotoxic
+F0057,1,pramipexole dihydrochloride monohydrate,uncoated,ER hydrophilic matrix,direct compression,0.375 mg,neurology,salt,1,geriatric
+F0058,1,pyridostigmine bromide,film-coated,ER hydrophobic matrix,melt granulation,180 mg,neurology,salt,1,moisture
+F0059,1,tolcapone,film-coated,IR,wet granulation high-shear,100 mg,neurology,free base / neutral,1,geriatric
+F0060,1,ubrogepant,uncoated,IR,direct compression,50 mg,neurology,free base / neutral,1,none
+F0061,1,busulfan,film-coated,IR,wet granulation fluid-bed,2 mg,oncology,free base / neutral,1,potent / cytotoxic
+F0062,1,capmatinib dihydrochloride monohydrate,film-coated,IR,direct compression,150 mg,oncology,salt,1,potent / cytotoxic
+F0063,1,everolimus,uncoated,IR,spray drying,10 mg,oncology,amorphous dispersion,1,potent / cytotoxic; narrow therapeutic index
+F0064,1,flutamide,uncoated,IR,wet granulation single-pot,250 mg,oncology,free base / neutral,1,potent / cytotoxic
+F0065,1,gilteritinib fumarate,film-coated,IR,direct compression,40 mg,oncology,"salt, 2 drug molecules per salt unit",1,potent / cytotoxic
+F0066,1,mitotane,uncoated,IR,roller compaction,500 mg,oncology,free base / neutral,1,potent / cytotoxic
+F0067,1,nilotinib tartrate,film-coated,IR,wet granulation fluid-bed,150 mg,oncology,salt,1,potent / cytotoxic
+F0068,1,bromelain + trypsin + rutoside,film-coated,enteric / DR,wet granulation fluid-bed,90 mg + 48 mg + 100 mg,pain / musculoskeletal,IU / CFU / activity potency,3,moisture
+F0069,1,buprenorphine hydrochloride,sublingual,IR,direct compression,2 mg,pain / musculoskeletal,salt,1,controlled substance
+F0070,1,hydrocodone bitartrate,film-coated,ER hydrophilic matrix,hot-melt extrusion,20 mg,pain / musculoskeletal,salt,1,controlled substance
+F0071,1,ketorolac tromethamine,film-coated,IR,direct compression,10 mg,pain / musculoskeletal,salt,1,none
+F0072,1,mefenamic acid,film-coated,IR,steam granulation,500 mg,pain / musculoskeletal,free acid,1,none
+F0073,1,meloxicam,orodispersible (ODT),IR,direct compression,15 mg,pain / musculoskeletal,free acid,1,none
+F0074,1,tapentadol hydrochloride,film-coated,IR,direct compression,50 mg,pain / musculoskeletal,salt,1,controlled substance
+F0075,1,agomelatine,film-coated,IR,wet granulation fluid-bed,25 mg,psychiatry,free base / neutral,1,none
+F0076,1,amisulpride,film-coated,IR,roller compaction,400 mg,psychiatry,free base / neutral,1,none
+F0077,1,doxepin hydrochloride,uncoated,IR,wet granulation fluid-bed,3 mg,psychiatry,salt,1,none
+F0078,1,fluoxetine hydrochloride,dispersible,IR,direct compression,20 mg,psychiatry,salt,1,none
+F0079,1,fluvoxamine maleate,film-coated,IR,wet granulation fluid-bed,100 mg,psychiatry,salt,1,none
+F0080,1,lisdexamfetamine dimesylate,chewable,IR,direct compression,30 mg,psychiatry,ester / prodrug,1,controlled substance
+F0081,1,perphenazine,sugar-coated,IR,wet granulation high-shear,4 mg,psychiatry,free base / neutral,1,light
+F0082,1,risperidone,orodispersible (ODT),IR,direct compression,1 mg,psychiatry,free base / neutral,1,none
+F0083,1,trazodone hydrochloride,film-coated,ER hydrophilic matrix,wet granulation high-shear,300 mg,psychiatry,salt,1,none
+F0084,1,penicillamine,film-coated,IR,wet granulation fluid-bed,250 mg,rare disease,free acid,1,none
+F0085,1,sodium chloride,film-coated,ER hydrophobic matrix,melt granulation,600 mg,renal / electrolytes,element / mineral,1,none
+F0086,1,levocetirizine dihydrochloride + montelukast sodium,film-coated,bilayer,wet granulation fluid-bed,5 mg + 10 mg,respiratory / allergy,salt,2,incompatible APIs
+F0087,1,Phleum pratense grass pollen allergen extract,sublingual,IR,freeze-drying,75000 SQ-T,respiratory / allergy,IU / CFU / activity potency,1,moisture
+F0088,1,procaterol hydrochloride hemihydrate,film-coated,IR,wet granulation fluid-bed,50 µg,respiratory / allergy,salt,1,none
+F0089,1,rupatadine fumarate,uncoated,IR,wet granulation high-shear,10 mg,respiratory / allergy,salt,1,none
+F0090,1,rupatadine fumarate + montelukast sodium,film-coated,IR,wet granulation fluid-bed,10 mg + 10 mg,respiratory / allergy,salt,2,none
+F0091,1,delamanid,film-coated,IR,wet granulation high-shear,50 mg,tuberculosis,free base / neutral,1,light
+F0092,1,ethambutol hydrochloride,dispersible,IR,direct compression,100 mg,tuberculosis,salt,1,paediatric
+F0093,1,oxybutynin hydrochloride,printed / polished,osmotic,wet granulation high-shear,10 mg,urology,salt,1,geriatric
+F0094,1,terazosin hydrochloride,uncoated,IR,direct compression,2 mg,urology,hydrate,1,geriatric
+F0095,1,udenafil,film-coated,IR,roller compaction,100 mg,urology,free base / neutral,1,none
+F0096,1,chromium picolinate,uncoated,IR,direct compression,200 µg,vitamins / minerals,element / mineral,1,none
+F0097,1,thiamine hydrochloride,film-coated,IR,slugging,100 mg,vitamins / minerals,salt,1,none
+F0098,1,zinc sulfate monohydrate,effervescent,IR,wet granulation solvent,45 mg,vitamins / minerals,element / mineral,1,none
+F0099,1,estradiol valerate,sugar-coated,IR,wet granulation high-shear,2 mg,women's health,ester / prodrug,1,hormone
+F0100,1,mifepristone,uncoated,IR,wet granulation single-pot,200 mg,women's health,free base / neutral,1,hormone
+F0101,2,dolutegravir sodium + lamivudine + tenofovir disoproxil fumarate,film-coated,IR,direct compression,50 mg + 300 mg + 300 mg,HIV,salt,3,none
+F0102,2,fostemsavir tromethamine,film-coated,ER hydrophilic matrix,roller compaction,600 mg,HIV,ester / prodrug,1,none
+F0103,2,bacitracin + papain + lysozyme hydrochloride,lozenge,IR,direct compression,200 IU + 2 mg + 5 mg,OTC (throat / cough / antacid),IU / CFU / activity potency,3,none
+F0104,2,cefcapene pivoxil hydrochloride,film-coated,IR,wet granulation fluid-bed,100 mg,antibacterial,ester / prodrug,1,beta-lactam
+F0105,2,nalidixic acid,uncoated,IR,steam granulation,500 mg,antibacterial,free acid,1,none
+F0106,2,phenoxymethylpenicillin potassium,film-coated,IR,wet granulation high-shear,250 mg,antibacterial,IU / CFU / activity potency,1,beta-lactam
+F0107,2,roxithromycin,film-coated,IR,wet granulation solvent,150 mg,antibacterial,free base / neutral,1,none
+F0108,2,roxithromycin,dispersible,IR,direct compression,50 mg,antibacterial,free base / neutral,1,paediatric
+F0109,2,niclosamide,chewable,IR,wet granulation fluid-bed,500 mg,antiparasitic / antimalarial,free base / neutral,1,none
+F0110,2,pyrantel pamoate,uncoated,IR,wet granulation high-shear,250 mg,antiparasitic / antimalarial,salt,1,none
+F0111,2,tinidazole,film-coated,IR,roller compaction,500 mg,antiparasitic / antimalarial,free base / neutral,1,none
+F0112,2,amenamevir,film-coated,IR,wet granulation fluid-bed,200 mg,antiviral,free base / neutral,1,none
+F0113,2,sofosbuvir + velpatasvir,film-coated,IR,spray drying,400 mg + 100 mg,antiviral,amorphous dispersion,2,none
+F0114,2,ibandronate sodium monohydrate,film-coated,IR,direct compression,150 mg,bone,hydrate,1,geriatric
+F0115,2,azelnidipine,uncoated,IR,wet granulation high-shear,16 mg,cardiovascular,free base / neutral,1,light
+F0116,2,captopril,scored / functional score,IR,direct compression,25 mg,cardiovascular,free base / neutral,1,oxygen
+F0117,2,fimasartan potassium trihydrate,film-coated,IR,direct compression,60 mg,cardiovascular,hydrate,1,none
+F0118,2,flecainide acetate,scored / functional score,IR,wet granulation fluid-bed,100 mg,cardiovascular,salt,1,narrow therapeutic index
+F0119,2,glyceryl trinitrate,sublingual,IR,moulding,0.5 mg,cardiovascular,free base / neutral,1,none
+F0120,2,indapamide,film-coated,ER hydrophilic matrix,wet granulation fluid-bed,1.5 mg,cardiovascular,free base / neutral,1,geriatric
+F0121,2,perindopril arginine + amlodipine besylate,uncoated,IR,roller compaction,5 mg + 5 mg,cardiovascular,salt,2,moisture; light
+F0122,2,pravastatin sodium,uncoated,IR,wet granulation fluid-bed,40 mg,cardiovascular,salt,1,moisture
+F0123,2,reserpine,uncoated,IR,wet granulation fluid-bed,0.25 mg,cardiovascular,free base / neutral,1,light
+F0124,2,telmisartan + metoprolol succinate,film-coated,IR + ER,wet granulation high-shear,40 mg + 50 mg,cardiovascular,free base / neutral,2,none
+F0125,2,verapamil hydrochloride,film-coated,pulsatile,direct compression,180 mg,cardiovascular,salt,1,none
+F0126,2,vericiguat,film-coated,IR,wet granulation fluid-bed,2.5 mg,cardiovascular,free base / neutral,1,none
+F0127,2,zofenopril calcium,film-coated,IR,wet granulation high-shear,30 mg,cardiovascular,"salt, 2 drug molecules per salt unit",1,none
+F0128,2,ertugliflozin pidolate,film-coated,IR,roller compaction,5 mg,diabetes / metabolic,cocrystal / complex,1,none
+F0129,2,evogliptin tartrate,film-coated,IR,wet granulation fluid-bed,5 mg,diabetes / metabolic,salt,1,none
+F0130,2,mitiglinide calcium hydrate,film-coated,IR,direct compression,10 mg,diabetes / metabolic,"salt, 2 drug molecules per salt unit",1,none
+F0131,2,desmopressin acetate,orodispersible (ODT),IR,freeze-drying,120 µg,endocrine / hormones,peptide,1,moisture
+F0132,2,fludrocortisone acetate,uncoated,IR,wet granulation fluid-bed,0.1 mg,endocrine / hormones,ester / prodrug,1,hormone
+F0133,2,levosulpiride,uncoated,IR,wet granulation fluid-bed,25 mg,gastrointestinal / hepatic,free base / neutral,1,none
+F0134,2,mebeverine hydrochloride,film-coated,IR,foam granulation,135 mg,gastrointestinal / hepatic,salt,1,none
+F0135,2,pancreatin,mini-tablet,enteric / DR,wet granulation high-shear,5000 Ph. Eur. lipase units,gastrointestinal / hepatic,IU / CFU / activity potency,1,moisture; paediatric
+F0136,2,polaprezinc,orodispersible (ODT),IR,direct compression,75 mg,gastrointestinal / hepatic,element / mineral,1,none
+F0137,2,prochlorperazine maleate,buccal,IR,direct compression,3 mg,gastrointestinal / hepatic,salt,1,light
+F0138,2,sennosides,uncoated,IR,roller compaction,7.5 mg,gastrointestinal / hepatic,extract with marker,1,none
+F0139,2,sodium picosulfate,uncoated,IR,wet granulation fluid-bed,5 mg,gastrointestinal / hepatic,salt,1,none
+F0140,2,etamsylate,uncoated,IR,wet granulation high-shear,500 mg,haematology,free base / neutral,1,none
+F0141,2,Kaishore guggulu (Tinospora cordifolia + guggulu + triphala + 4 ingredients),sugar-coated,IR,wet granulation high-shear,250 mg,herbal / Ayurvedic / homeopathic,extract with marker,8,none
+F0142,2,Mahasudarshan ghan vati (Swertia chirata + 50 herbs),sugar-coated,IR,wet granulation high-shear,250 mg,herbal / Ayurvedic / homeopathic,extract with marker,1,none
+F0143,2,Nux vomica D6 trituration,uncoated,IR,moulding,0.25 µg (D6 in a 250 mg tablet),herbal / Ayurvedic / homeopathic,extract with marker,1,potent / cytotoxic
+F0144,2,Speman (Orchis mascula + 9 ingredients),uncoated,IR,roller compaction,200 mg,herbal / Ayurvedic / homeopathic,extract with marker,10,none
+F0145,2,Vaccinium macrocarpon fruit dry extract,film-coated,IR,direct compression,36 mg,herbal / Ayurvedic / homeopathic,extract with marker,1,none
+F0146,2,valerian root dry extract + hop strobile dry extract,film-coated,IR,wet granulation high-shear,250 mg + 60 mg,herbal / Ayurvedic / homeopathic,extract with marker,2,none
+F0147,2,ruxolitinib phosphate,uncoated,IR,direct compression,20 mg,immunology / rheumatology,salt,1,potent / cytotoxic
+F0148,2,sulfasalazine,uncoated,IR,roller compaction,500 mg,immunology / rheumatology,free acid,1,none
+F0149,2,cenobamate,film-coated,IR,wet granulation high-shear,100 mg,neurology,free base / neutral,1,none
+F0150,2,entacapone,film-coated,IR,direct compression,200 mg,neurology,free base / neutral,1,geriatric
+F0151,2,ergotamine tartrate,sublingual,IR,direct compression,2 mg,neurology,salt,1,potent / cytotoxic
+F0152,2,gabapentin,film-coated,IR,roller compaction,600 mg,neurology,free base / neutral,1,none
+F0153,2,oxcarbazepine,film-coated,IR,direct compression,300 mg,neurology,free base / neutral,1,none
+F0154,2,pregabalin,uncoated,gastroretentive,3D printing,330 mg,neurology,free base / neutral,1,controlled substance
+F0155,2,riluzole,film-coated,IR,roller compaction,50 mg,neurology,free base / neutral,1,none
+F0156,2,ropinirole hydrochloride,film-coated,IR,wet granulation fluid-bed,2 mg,neurology,salt,1,geriatric
+F0157,2,selegiline hydrochloride,orodispersible (ODT),IR,freeze-drying,1.25 mg,neurology,salt,1,geriatric
+F0158,2,avapritinib,film-coated,IR,direct compression,200 mg,oncology,free base / neutral,1,potent / cytotoxic
+F0159,2,dacomitinib,film-coated,IR,roller compaction,45 mg,oncology,hydrate,1,potent / cytotoxic
+F0160,2,enasidenib mesylate,film-coated,IR,wet granulation fluid-bed,100 mg,oncology,salt,1,potent / cytotoxic
+F0161,2,ivosidenib,film-coated,IR,spray drying,250 mg,oncology,amorphous dispersion,1,potent / cytotoxic
+F0162,2,niraparib tosylate monohydrate,film-coated,IR,roller compaction,100 mg,oncology,salt,1,potent / cytotoxic
+F0163,2,palbociclib,film-coated,IR,wet granulation high-shear,125 mg,oncology,free base / neutral,1,potent / cytotoxic
+F0164,2,tioguanine,scored / functional score,IR,wet granulation single-pot,40 mg,oncology,free base / neutral,1,potent / cytotoxic
+F0165,2,cyclobenzaprine hydrochloride,film-coated,IR,wet granulation fluid-bed,10 mg,pain / musculoskeletal,salt,1,none
+F0166,2,diclofenac sodium + misoprostol,film-coated,press-coated,wet granulation fluid-bed,50 mg + 200 µg,pain / musculoskeletal,salt,2,moisture; incompatible APIs
+F0167,2,ibuprofen,printed / polished,IR,direct compression,200 mg,pain / musculoskeletal,free acid,1,none
+F0168,2,oxymorphone hydrochloride,film-coated,ER hydrophilic matrix,hot-melt extrusion,10 mg,pain / musculoskeletal,salt,1,controlled substance
+F0169,2,paracetamol + ibuprofen,film-coated,IR,wet granulation fluid-bed,500 mg + 150 mg,pain / musculoskeletal,free base / neutral,2,none
+F0170,2,tenoxicam,film-coated,IR,wet granulation high-shear,20 mg,pain / musculoskeletal,free acid,1,none
+F0171,2,tilidine hydrochloride + naloxone hydrochloride,film-coated,ER hydrophilic matrix,roller compaction,50 mg + 4 mg,pain / musculoskeletal,salt,2,controlled substance
+F0172,2,bromazepam,scored / functional score,IR,wet granulation high-shear,3 mg,psychiatry,free base / neutral,1,controlled substance
+F0173,2,clomipramine hydrochloride,film-coated,ER hydrophilic matrix,wet granulation high-shear,75 mg,psychiatry,salt,1,none
+F0174,2,eszopiclone,film-coated,IR,wet granulation fluid-bed,2 mg,psychiatry,free base / neutral,1,controlled substance
+F0175,2,haloperidol,uncoated,IR,MADG,5 mg,psychiatry,free base / neutral,1,none
+F0176,2,mianserin hydrochloride,film-coated,IR,direct compression,30 mg,psychiatry,salt,1,none
+F0177,2,nalmefene hydrochloride dihydrate,film-coated,IR,wet granulation high-shear,18 mg,psychiatry,salt,1,none
+F0178,2,paroxetine hydrochloride hemihydrate,film-coated,trilayer,direct compression,25 mg,psychiatry,hydrate,1,none
+F0179,2,triazolam,uncoated,IR,wet granulation fluid-bed,0.25 mg,psychiatry,free base / neutral,1,controlled substance
+F0180,2,venlafaxine hydrochloride,uncoated,IR,wet granulation high-shear,75 mg,psychiatry,salt,1,none
+F0181,2,maralixibat chloride,film-coated,IR,wet granulation high-shear,10 mg,rare disease,salt,1,paediatric
+F0182,2,risdiplam,film-coated,IR,direct compression,5 mg,rare disease,free base / neutral,1,light
+F0183,2,ferric citrate,film-coated,IR,roller compaction,1 g,renal / electrolytes,element / mineral,1,moisture
+F0184,2,roxadustat,film-coated,IR,wet granulation fluid-bed,70 mg,renal / electrolytes,free base / neutral,1,none
+F0185,2,bambuterol hydrochloride,uncoated,IR,direct compression,10 mg,respiratory / allergy,ester / prodrug,1,none
+F0186,2,bromhexine hydrochloride,uncoated,IR,direct compression,8 mg,respiratory / allergy,salt,1,none
+F0187,2,phenylephrine hydrochloride + chlorphenamine maleate,film-coated,IR,direct compression,10 mg + 4 mg,respiratory / allergy,salt,2,none
+F0188,2,salbutamol sulfate,film-coated,osmotic,wet granulation high-shear,8 mg,respiratory / allergy,"salt, 2 drug molecules per salt unit",1,none
+F0189,2,theophylline,uncoated,ER hydrophobic matrix,melt granulation,400 mg,respiratory / allergy,free base / neutral,1,narrow therapeutic index
+F0190,2,delamanid,dispersible,IR,wet granulation fluid-bed,25 mg,tuberculosis,free base / neutral,1,light; paediatric
+F0191,2,avanafil,uncoated,IR,direct compression,100 mg,urology,free base / neutral,1,none
+F0192,2,propiverine hydrochloride,sugar-coated,IR,wet granulation high-shear,15 mg,urology,salt,1,geriatric
+F0193,2,sildenafil citrate,orodispersible (ODT),IR,direct compression,50 mg,urology,salt,1,none
+F0194,2,ascorbic acid,chewable,IR,slugging,500 mg,vitamins / minerals,free acid,1,oxygen
+F0195,2,levomefolate calcium,film-coated,IR,direct compression,15 mg,vitamins / minerals,salt,1,light
+F0196,2,magnesium bisglycinate,film-coated,IR,direct compression,100 mg,vitamins / minerals,element / mineral,1,none
+F0197,2,magnesium citrate,effervescent,IR,wet granulation solvent,300 mg,vitamins / minerals,element / mineral,1,moisture
+F0198,2,estriol,uncoated,IR,wet granulation fluid-bed,2 mg,women's health,free base / neutral,1,hormone
+F0199,2,linzagolix choline,film-coated,IR,direct compression,100 mg,women's health,salt,1,hormone
+F0200,2,medroxyprogesterone acetate,uncoated,IR,wet granulation single-pot,10 mg,women's health,ester / prodrug,1,hormone
+F0201,3,darunavir ethanolate,film-coated,IR,continuous line,600 mg,HIV,solvate,1,none
+F0202,3,efavirenz,film-coated,IR,wet granulation fluid-bed,600 mg,HIV,free base / neutral,1,none
+F0203,3,tyrothricin + benzocaine,lozenge,IR,direct compression,0.5 mg + 5 mg,OTC (throat / cough / antacid),peptide,2,none
+F0204,3,bacampicillin hydrochloride,film-coated,IR,roller compaction,400 mg,antibacterial,ester / prodrug,1,beta-lactam
+F0205,3,cefpodoxime proxetil,dispersible,IR,direct compression,50 mg,antibacterial,ester / prodrug,1,beta-lactam; paediatric
+F0206,3,delafloxacin meglumine,uncoated,IR,roller compaction,450 mg,antibacterial,salt,1,none
+F0207,3,minocycline hydrochloride,film-coated,ER hydrophilic matrix,direct compression,100 mg,antibacterial,salt,1,light
+F0208,3,ofloxacin,film-coated,gastroretentive,roller compaction,400 mg,antibacterial,free base / neutral,1,none
+F0209,3,dihydroartemisinin + piperaquine phosphate,film-coated,IR,direct compression,40 mg + 320 mg,antiparasitic / antimalarial,free base / neutral,2,none
+F0210,3,levamisole hydrochloride,uncoated,IR,wet granulation fluid-bed,50 mg,antiparasitic / antimalarial,salt,1,none
+F0211,3,nifurtimox,scored / functional score,IR,wet granulation fluid-bed,120 mg,antiparasitic / antimalarial,free base / neutral,1,paediatric
+F0212,3,famciclovir,film-coated,IR,MADG,500 mg,antiviral,ester / prodrug,1,none
+F0213,3,maribavir,film-coated,IR,wet granulation high-shear,200 mg,antiviral,free base / neutral,1,none
+F0214,3,alendronate sodium trihydrate,uncoated,IR,direct compression,70 mg,bone,hydrate,1,geriatric
+F0215,3,ambrisentan,film-coated,IR,direct compression,5 mg,cardiovascular,free base / neutral,1,potent / cytotoxic
+F0216,3,amiodarone hydrochloride,scored / functional score,IR,roller compaction,200 mg,cardiovascular,salt,1,light; narrow therapeutic index
+F0217,3,azilsartan kamedoxomil + chlorthalidone,film-coated,IR,wet granulation fluid-bed,40 mg + 12.5 mg,cardiovascular,ester / prodrug,2,none
+F0218,3,betaxolol hydrochloride,film-coated,IR,wet granulation high-shear,20 mg,cardiovascular,salt,1,none
+F0219,3,captopril + nifedipine + glipizide,uncoated,IR + ER,3D printing,12.5 mg + 20 mg + 2.5 mg,cardiovascular,free base / neutral,3,oxygen; light
+F0220,3,doxazosin mesylate,uncoated,IR,wet granulation fluid-bed,4 mg,cardiovascular,salt,1,geriatric
+F0221,3,lercanidipine hydrochloride,film-coated,IR,roller compaction,10 mg,cardiovascular,salt,1,light
+F0222,3,lovastatin,film-coated,ER hydrophilic matrix,wet granulation fluid-bed,40 mg,cardiovascular,free base / neutral,1,oxygen
+F0223,3,metolazone,uncoated,IR,roller compaction,5 mg,cardiovascular,free base / neutral,1,none
+F0224,3,metoprolol tartrate,scored / functional score,IR,roller compaction,50 mg,cardiovascular,salt,1,none
+F0225,3,niacin,film-coated,ER hydrophilic matrix,wet granulation high-shear,1000 mg,cardiovascular,free acid,1,none
+F0226,3,prazosin hydrochloride,film-coated,osmotic,wet granulation high-shear,2.5 mg,cardiovascular,salt,1,none
+F0227,3,telmisartan,uncoated,IR,spray drying,40 mg,cardiovascular,free base / neutral,1,none
+F0228,3,abrocitinib,film-coated,IR,wet granulation fluid-bed,100 mg,dermatology,free base / neutral,1,potent / cytotoxic
+F0229,3,bromocriptine mesylate,uncoated,IR,direct compression,0.8 mg,diabetes / metabolic,salt,1,light
+F0230,3,omarigliptin,film-coated,IR,direct compression,25 mg,diabetes / metabolic,free base / neutral,1,none
+F0231,3,phentermine hydrochloride,orodispersible (ODT),IR,direct compression,15 mg,diabetes / metabolic,salt,1,controlled substance
+F0232,3,repaglinide,uncoated,IR,wet granulation fluid-bed,1 mg,diabetes / metabolic,free acid,1,none
+F0233,3,dexamethasone sodium phosphate,soluble,IR,direct compression,0.5 mg,endocrine / hormones,salt,1,hormone
+F0234,3,levothyroxine sodium + liothyronine sodium,uncoated,IR,wet granulation fluid-bed,100 µg + 20 µg,endocrine / hormones,salt,2,narrow therapeutic index; light
+F0235,3,bismuth subsalicylate,chewable,IR,wet granulation high-shear,262 mg,gastrointestinal / hepatic,element / mineral,1,none
+F0236,3,levosulpiride,uncoated,ER hydrophilic matrix,direct compression,75 mg,gastrointestinal / hepatic,free base / neutral,1,none
+F0237,3,metoclopramide hydrochloride,uncoated,IR,direct compression,10 mg,gastrointestinal / hepatic,salt,1,none
+F0238,3,omeprazole magnesium,film-coated,multiparticulate (MUPS),pellets compressed,20 mg,gastrointestinal / hepatic,"salt, 2 drug molecules per salt unit",1,moisture
+F0239,3,ondansetron hydrochloride dihydrate,film-coated,IR,roller compaction,8 mg,gastrointestinal / hepatic,hydrate,1,none
+F0240,3,pancrelipase,uncoated,IR,direct compression,10440 USP lipase units,gastrointestinal / hepatic,IU / CFU / activity potency,1,moisture
+F0241,3,rebamipide,film-coated,IR,wet granulation fluid-bed,100 mg,gastrointestinal / hepatic,free base / neutral,1,none
+F0242,3,aminocaproic acid,uncoated,IR,slugging,500 mg,haematology,free acid,1,none
+F0243,3,Asparagus racemosus root dry extract,uncoated,IR,wet granulation high-shear,500 mg,herbal / Ayurvedic / homeopathic,extract with marker,1,none
+F0244,3,Chandraprabha vati (shilajit + guggulu + 35 ingredients),film-coated,IR,wet granulation high-shear,250 mg,herbal / Ayurvedic / homeopathic,extract with marker,1,none
+F0245,3,escin,sugar-coated,enteric / DR,wet granulation high-shear,20 mg,herbal / Ayurvedic / homeopathic,extract with marker,1,none
+F0246,3,gentian root + Primula veris flower + Rumex herb + Sambucus flower + Verbena herb,film-coated,IR,roller compaction,160 mg dry extract,herbal / Ayurvedic / homeopathic,extract with marker,5,none
+F0247,3,Khadiradi vati (Acacia catechu + 9 ingredients),lozenge,IR,moulding,125 mg,herbal / Ayurvedic / homeopathic,extract with marker,1,none
+F0248,3,valerian root dry extract,sugar-coated,IR,wet granulation high-shear,450 mg,herbal / Ayurvedic / homeopathic,extract with marker,1,none
+F0249,3,baricitinib,film-coated,IR,direct compression,4 mg,immunology / rheumatology,free base / neutral,1,potent / cytotoxic
+F0250,3,benzbromarone,uncoated,IR,wet granulation high-shear,100 mg,immunology / rheumatology,free base / neutral,1,none
+F0251,3,clobazam,uncoated,IR,wet granulation fluid-bed,10 mg,neurology,free base / neutral,1,controlled substance
+F0252,3,felbamate,scored / functional score,IR,wet granulation high-shear,600 mg,neurology,free base / neutral,1,none
+F0253,3,frovatriptan succinate,film-coated,IR,wet granulation fluid-bed,2.5 mg,neurology,salt,1,none
+F0254,3,galantamine hydrobromide,film-coated,IR,wet granulation fluid-bed,8 mg,neurology,salt,1,geriatric
+F0255,3,lacosamide,film-coated,IR,direct compression,100 mg,neurology,free base / neutral,1,none
+F0256,3,pitolisant hydrochloride,film-coated,IR,wet granulation high-shear,18 mg,neurology,salt,1,none
+F0257,3,pramipexole dihydrochloride monohydrate,uncoated,IR,wet granulation fluid-bed,0.25 mg,neurology,salt,1,geriatric
+F0258,3,pregabalin + methylcobalamin,film-coated,bilayer,direct compression,75 mg + 750 µg,neurology,free base / neutral,2,controlled substance; incompatible APIs
+F0259,3,ropinirole hydrochloride,film-coated,trilayer,wet granulation high-shear,4 mg,neurology,salt,1,geriatric
+F0260,3,adagrasib,film-coated,IR,wet granulation fluid-bed,200 mg,oncology,free base / neutral,1,potent / cytotoxic
+F0261,3,bicalutamide,film-coated,IR,wet granulation single-pot,50 mg,oncology,free base / neutral,1,potent / cytotoxic; hormone
+F0262,3,osimertinib mesylate,film-coated,IR,direct compression,80 mg,oncology,salt,1,potent / cytotoxic
+F0263,3,trifluridine + tipiracil hydrochloride,film-coated,IR,direct compression,15 mg + 6.14 mg,oncology,free base / neutral,2,potent / cytotoxic
+F0264,3,tucatinib,film-coated,IR,spray drying,150 mg,oncology,amorphous dispersion,1,potent / cytotoxic
+F0265,3,vandetanib,film-coated,IR,roller compaction,300 mg,oncology,free base / neutral,1,potent / cytotoxic
+F0266,3,venetoclax,film-coated,IR,hot-melt extrusion,100 mg,oncology,amorphous dispersion,1,potent / cytotoxic
+F0267,3,vorasidenib,film-coated,IR,wet granulation high-shear,40 mg,oncology,free base / neutral,1,potent / cytotoxic
+F0268,3,metamizole sodium monohydrate + pitofenone hydrochloride + fenpiverinium bromide,uncoated,IR,roller compaction,500 mg + 5 mg + 0.1 mg,pain / musculoskeletal,hydrate,3,none
+F0269,3,methadone hydrochloride,dispersible,IR,direct compression,40 mg,pain / musculoskeletal,salt,1,controlled substance
+F0270,3,oxycodone hydrochloride + naloxone hydrochloride,film-coated,ER hydrophobic matrix,melt granulation,10 mg + 5 mg,pain / musculoskeletal,salt,2,controlled substance
+F0271,3,salsalate,film-coated,IR,foam granulation,750 mg,pain / musculoskeletal,free acid,1,none
+F0272,3,thiocolchicoside,uncoated,IR,wet granulation high-shear,4 mg,pain / musculoskeletal,free base / neutral,1,none
+F0273,3,tolperisone hydrochloride,film-coated,ER hydrophilic matrix,wet granulation high-shear,450 mg,pain / musculoskeletal,salt,1,none
+F0274,3,aripiprazole,orodispersible (ODT),IR,direct compression,10 mg,psychiatry,free base / neutral,1,none
+F0275,3,clomipramine hydrochloride,sugar-coated,IR,wet granulation high-shear,25 mg,psychiatry,salt,1,none
+F0276,3,dexamfetamine saccharate + amfetamine aspartate monohydrate + dexamfetamine sulfate + amfetamine sulfate,scored / functional score,IR,wet granulation high-shear,2.5 mg + 2.5 mg + 2.5 mg + 2.5 mg,psychiatry,salt,4,controlled substance
+F0277,3,disulfiram,effervescent,IR,wet granulation solvent,400 mg,psychiatry,free base / neutral,1,none
+F0278,3,phenelzine sulfate,film-coated,IR,wet granulation fluid-bed,15 mg,psychiatry,salt,1,none
+F0279,3,tianeptine sodium,sugar-coated,IR,wet granulation high-shear,12.5 mg,psychiatry,salt,1,moisture
+F0280,3,tranylcypromine sulfate,film-coated,IR,direct compression,10 mg,psychiatry,"salt, 2 drug molecules per salt unit",1,none
+F0281,3,zuclopenthixol dihydrochloride,film-coated,IR,wet granulation fluid-bed,10 mg,psychiatry,salt,1,light
+F0282,3,levocarnitine,uncoated,IR,direct compression,330 mg,rare disease,free base / neutral,1,moisture
+F0283,3,tiopronin,film-coated,enteric / DR,wet granulation high-shear,300 mg,rare disease,free acid,1,none
+F0284,3,sevelamer carbonate,film-coated,IR,roller compaction,800 mg,renal / electrolytes,salt,1,moisture
+F0285,3,Betula verrucosa birch pollen allergen extract,sublingual,IR,freeze-drying,12 SQ-Bet,respiratory / allergy,IU / CFU / activity potency,1,moisture
+F0286,3,diphenhydramine hydrochloride,printed / polished,IR,wet granulation fluid-bed,25 mg,respiratory / allergy,salt,1,none
+F0287,3,ebastine,film-coated,IR,wet granulation fluid-bed,10 mg,respiratory / allergy,free base / neutral,1,none
+F0288,3,ebastine,orodispersible (ODT),IR,freeze-drying,10 mg,respiratory / allergy,free base / neutral,1,none
+F0289,3,terbutaline sulfate,uncoated,IR,wet granulation fluid-bed,5 mg,respiratory / allergy,"salt, 2 drug molecules per salt unit",1,none
+F0290,3,ethambutol hydrochloride,film-coated,IR,steam granulation,400 mg,tuberculosis,salt,1,none
+F0291,3,pretomanid,uncoated,IR,direct compression,200 mg,tuberculosis,free base / neutral,1,none
+F0292,3,flavoxate hydrochloride,film-coated,IR,wet granulation fluid-bed,200 mg,urology,salt,1,none
+F0293,3,imidafenacin,orodispersible (ODT),IR,direct compression,0.1 mg,urology,free base / neutral,1,geriatric
+F0294,3,sildenafil citrate,mini-tablet,IR,direct compression,1 mg,urology,salt,1,paediatric
+F0295,3,calcium lactate gluconate + calcium carbonate,effervescent,IR,wet granulation solvent,2940 mg + 300 mg,vitamins / minerals,element / mineral,2,moisture
+F0296,3,ferrous fumarate,film-coated,IR,direct compression,200 mg,vitamins / minerals,element / mineral,1,none
+F0297,3,sodium fluoride,chewable,IR,direct compression,1.1 mg,vitamins / minerals,element / mineral,1,paediatric
+F0298,3,chlormadinone acetate,film-coated,IR,wet granulation fluid-bed,2 mg,women's health,ester / prodrug,1,hormone
+F0299,3,levonorgestrel,uncoated,IR,wet granulation fluid-bed,1.5 mg,women's health,free base / neutral,1,hormone
+F0300,3,ospemifene,film-coated,IR,roller compaction,60 mg,women's health,free base / neutral,1,none
+F0301,4,bictegravir sodium + emtricitabine + tenofovir alafenamide fumarate,film-coated,IR,roller compaction,50 mg + 200 mg + 25 mg,HIV,salt,3,none
+F0302,4,cabotegravir sodium,film-coated,IR,wet granulation fluid-bed,30 mg,HIV,salt,1,none
+F0303,4,cetylpyridinium chloride,lozenge,IR,direct compression,1.4 mg,OTC (throat / cough / antacid),salt,1,none
+F0304,4,lactase,chewable,IR,direct compression,9000 FCC units,OTC (throat / cough / antacid),IU / CFU / activity potency,1,moisture
+F0305,4,cefadroxil monohydrate,dispersible,IR,wet granulation fluid-bed,250 mg,antibacterial,hydrate,1,beta-lactam; paediatric
+F0306,4,fidaxomicin,film-coated,IR,roller compaction,200 mg,antibacterial,free base / neutral,1,none
+F0307,4,pivmecillinam hydrochloride,film-coated,IR,roller compaction,200 mg,antibacterial,ester / prodrug,1,beta-lactam
+F0308,4,sitafloxacin hydrate,film-coated,IR,wet granulation fluid-bed,50 mg,antibacterial,hydrate,1,light
+F0309,4,tedizolid phosphate,film-coated,IR,direct compression,200 mg,antibacterial,ester / prodrug,1,none
+F0310,4,posaconazole,film-coated,enteric / DR,hot-melt extrusion,100 mg,antifungal,amorphous dispersion,1,none
+F0311,4,artemether + lumefantrine,uncoated,IR,wet granulation high-shear,20 mg + 120 mg,antiparasitic / antimalarial,free base / neutral,2,none
+F0312,4,primaquine phosphate,film-coated,IR,wet granulation fluid-bed,15 mg,antiparasitic / antimalarial,salt,1,none
+F0313,4,quinine sulfate,film-coated,IR,wet granulation fluid-bed,300 mg,antiparasitic / antimalarial,"salt, 2 drug molecules per salt unit",1,none
+F0314,4,entecavir monohydrate,film-coated,IR,wet granulation fluid-bed,0.5 mg,antiviral,hydrate,1,potent / cytotoxic
+F0315,4,letermovir,film-coated,IR,direct compression,240 mg,antiviral,free base / neutral,1,none
+F0316,4,bazedoxifene acetate,film-coated,IR,direct compression,20 mg,bone,salt,1,geriatric
+F0317,4,celiprolol hydrochloride,film-coated,IR,wet granulation fluid-bed,200 mg,cardiovascular,salt,1,none
+F0318,4,chlorthalidone,uncoated,IR,foam granulation,25 mg,cardiovascular,free base / neutral,1,none
+F0319,4,cilnidipine,film-coated,IR,direct compression,10 mg,cardiovascular,free base / neutral,1,light
+F0320,4,eplerenone,film-coated,IR,direct compression,25 mg,cardiovascular,free base / neutral,1,none
+F0321,4,fenofibric acid,uncoated,IR,roller compaction,105 mg,cardiovascular,free acid,1,none
+F0322,4,irbesartan,uncoated,IR,roller compaction,150 mg,cardiovascular,free base / neutral,1,none
+F0323,4,manidipine hydrochloride + delapril hydrochloride,film-coated,IR,roller compaction,10 mg + 30 mg,cardiovascular,salt,2,light
+F0324,4,molsidomine,uncoated,ER hydrophilic matrix,direct compression,8 mg,cardiovascular,free base / neutral,1,light
+F0325,4,moxonidine,film-coated,IR,wet granulation fluid-bed,0.2 mg,cardiovascular,free base / neutral,1,none
+F0326,4,nisoldipine,film-coated,press-coated,wet granulation fluid-bed,17 mg,cardiovascular,free base / neutral,1,light
+F0327,4,pentoxifylline,film-coated,ER hydrophilic matrix,wet granulation high-shear,400 mg,cardiovascular,free base / neutral,1,geriatric
+F0328,4,quinidine sulfate,uncoated,IR,wet granulation high-shear,200 mg,cardiovascular,"salt, 2 drug molecules per salt unit",1,narrow therapeutic index
+F0329,4,ramipril + felodipine,film-coated,bilayer,direct compression,5 mg + 5 mg,cardiovascular,free base / neutral,2,light; moisture; incompatible APIs
+F0330,4,treprostinil diolamine,film-coated,osmotic,direct compression,1 mg,cardiovascular,salt,1,none
+F0331,4,vorapaxar sulfate,film-coated,IR,wet granulation fluid-bed,2.08 mg,cardiovascular,salt,1,none
+F0332,4,sarecycline hydrochloride,film-coated,IR,wet granulation high-shear,100 mg,dermatology,salt,1,none
+F0333,4,glipizide,uncoated,IR,MADG,5 mg,diabetes / metabolic,free base / neutral,1,none
+F0334,4,naltrexone hydrochloride + bupropion hydrochloride,film-coated,trilayer,direct compression,8 mg + 90 mg,diabetes / metabolic,salt,2,none
+F0335,4,nateglinide,film-coated,IR,wet granulation fluid-bed,120 mg,diabetes / metabolic,free acid,1,none
+F0336,4,carbimazole,film-coated,IR,direct compression,5 mg,endocrine / hormones,ester / prodrug,1,none
+F0337,4,hydrocortisone,scored / functional score,IR,wet granulation fluid-bed,10 mg,endocrine / hormones,free base / neutral,1,hormone
+F0338,4,prednisolone sodium phosphate,soluble,IR,slugging,5 mg,endocrine / hormones,salt,1,hormone
+F0339,4,dexlansoprazole,orodispersible (ODT),multiparticulate (MUPS),pellets compressed,30 mg,gastrointestinal / hepatic,free base / neutral,1,moisture
+F0340,4,famotidine,chewable,IR,direct compression,10 mg,gastrointestinal / hepatic,free base / neutral,1,none
+F0341,4,hyoscine butylbromide,sugar-coated,IR,wet granulation high-shear,10 mg,gastrointestinal / hepatic,salt,1,none
+F0342,4,magaldrate,chewable,IR,roller compaction,800 mg,gastrointestinal / hepatic,element / mineral,1,none
+F0343,4,mosapride citrate,film-coated,IR,roller compaction,5 mg,gastrointestinal / hepatic,salt,1,none
+F0344,4,tegoprazan,orodispersible (ODT),IR,direct compression,50 mg,gastrointestinal / hepatic,free base / neutral,1,none
+F0345,4,tenapanor hydrochloride,film-coated,IR,direct compression,50 mg,gastrointestinal / hepatic,salt,1,none
+F0346,4,tranexamic acid,film-coated,ER hydrophilic matrix,roller compaction,650 mg,haematology,free acid,1,none
+F0347,4,Bacopa monnieri herb dry extract,film-coated,IR,direct compression,300 mg,herbal / Ayurvedic / homeopathic,extract with marker,1,none
+F0348,4,Chitrakadi vati (Plumbago zeylanica + 11 ingredients),uncoated,IR,wet granulation fluid-bed,250 mg,herbal / Ayurvedic / homeopathic,extract with marker,1,none
+F0349,4,Kanchnar guggulu (Bauhinia variegata + 10 ingredients),film-coated,IR,wet granulation high-shear,250 mg,herbal / Ayurvedic / homeopathic,extract with marker,11,none
+F0350,4,Lavangadi vati (Syzygium aromaticum + 3 ingredients),lozenge,IR,moulding,125 mg,herbal / Ayurvedic / homeopathic,extract with marker,4,none
+F0351,4,Tinospora cordifolia stem aqueous extract (ghan vati),uncoated,IR,roller compaction,500 mg,herbal / Ayurvedic / homeopathic,extract with marker,1,none
+F0352,4,Vertigoheel (Anamirta cocculus D4 + 3 homeopathic ingredients),uncoated,IR,direct compression,300 mg tablet; triturations D4-D8,herbal / Ayurvedic / homeopathic,extract with marker,4,geriatric
+F0353,4,Yogaraj guggulu (Commiphora wightii + 27 herbs),sugar-coated,IR,wet granulation high-shear,250 mg,herbal / Ayurvedic / homeopathic,extract with marker,1,geriatric
+F0354,4,filgotinib maleate,film-coated,IR,wet granulation high-shear,200 mg,immunology / rheumatology,salt,1,potent / cytotoxic
+F0355,4,betahistine dihydrochloride,uncoated,IR,direct compression,16 mg,neurology,salt,1,moisture
+F0356,4,clonazepam,scored / functional score,IR,direct compression,0.5 mg,neurology,free base / neutral,1,controlled substance
+F0357,4,gabapentin,film-coated,gastroretentive,wet granulation high-shear,600 mg,neurology,free base / neutral,1,none
+F0358,4,lamotrigine,uncoated,IR,3D printing,25 mg,neurology,free base / neutral,1,paediatric
+F0359,4,rizatriptan benzoate,uncoated,IR,direct compression,10 mg,neurology,salt,1,none
+F0360,4,sodium valproate,film-coated,enteric / DR,direct compression,200 mg,neurology,salt,1,moisture
+F0361,4,tetrabenazine,scored / functional score,IR,wet granulation high-shear,25 mg,neurology,free base / neutral,1,none
+F0362,4,vigabatrin,film-coated,IR,wet granulation high-shear,500 mg,neurology,free base / neutral,1,none
+F0363,4,belzutifan,film-coated,IR,wet granulation fluid-bed,40 mg,oncology,free base / neutral,1,potent / cytotoxic
+F0364,4,brigatinib,film-coated,IR,wet granulation high-shear,90 mg,oncology,free base / neutral,1,potent / cytotoxic
+F0365,4,enzalutamide,film-coated,IR,spray drying,40 mg,oncology,amorphous dispersion,1,potent / cytotoxic; hormone
+F0366,4,glasdegib maleate,film-coated,IR,continuous line,100 mg,oncology,salt,1,potent / cytotoxic
+F0367,4,lapatinib ditosylate monohydrate,film-coated,IR,wet granulation high-shear,250 mg,oncology,salt,1,potent / cytotoxic
+F0368,4,mercaptopurine monohydrate,scored / functional score,IR,wet granulation single-pot,50 mg,oncology,hydrate,1,potent / cytotoxic
+F0369,4,ripretinib,uncoated,IR,roller compaction,50 mg,oncology,free base / neutral,1,potent / cytotoxic
+F0370,4,chlorzoxazone,uncoated,IR,steam granulation,500 mg,pain / musculoskeletal,free base / neutral,1,none
+F0371,4,diclofenac,dispersible,IR,wet granulation high-shear,46.5 mg,pain / musculoskeletal,free acid,1,none
+F0372,4,glucosamine sulfate potassium chloride + chondroitin sulfate sodium,film-coated,IR,wet granulation high-shear,500 mg + 400 mg,pain / musculoskeletal,salt,2,none
+F0373,4,indometacin,uncoated,IR,direct compression,25 mg,pain / musculoskeletal,cocrystal / complex,1,none
+F0374,4,milnacipran hydrochloride,film-coated,IR,wet granulation high-shear,50 mg,pain / musculoskeletal,salt,1,none
+F0375,4,tolperisone hydrochloride,film-coated,IR,direct compression,150 mg,pain / musculoskeletal,salt,1,none
+F0376,4,tramadol hydrochloride,effervescent,IR,wet granulation solvent,50 mg,pain / musculoskeletal,salt,1,controlled substance
+F0377,4,asenapine maleate,sublingual,IR,freeze-drying,5 mg,psychiatry,salt,1,none
+F0378,4,brexpiprazole,film-coated,IR,wet granulation fluid-bed,2 mg,psychiatry,free base / neutral,1,none
+F0379,4,clozapine,orodispersible (ODT),IR,direct compression,25 mg,psychiatry,free base / neutral,1,narrow therapeutic index
+F0380,4,dexmethylphenidate hydrochloride,uncoated,IR,wet granulation fluid-bed,5 mg,psychiatry,salt,1,controlled substance
+F0381,4,etizolam,film-coated,IR,wet granulation fluid-bed,0.5 mg,psychiatry,free base / neutral,1,controlled substance
+F0382,4,guanfacine hydrochloride,uncoated,ER hydrophilic matrix,direct compression,1 mg,psychiatry,salt,1,paediatric
+F0383,4,lemborexant,film-coated,IR,wet granulation fluid-bed,5 mg,psychiatry,free base / neutral,1,controlled substance
+F0384,4,ramelteon,printed / polished,IR,wet granulation high-shear,8 mg,psychiatry,free base / neutral,1,none
+F0385,4,deflazacort,uncoated,IR,roller compaction,6 mg,rare disease,ester / prodrug,1,paediatric
+F0386,4,trientine tetrahydrochloride,film-coated,IR,direct compression,150 mg,rare disease,salt,1,moisture
+F0387,4,tolvaptan,uncoated,IR,wet granulation fluid-bed,15 mg,renal / electrolytes,free base / neutral,1,none
+F0388,4,acetylcysteine,effervescent,IR,wet granulation solvent,600 mg,respiratory / allergy,free acid,1,oxygen
+F0389,4,bilastine,orodispersible (ODT),IR,direct compression,10 mg,respiratory / allergy,free base / neutral,1,paediatric
+F0390,4,clemastine fumarate,uncoated,IR,wet granulation fluid-bed,1 mg,respiratory / allergy,salt,1,none
+F0391,4,fexofenadine hydrochloride + pseudoephedrine hydrochloride,film-coated,IR + ER,wet granulation fluid-bed,60 mg + 120 mg,respiratory / allergy,salt,2,controlled substance
+F0392,4,pyrazinamide,uncoated,IR,roller compaction,500 mg,tuberculosis,free base / neutral,1,none
+F0393,4,potassium citrate,uncoated,ER hydrophobic matrix,melt granulation,1080 mg,urology,element / mineral,1,moisture
+F0394,4,solifenacin succinate,film-coated,IR,wet granulation high-shear,5 mg,urology,salt,1,geriatric
+F0395,4,vardenafil hydrochloride trihydrate,film-coated,IR,wet granulation fluid-bed,10 mg,urology,salt,1,none
+F0396,4,biotin,uncoated,IR,direct compression,10 mg,vitamins / minerals,free acid,1,none
+F0397,4,calcium citrate malate,film-coated,IR,roller compaction,1250 mg,vitamins / minerals,element / mineral,1,none
+F0398,4,cholecalciferol,film-coated,IR,direct compression,25 µg,vitamins / minerals,IU / CFU / activity potency,1,light; oxygen
+F0399,4,elagolix sodium,film-coated,IR,wet granulation fluid-bed,150 mg,women's health,salt,1,hormone
+F0400,4,levonorgestrel + ethinylestradiol,sugar-coated,IR,wet granulation high-shear,150 µg + 30 µg,women's health,free base / neutral,2,hormone
+F0401,5,raltegravir potassium,film-coated,IR,roller compaction,400 mg,HIV,salt,1,none
+F0402,5,raltegravir potassium,chewable,IR,direct compression,100 mg,HIV,salt,1,paediatric
+F0403,5,benzydamine hydrochloride,lozenge,IR,moulding,3 mg,OTC (throat / cough / antacid),salt,1,none
+F0404,5,amoxicillin trihydrate,film-coated,IR,wet granulation solvent,1000 mg,antibacterial,hydrate,1,beta-lactam
+F0405,5,cefetamet pivoxil hydrochloride,film-coated,IR,roller compaction,500 mg,antibacterial,ester / prodrug,1,beta-lactam
+F0406,5,dapsone,uncoated,IR,wet granulation high-shear,100 mg,antibacterial,free base / neutral,1,none
+F0407,5,erythromycin,film-coated,enteric / DR,wet granulation high-shear,333 mg,antibacterial,free base / neutral,1,none
+F0408,5,sulfadiazine,uncoated,IR,wet granulation fluid-bed,500 mg,antibacterial,free acid,1,none
+F0409,5,ibrexafungerp citrate,film-coated,IR,roller compaction,150 mg,antifungal,salt,1,none
+F0410,5,artesunate + mefloquine hydrochloride,film-coated,IR,wet granulation fluid-bed,100 mg + 220 mg,antiparasitic / antimalarial,ester / prodrug,2,none
+F0411,5,diethylcarbamazine citrate,uncoated,IR,direct compression,100 mg,antiparasitic / antimalarial,salt,1,none
+F0412,5,ornidazole,film-coated,IR,wet granulation high-shear,500 mg,antiparasitic / antimalarial,free base / neutral,1,none
+F0413,5,ensitrelvir fumaric acid,film-coated,IR,wet granulation fluid-bed,125 mg,antiviral,cocrystal / complex,1,none
+F0414,5,clodronate disodium,film-coated,IR,roller compaction,800 mg,bone,salt,1,none
+F0415,5,bempedoic acid + ezetimibe,film-coated,IR,wet granulation high-shear,180 mg + 10 mg,cardiovascular,free acid,2,none
+F0416,5,benazepril hydrochloride,film-coated,IR,wet granulation fluid-bed,10 mg,cardiovascular,salt,1,none
+F0417,5,bosentan,film-coated,IR,wet granulation fluid-bed,62.5 mg,cardiovascular,hydrate,1,potent / cytotoxic
+F0418,5,cilostazol,uncoated,IR,wet granulation high-shear,100 mg,cardiovascular,free base / neutral,1,none
+F0419,5,dipyridamole,sugar-coated,IR,wet granulation high-shear,75 mg,cardiovascular,free base / neutral,1,none
+F0420,5,fosinopril sodium,uncoated,IR,roller compaction,10 mg,cardiovascular,salt,1,moisture
+F0421,5,furosemide,uncoated,IR,3D printing,10 mg,cardiovascular,free acid,1,light; paediatric
+F0422,5,glyceryl trinitrate,buccal,ER hydrophilic matrix,direct compression,3 mg,cardiovascular,free base / neutral,1,none
+F0423,5,labetalol hydrochloride,film-coated,IR,foam granulation,200 mg,cardiovascular,salt,1,none
+F0424,5,lisinopril dihydrate,uncoated,IR,MADG,10 mg,cardiovascular,hydrate,1,none
+F0425,5,pemafibrate,film-coated,IR,wet granulation fluid-bed,0.1 mg,cardiovascular,free base / neutral,1,none
+F0426,5,pindolol,uncoated,IR,steam granulation,5 mg,cardiovascular,free base / neutral,1,none
+F0427,5,ticagrelor,film-coated,IR,direct compression,90 mg,cardiovascular,free base / neutral,1,none
+F0428,5,trimetazidine dihydrochloride,film-coated,IR,wet granulation fluid-bed,20 mg,cardiovascular,salt,1,geriatric
+F0429,5,ubidecarenone,film-coated,IR,wet granulation fluid-bed,10 mg,cardiovascular,free base / neutral,1,light; oxygen
+F0430,5,bromocriptine mesylate,scored / functional score,IR,wet granulation fluid-bed,2.5 mg,diabetes / metabolic,salt,1,light
+F0431,5,luseogliflozin hydrate,film-coated,IR,wet granulation fluid-bed,2.5 mg,diabetes / metabolic,hydrate,1,none
+F0432,5,miglitol,uncoated,IR,direct compression,50 mg,diabetes / metabolic,free base / neutral,1,none
+F0433,5,vildagliptin,uncoated,IR,direct compression,50 mg,diabetes / metabolic,free base / neutral,1,moisture
+F0434,5,desmopressin acetate,uncoated,IR,wet granulation fluid-bed,0.2 mg,endocrine / hormones,peptide,1,moisture
+F0435,5,thyroid (desiccated porcine),uncoated,IR,direct compression,60 mg,endocrine / hormones,IU / CFU / activity potency,1,narrow therapeutic index
+F0436,5,activated charcoal,uncoated,IR,wet granulation high-shear,250 mg,gastrointestinal / hepatic,element / mineral,1,none
+F0437,5,budesonide,film-coated,colon-targeted,wet granulation high-shear,9 mg,gastrointestinal / hepatic,free base / neutral,1,hormone
+F0438,5,doxylamine succinate + pyridoxine hydrochloride,film-coated,IR + ER,drug layering,20 mg + 20 mg,gastrointestinal / hepatic,salt,2,none
+F0439,5,lafutidine,uncoated,IR,wet granulation fluid-bed,10 mg,gastrointestinal / hepatic,free base / neutral,1,none
+F0440,5,loperamide hydrochloride + simeticone,chewable,IR,wet granulation fluid-bed,2 mg + 125 mg,gastrointestinal / hepatic,salt,2,none
+F0441,5,pinaverium bromide,film-coated,IR,wet granulation fluid-bed,100 mg,gastrointestinal / hepatic,salt,1,none
+F0442,5,vonoprazan fumarate,orodispersible (ODT),IR,direct compression,10 mg,gastrointestinal / hepatic,salt,1,none
+F0443,5,avatrombopag maleate,film-coated,IR,direct compression,20 mg,haematology,salt,1,none
+F0444,5,Centaurium erythraea herb + Levisticum officinale root + Rosmarinus officinalis leaf,sugar-coated,IR,wet granulation high-shear,18 mg + 18 mg + 18 mg,herbal / Ayurvedic / homeopathic,extract with marker,3,none
+F0445,5,Ferrum phosphoricum D12 trituration,uncoated,IR,direct compression,0.00025 ng (D12 in a 250 mg tablet),herbal / Ayurvedic / homeopathic,element / mineral,1,none
+F0446,5,Gasex (Terminalia chebula + 8 ingredients),uncoated,IR,wet granulation fluid-bed,200 mg,herbal / Ayurvedic / homeopathic,extract with marker,9,none
+F0447,5,gentian root + Primula veris flower + Rumex herb + Sambucus flower + Verbena herb,sugar-coated,IR,wet granulation high-shear,6 mg + 18 mg + 18 mg + 18 mg + 18 mg,herbal / Ayurvedic / homeopathic,extract with marker,5,none
+F0448,5,Gymnema sylvestre leaf dry extract,film-coated,IR,roller compaction,400 mg,herbal / Ayurvedic / homeopathic,extract with marker,1,none
+F0449,5,Hypericum perforatum herb dry extract,film-coated,IR,roller compaction,300 mg,herbal / Ayurvedic / homeopathic,extract with marker,1,light
+F0450,5,Rhodiola rosea root dry extract,film-coated,IR,wet granulation fluid-bed,200 mg,herbal / Ayurvedic / homeopathic,extract with marker,1,none
+F0451,5,iguratimod,film-coated,IR,wet granulation high-shear,25 mg,immunology / rheumatology,free base / neutral,1,none
+F0452,5,sulfasalazine,film-coated,enteric / DR,wet granulation fluid-bed,500 mg,immunology / rheumatology,free acid,1,none
+F0453,5,deutetrabenazine,film-coated,IR,wet granulation fluid-bed,12 mg,neurology,free base / neutral,1,none
+F0454,5,fingolimod hydrochloride,orodispersible (ODT),IR,direct compression,0.25 mg,neurology,salt,1,potent / cytotoxic; paediatric
+F0455,5,levodopa + carbidopa,mini-tablet,IR,direct compression,5 mg + 1.25 mg,neurology,free base / neutral,2,geriatric
+F0456,5,primidone,scored / functional score,IR,wet granulation fluid-bed,250 mg,neurology,free base / neutral,1,none
+F0457,5,pyridostigmine bromide,sugar-coated,IR,wet granulation high-shear,60 mg,neurology,salt,1,moisture
+F0458,5,selegiline hydrochloride,uncoated,IR,roller compaction,5 mg,neurology,salt,1,geriatric
+F0459,5,siponimod fumaric acid,film-coated,IR,wet granulation fluid-bed,2 mg,neurology,"salt, 2 drug molecules per salt unit",1,potent / cytotoxic
+F0460,5,teriflunomide,film-coated,IR,direct compression,14 mg,neurology,free base / neutral,1,potent / cytotoxic
+F0461,5,tiagabine hydrochloride,film-coated,IR,direct compression,5 mg,neurology,salt,1,none
+F0462,5,abemaciclib,film-coated,IR,continuous line,150 mg,oncology,free base / neutral,1,potent / cytotoxic
+F0463,5,chlorambucil,film-coated,IR,wet granulation fluid-bed,2 mg,oncology,free base / neutral,1,potent / cytotoxic
+F0464,5,megestrol acetate,uncoated,IR,wet granulation single-pot,160 mg,oncology,ester / prodrug,1,hormone
+F0465,5,olaparib,film-coated,IR,hot-melt extrusion,150 mg,oncology,amorphous dispersion,1,potent / cytotoxic
+F0466,5,pirtobrutinib,film-coated,IR,spray drying,100 mg,oncology,amorphous dispersion,1,potent / cytotoxic
+F0467,5,ponatinib hydrochloride,film-coated,IR,wet granulation high-shear,45 mg,oncology,salt,1,potent / cytotoxic
+F0468,5,sorafenib tosylate,film-coated,IR,direct compression,200 mg,oncology,salt,1,potent / cytotoxic
+F0469,5,methazolamide,uncoated,IR,wet granulation fluid-bed,50 mg,ophthalmology,free base / neutral,1,none
+F0470,5,aceclofenac + thiocolchicoside,film-coated,bilayer,direct compression,100 mg + 4 mg,pain / musculoskeletal,free acid,2,incompatible APIs
+F0471,5,hydromorphone hydrochloride,film-coated,osmotic,wet granulation high-shear,8 mg,pain / musculoskeletal,salt,1,controlled substance
+F0472,5,morphine sulfate pentahydrate,film-coated,ER hydrophobic matrix,melt granulation,30 mg,pain / musculoskeletal,"salt, 2 drug molecules per salt unit",1,controlled substance
+F0473,5,nefopam hydrochloride,film-coated,IR,roller compaction,30 mg,pain / musculoskeletal,salt,1,none
+F0474,5,nimesulide,dispersible,IR,direct compression,100 mg,pain / musculoskeletal,free base / neutral,1,none
+F0475,5,tramadol hydrochloride + dexketoprofen trometamol,film-coated,IR,direct compression,75 mg + 25 mg,pain / musculoskeletal,salt,2,controlled substance
+F0476,5,amfetamine sulfate,orodispersible (ODT),IR,direct compression,5 mg,psychiatry,"salt, 2 drug molecules per salt unit",1,controlled substance
+F0477,5,clozapine,scored / functional score,IR,roller compaction,100 mg,psychiatry,free base / neutral,1,narrow therapeutic index
+F0478,5,desvenlafaxine succinate,film-coated,ER hydrophilic matrix,direct compression,50 mg,psychiatry,salt,1,none
+F0479,5,diazepam,scored / functional score,IR,roller compaction,5 mg,psychiatry,free base / neutral,1,controlled substance
+F0480,5,mirtazapine,orodispersible (ODT),IR,pellets compressed,15 mg,psychiatry,free base / neutral,1,none
+F0481,5,naltrexone hydrochloride,film-coated,IR,wet granulation high-shear,50 mg,psychiatry,salt,1,none
+F0482,5,pimavanserin tartrate,film-coated,IR,wet granulation high-shear,10 mg,psychiatry,salt,1,geriatric
+F0483,5,vortioxetine hydrobromide,film-coated,IR,direct compression,10 mg,psychiatry,salt,1,none
+F0484,5,zopiclone,film-coated,IR,direct compression,7.5 mg,psychiatry,free base / neutral,1,controlled substance
+F0485,5,mitapivat sulfate,film-coated,IR,direct compression,50 mg,rare disease,salt,1,none
+F0486,5,sapropterin dihydrochloride,soluble,IR,direct compression,100 mg,rare disease,salt,1,moisture; oxygen; light
+F0487,5,potassium chloride + potassium bicarbonate,effervescent,IR,wet granulation solvent,600 mg + 400 mg,renal / electrolytes,element / mineral,2,moisture
+F0488,5,Dermatophagoides house dust mite allergen extract,sublingual,IR,freeze-drying,12 SQ-HDM,respiratory / allergy,IU / CFU / activity potency,1,moisture
+F0489,5,doxofylline,uncoated,ER hydrophilic matrix,roller compaction,650 mg,respiratory / allergy,free base / neutral,1,none
+F0490,5,loratadine,uncoated,IR,roller compaction,10 mg,respiratory / allergy,free base / neutral,1,none
+F0491,5,phenylephrine hydrochloride,printed / polished,IR,direct compression,10 mg,respiratory / allergy,salt,1,none
+F0492,5,pirfenidone,film-coated,IR,wet granulation high-shear,267 mg,respiratory / allergy,free base / neutral,1,none
+F0493,5,ethionamide,dispersible,IR,wet granulation high-shear,125 mg,tuberculosis,free base / neutral,1,paediatric
+F0494,5,mirabegron,film-coated,ER hydrophilic matrix,direct compression,50 mg,urology,free base / neutral,1,geriatric
+F0495,5,tamsulosin hydrochloride,film-coated,ER hydrophilic matrix,wet granulation high-shear,0.4 mg,urology,salt,1,geriatric
+F0496,5,cyanocobalamin,film-coated,IR,direct compression,1000 µg,vitamins / minerals,free base / neutral,1,light
+F0497,5,nicotinamide,uncoated,IR,slugging,500 mg,vitamins / minerals,free base / neutral,1,none
+F0498,5,selenium (as L-selenomethionine),uncoated,IR,direct compression,100 µg,vitamins / minerals,element / mineral,1,none
+F0499,5,nomegestrol acetate,uncoated,IR,wet granulation fluid-bed,5 mg,women's health,ester / prodrug,1,hormone
+F0500,5,tibolone,uncoated,IR,direct compression,2.5 mg,women's health,free base / neutral,1,hormone
+F0501,6,doravirine,film-coated,IR,spray drying,100 mg,HIV,amorphous dispersion,1,none
+F0502,6,nevirapine,uncoated,ER hydrophilic matrix,roller compaction,400 mg,HIV,free base / neutral,1,none
+F0503,6,amylmetacresol + dichlorobenzyl alcohol,lozenge,IR,moulding,0.6 mg + 1.2 mg,OTC (throat / cough / antacid),free base / neutral,2,none
+F0504,6,cefaclor monohydrate,film-coated,ER hydrophilic matrix,direct compression,375 mg,antibacterial,hydrate,1,beta-lactam
+F0505,6,cefprozil monohydrate,film-coated,IR,wet granulation solvent,500 mg,antibacterial,hydrate,1,beta-lactam
+F0506,6,cefteram pivoxil,film-coated,IR,roller compaction,100 mg,antibacterial,ester / prodrug,1,beta-lactam
+F0507,6,doxycycline hyclate,dispersible,IR,direct compression,100 mg,antibacterial,salt,1,light
+F0508,6,omadacycline tosylate,film-coated,IR,roller compaction,150 mg,antibacterial,salt,1,none
+F0509,6,griseofulvin,film-coated,IR,melt granulation,250 mg,antifungal,free base / neutral,1,none
+F0510,6,benznidazole,scored / functional score,IR,wet granulation high-shear,100 mg,antiparasitic / antimalarial,free base / neutral,1,paediatric
+F0511,6,pyrimethamine,uncoated,IR,roller compaction,25 mg,antiparasitic / antimalarial,free base / neutral,1,none
+F0512,6,triclabendazole,scored / functional score,IR,roller compaction,250 mg,antiparasitic / antimalarial,free base / neutral,1,none
+F0513,6,aciclovir,uncoated,IR,wet granulation fluid-bed,800 mg,antiviral,free base / neutral,1,none
+F0514,6,valganciclovir hydrochloride,film-coated,IR,roller compaction,450 mg,antiviral,ester / prodrug,1,potent / cytotoxic
+F0515,6,raloxifene hydrochloride,printed / polished,IR,wet granulation fluid-bed,60 mg,bone,salt,1,geriatric
+F0516,6,aspirin + clopidogrel bisulfate,film-coated,bilayer,slugging,75 mg + 75 mg,cardiovascular,free acid,2,moisture; incompatible APIs
+F0517,6,bendroflumethiazide + potassium chloride,film-coated,IR + ER,roller compaction,2.5 mg + 630 mg,cardiovascular,free base / neutral,2,incompatible APIs
+F0518,6,beraprost sodium,film-coated,ER hydrophilic matrix,wet granulation fluid-bed,60 µg,cardiovascular,salt,1,none
+F0519,6,candesartan cilexetil,uncoated,IR,wet granulation fluid-bed,8 mg,cardiovascular,ester / prodrug,1,none
+F0520,6,doxazosin mesylate,film-coated,osmotic,direct compression,4 mg,cardiovascular,salt,1,geriatric
+F0521,6,eprosartan mesylate,film-coated,IR,wet granulation fluid-bed,600 mg,cardiovascular,salt,1,none
+F0522,6,fluvastatin sodium,film-coated,ER hydrophilic matrix,direct compression,80 mg,cardiovascular,salt,1,moisture; light
+F0523,6,hydralazine hydrochloride,sugar-coated,IR,wet granulation high-shear,25 mg,cardiovascular,salt,1,none
+F0524,6,lovastatin,uncoated,IR,wet granulation high-shear,20 mg,cardiovascular,free base / neutral,1,oxygen
+F0525,6,manidipine hydrochloride,uncoated,IR,wet granulation fluid-bed,20 mg,cardiovascular,salt,1,light
+F0526,6,prasugrel hydrochloride,film-coated,IR,roller compaction,10 mg,cardiovascular,salt,1,none
+F0527,6,selexipag,film-coated,IR,wet granulation fluid-bed,200 µg,cardiovascular,free base / neutral,1,none
+F0528,6,spironolactone,film-coated,IR,wet granulation fluid-bed,25 mg,cardiovascular,free base / neutral,1,none
+F0529,6,verapamil hydrochloride,film-coated,ER hydrophobic matrix,hot-melt extrusion,240 mg,cardiovascular,salt,1,none
+F0530,6,bexagliflozin,film-coated,IR,roller compaction,20 mg,diabetes / metabolic,free base / neutral,1,none
+F0531,6,mitiglinide calcium hydrate + voglibose,orodispersible (ODT),IR,direct compression,10 mg + 0.2 mg,diabetes / metabolic,"salt, 2 drug molecules per salt unit",2,none
+F0532,6,pioglitazone hydrochloride,orodispersible (ODT),IR,direct compression,15 mg,diabetes / metabolic,salt,1,none
+F0533,6,teneligliptin hydrobromide hydrate,film-coated,IR,wet granulation fluid-bed,20 mg,diabetes / metabolic,salt,1,none
+F0534,6,methyltestosterone,uncoated,IR,wet granulation single-pot,10 mg,endocrine / hormones,free base / neutral,1,hormone; controlled substance
+F0535,6,propylthiouracil,uncoated,IR,MADG,50 mg,endocrine / hormones,free base / neutral,1,none
+F0536,6,balsalazide disodium,film-coated,IR,wet granulation high-shear,1.1 g,gastrointestinal / hepatic,salt,1,none
+F0537,6,beclometasone dipropionate,film-coated,colon-targeted,wet granulation fluid-bed,5 mg,gastrointestinal / hepatic,ester / prodrug,1,hormone
+F0538,6,dicycloverine hydrochloride,uncoated,IR,wet granulation high-shear,20 mg,gastrointestinal / hepatic,salt,1,none
+F0539,6,dimenhydrinate,chewable,IR,direct compression,50 mg,gastrointestinal / hepatic,salt,1,paediatric
+F0540,6,drotaverine hydrochloride,uncoated,IR,direct compression,80 mg,gastrointestinal / hepatic,salt,1,none
+F0541,6,plecanatide,uncoated,IR,direct compression,3 mg,gastrointestinal / hepatic,peptide,1,moisture
+F0542,6,tripotassium dicitratobismuthate,film-coated,IR,direct compression,120 mg,gastrointestinal / hepatic,element / mineral,1,none
+F0543,6,deferasirox,film-coated,IR,wet granulation fluid-bed,360 mg,haematology,free acid,1,none
+F0544,6,Agnitundi vati (Strychnos nux-vomica + 12 ingredients),uncoated,IR,moulding,125 mg,herbal / Ayurvedic / homeopathic,extract with marker,13,potent / cytotoxic
+F0545,6,Andrographis paniculata herb dry extract + Eleutherococcus senticosus root dry extract,film-coated,IR,wet granulation high-shear,85 mg + 9.7 mg,herbal / Ayurvedic / homeopathic,extract with marker,2,none
+F0546,6,Cimicifuga racemosa rhizome dry extract,uncoated,IR,direct compression,2.5 mg,herbal / Ayurvedic / homeopathic,extract with marker,1,none
+F0547,6,Diabecon (Gymnema sylvestre + 20 ingredients),uncoated,IR,wet granulation high-shear,200 mg,herbal / Ayurvedic / homeopathic,extract with marker,21,none
+F0548,6,Hedera helix leaf dry extract,lozenge,IR,direct compression,26 mg,herbal / Ayurvedic / homeopathic,extract with marker,1,none
+F0549,6,Neurexan (Passiflora incarnata D2 + 3 homeopathic ingredients),uncoated,IR,direct compression,60 mg trituration each,herbal / Ayurvedic / homeopathic,extract with marker,4,none
+F0550,6,belumosudil mesylate,film-coated,IR,roller compaction,200 mg,immunology / rheumatology,salt,1,none
+F0551,6,sirolimus,sugar-coated,IR,wet granulation high-shear,1 mg,immunology / rheumatology,free base / neutral,1,potent / cytotoxic; narrow therapeutic index
+F0552,6,almotriptan malate,film-coated,IR,direct compression,12.5 mg,neurology,salt,1,none
+F0553,6,alpha-lipoic acid,film-coated,IR,roller compaction,600 mg,neurology,free acid,1,light
+F0554,6,armodafinil,uncoated,IR,direct compression,150 mg,neurology,free base / neutral,1,controlled substance
+F0555,6,baclofen,uncoated,IR,direct compression,10 mg,neurology,free base / neutral,1,none
+F0556,6,cladribine,uncoated,IR,direct compression,10 mg,neurology,cyclodextrin complex,1,potent / cytotoxic
+F0557,6,eslicarbazepine acetate,uncoated,IR,roller compaction,800 mg,neurology,ester / prodrug,1,none
+F0558,6,naratriptan hydrochloride,film-coated,IR,wet granulation fluid-bed,2.5 mg,neurology,salt,1,none
+F0559,6,phenobarbital,scored / functional score,IR,wet granulation high-shear,30 mg,neurology,free acid,1,controlled substance; narrow therapeutic index
+F0560,6,safinamide mesilate,film-coated,IR,wet granulation high-shear,50 mg,neurology,salt,1,geriatric
+F0561,6,axitinib,film-coated,IR,wet granulation fluid-bed,5 mg,oncology,free base / neutral,1,potent / cytotoxic
+F0562,6,ceritinib,film-coated,IR,wet granulation fluid-bed,150 mg,oncology,free base / neutral,1,potent / cytotoxic
+F0563,6,dasatinib monohydrate,film-coated,IR,wet granulation high-shear,100 mg,oncology,hydrate,1,potent / cytotoxic
+F0564,6,decitabine + cedazuridine,film-coated,IR,direct compression,35 mg + 100 mg,oncology,free base / neutral,2,potent / cytotoxic
+F0565,6,idelalisib,film-coated,IR,direct compression,150 mg,oncology,free base / neutral,1,potent / cytotoxic
+F0566,6,mesna,film-coated,IR,wet granulation high-shear,400 mg,oncology,salt,1,none
+F0567,6,toremifene citrate,uncoated,IR,wet granulation single-pot,60 mg,oncology,salt,1,hormone
+F0568,6,acetazolamide,uncoated,IR,direct compression,250 mg,ophthalmology,free base / neutral,1,none
+F0569,6,dexibuprofen,film-coated,IR,roller compaction,400 mg,pain / musculoskeletal,free acid,1,none
+F0570,6,eperisone hydrochloride,sugar-coated,IR,wet granulation high-shear,50 mg,pain / musculoskeletal,salt,1,none
+F0571,6,fentanyl citrate,buccal,IR,direct compression,100 µg,pain / musculoskeletal,salt,1,controlled substance
+F0572,6,hydromorphone hydrochloride,uncoated,IR,wet granulation fluid-bed,2 mg,pain / musculoskeletal,salt,1,controlled substance
+F0573,6,ketorolac tromethamine,sublingual,IR,direct compression,10 mg,pain / musculoskeletal,salt,1,none
+F0574,6,nabumetone,film-coated,IR,steam granulation,500 mg,pain / musculoskeletal,free base / neutral,1,none
+F0575,6,naproxen sodium,film-coated,multiparticulate (MUPS),pellets compressed,500 mg,pain / musculoskeletal,salt,1,none
+F0576,6,buspirone hydrochloride,scored / functional score,IR,direct compression,10 mg,psychiatry,salt,1,none
+F0577,6,flupentixol dihydrochloride + melitracen hydrochloride,sugar-coated,IR,wet granulation high-shear,0.5 mg + 10 mg,psychiatry,salt,2,light
+F0578,6,melatonin,uncoated,ER hydrophilic matrix,wet granulation fluid-bed,2 mg,psychiatry,free base / neutral,1,geriatric
+F0579,6,midazolam maleate,film-coated,IR,wet granulation fluid-bed,7.5 mg,psychiatry,salt,1,controlled substance
+F0580,6,moclobemide,film-coated,IR,foam granulation,150 mg,psychiatry,free base / neutral,1,none
+F0581,6,nitrazepam,scored / functional score,IR,wet granulation high-shear,5 mg,psychiatry,free base / neutral,1,controlled substance
+F0582,6,olanzapine,film-coated,IR,wet granulation high-shear,10 mg,psychiatry,free base / neutral,1,light
+F0583,6,varenicline tartrate,film-coated,IR,direct compression,1 mg,psychiatry,salt,1,none
+F0584,6,elexacaftor + tezacaftor + ivacaftor,film-coated,IR,continuous line,100 mg + 50 mg + 75 mg,rare disease,amorphous dispersion,3,none
+F0585,6,osilodrostat phosphate,film-coated,IR,wet granulation fluid-bed,1 mg,rare disease,salt,1,none
+F0586,6,sparsentan,film-coated,IR,wet granulation fluid-bed,400 mg,renal / electrolytes,free base / neutral,1,potent / cytotoxic
+F0587,6,Ambrosia artemisiifolia short ragweed pollen allergen extract,sublingual,IR,freeze-drying,12 Amb a 1-U,respiratory / allergy,IU / CFU / activity potency,1,moisture
+F0588,6,doxofylline,uncoated,IR,wet granulation fluid-bed,400 mg,respiratory / allergy,free base / neutral,1,none
+F0589,6,roflumilast,film-coated,IR,wet granulation fluid-bed,500 µg,respiratory / allergy,free base / neutral,1,none
+F0590,6,salbutamol sulfate,uncoated,IR,direct compression,4 mg,respiratory / allergy,"salt, 2 drug molecules per salt unit",1,none
+F0591,6,terbutaline sulfate + bromhexine hydrochloride + guaifenesin,film-coated,IR,wet granulation high-shear,1.25 mg + 8 mg + 50 mg,respiratory / allergy,"salt, 2 drug molecules per salt unit",3,none
+F0592,6,levofloxacin hemihydrate,dispersible,IR,direct compression,100 mg,tuberculosis,hydrate,1,paediatric
+F0593,6,imidafenacin,film-coated,IR,wet granulation fluid-bed,0.1 mg,urology,free base / neutral,1,geriatric
+F0594,6,potassium citrate,effervescent,IR,wet granulation solvent,1080 mg,urology,element / mineral,1,moisture
+F0595,6,vardenafil hydrochloride trihydrate,orodispersible (ODT),IR,direct compression,10 mg,urology,salt,1,none
+F0596,6,cholecalciferol,orodispersible (ODT),IR,direct compression,1.5 mg,vitamins / minerals,IU / CFU / activity potency,1,light; oxygen
+F0597,6,iron(III) hydroxide polymaltose complex,chewable,IR,wet granulation high-shear,100 mg,vitamins / minerals,element / mineral,1,paediatric
+F0598,6,magnesium chloride hexahydrate,film-coated,enteric / DR,wet granulation fluid-bed,535 mg,vitamins / minerals,element / mineral,1,moisture
+F0599,6,desogestrel,film-coated,IR,wet granulation fluid-bed,75 µg,women's health,free base / neutral,1,hormone
+F0600,6,drospirenone,film-coated,IR,direct compression,4 mg,women's health,free base / neutral,1,hormone
+F0601,7,dolutegravir sodium,dispersible,IR,direct compression,5 mg,HIV,salt,1,paediatric
+F0602,7,maraviroc,film-coated,IR,wet granulation high-shear,150 mg,HIV,free base / neutral,1,none
+F0603,7,alpha-galactosidase,uncoated,IR,direct compression,300 GalU,OTC (throat / cough / antacid),IU / CFU / activity potency,1,moisture
+F0604,7,flurbiprofen,lozenge,IR,moulding,8.75 mg,OTC (throat / cough / antacid),free acid,1,none
+F0605,7,cefadroxil monohydrate,film-coated,IR,wet granulation solvent,1000 mg,antibacterial,hydrate,1,beta-lactam
+F0606,7,doxycycline hyclate,film-coated,enteric / DR,pellets compressed,100 mg,antibacterial,salt,1,light
+F0607,7,gepotidacin mesylate,film-coated,IR,roller compaction,750 mg,antibacterial,salt,1,none
+F0608,7,tebipenem pivoxil hydrobromide,film-coated,IR,roller compaction,300 mg,antibacterial,ester / prodrug,1,beta-lactam
+F0609,7,terbinafine hydrochloride,uncoated,IR,wet granulation fluid-bed,250 mg,antifungal,salt,1,none
+F0610,7,moxidectin,uncoated,IR,wet granulation fluid-bed,2 mg,antiparasitic / antimalarial,free base / neutral,1,none
+F0611,7,praziquantel,film-coated,IR,roller compaction,600 mg,antiparasitic / antimalarial,free base / neutral,1,none
+F0612,7,sulfadoxine + pyrimethamine,scored / functional score,IR,wet granulation high-shear,500 mg + 25 mg,antiparasitic / antimalarial,free acid,2,none
+F0613,7,aciclovir,buccal,IR,direct compression,50 mg,antiviral,free base / neutral,1,none
+F0614,7,ribavirin,film-coated,IR,direct compression,200 mg,antiviral,free base / neutral,1,potent / cytotoxic
+F0615,7,alfacalcidol,uncoated,IR,wet granulation solvent,0.25 µg,bone,free base / neutral,1,light; oxygen
+F0616,7,aliskiren hemifumarate + hydrochlorothiazide,film-coated,IR,wet granulation high-shear,150 mg + 12.5 mg,cardiovascular,"salt, 2 drug molecules per salt unit",2,moisture
+F0617,7,benidipine hydrochloride,film-coated,IR,wet granulation fluid-bed,4 mg,cardiovascular,salt,1,light
+F0618,7,carvedilol + ivabradine hydrochloride,film-coated,IR,direct compression,12.5 mg + 5 mg,cardiovascular,free base / neutral,2,none
+F0619,7,cilostazol,orodispersible (ODT),IR,direct compression,100 mg,cardiovascular,free base / neutral,1,none
+F0620,7,limaprost alfadex,uncoated,IR,direct compression,5 µg,cardiovascular,cyclodextrin complex,1,moisture
+F0621,7,methyldopa,film-coated,IR,direct compression,250 mg,cardiovascular,hydrate,1,oxygen
+F0622,7,nadolol,scored / functional score,IR,direct compression,40 mg,cardiovascular,free base / neutral,1,none
+F0623,7,olmesartan medoxomil + azelnidipine,film-coated,IR,wet granulation high-shear,20 mg + 16 mg,cardiovascular,ester / prodrug,2,light
+F0624,7,prazosin hydrochloride,uncoated,IR,wet granulation fluid-bed,1 mg,cardiovascular,salt,1,none
+F0625,7,riociguat,film-coated,IR,wet granulation fluid-bed,1 mg,cardiovascular,free base / neutral,1,none
+F0626,7,rosuvastatin calcium + fenofibrate,film-coated,bilayer,wet granulation high-shear,10 mg + 160 mg,cardiovascular,"salt, 2 drug molecules per salt unit",2,incompatible APIs
+F0627,7,torasemide,uncoated,ER hydrophilic matrix,wet granulation high-shear,10 mg,cardiovascular,free base / neutral,1,none
+F0628,7,trimetazidine dihydrochloride,film-coated,ER hydrophilic matrix,wet granulation high-shear,35 mg,cardiovascular,salt,1,geriatric
+F0629,7,empagliflozin + linagliptin,film-coated,IR,roller compaction,10 mg + 5 mg,diabetes / metabolic,free base / neutral,2,none
+F0630,7,gliclazide,scored / functional score,IR,wet granulation high-shear,80 mg,diabetes / metabolic,free base / neutral,1,none
+F0631,7,tolbutamide,uncoated,IR,steam granulation,500 mg,diabetes / metabolic,free acid,1,none
+F0632,7,cabergoline,uncoated,IR,direct compression,0.5 mg,endocrine / hormones,free base / neutral,1,moisture
+F0633,7,hydrocortisone,film-coated,IR + ER,drug layering,20 mg,endocrine / hormones,free base / neutral,1,hormone
+F0634,7,bisacodyl,sugar-coated,enteric / DR,wet granulation high-shear,5 mg,gastrointestinal / hepatic,free base / neutral,1,none
+F0635,7,Clostridium butyricum MIYAIRI 588,uncoated,IR,direct compression,20 mg,gastrointestinal / hepatic,IU / CFU / activity potency,1,moisture
+F0636,7,meclizine hydrochloride,chewable,IR,direct compression,25 mg,gastrointestinal / hepatic,salt,1,none
+F0637,7,naloxegol oxalate,film-coated,IR,wet granulation fluid-bed,25 mg,gastrointestinal / hepatic,salt,1,none
+F0638,7,rifamycin sodium,film-coated,colon-targeted,direct compression,200 mg,gastrointestinal / hepatic,salt,1,none
+F0639,7,sodium alginate + magnesium carbonate + aluminium hydroxide,chewable,IR,slugging,500 mg + 100 mg + 100 mg,gastrointestinal / hepatic,element / mineral,3,none
+F0640,7,trimebutine maleate,film-coated,IR,foam granulation,200 mg,gastrointestinal / hepatic,salt,1,none
+F0641,7,fostamatinib disodium hexahydrate,film-coated,IR,wet granulation high-shear,100 mg,haematology,hydrate,1,none
+F0642,7,Emblica officinalis fruit + Terminalia chebula fruit + Terminalia bellirica fruit,film-coated,IR,roller compaction,167 mg + 167 mg + 166 mg,herbal / Ayurvedic / homeopathic,extract with marker,3,none
+F0643,7,Mentat (Bacopa monnieri + 12 ingredients),film-coated,IR,wet granulation fluid-bed,130 mg,herbal / Ayurvedic / homeopathic,extract with marker,13,none
+F0644,7,Pelargonium sidoides root dry extract,film-coated,IR,wet granulation fluid-bed,20 mg,herbal / Ayurvedic / homeopathic,extract with marker,1,paediatric
+F0645,7,Rumalaya forte (Boswellia serrata + 4 ingredients),film-coated,IR,direct compression,200 mg,herbal / Ayurvedic / homeopathic,extract with marker,5,geriatric
+F0646,7,Sanjivani vati (Embelia ribes + 9 ingredients),uncoated,IR,moulding,125 mg,herbal / Ayurvedic / homeopathic,extract with marker,10,none
+F0647,7,Silybum marianum fruit dry extract,film-coated,IR,wet granulation fluid-bed,140 mg,herbal / Ayurvedic / homeopathic,extract with marker,1,none
+F0648,7,Vitex agnus-castus fruit dry extract,film-coated,IR,direct compression,20 mg,herbal / Ayurvedic / homeopathic,extract with marker,1,none
+F0649,7,colchicine,uncoated,IR,wet granulation fluid-bed,0.5 mg,immunology / rheumatology,free base / neutral,1,potent / cytotoxic
+F0650,7,topiroxostat,uncoated,IR,wet granulation fluid-bed,60 mg,immunology / rheumatology,free base / neutral,1,none
+F0651,7,brivaracetam,film-coated,IR,roller compaction,50 mg,neurology,free base / neutral,1,none
+F0652,7,donepezil hydrochloride,orodispersible (ODT),IR,direct compression,10 mg,neurology,salt,1,geriatric
+F0653,7,ergotamine tartrate + caffeine,film-coated,IR,roller compaction,1 mg + 100 mg,neurology,salt,2,potent / cytotoxic
+F0654,7,lasmiditan succinate,film-coated,IR,wet granulation fluid-bed,100 mg,neurology,salt,1,controlled substance
+F0655,7,sodium valproate,mini-tablet,ER membrane-coated,roller compaction,100 mg,neurology,salt,1,moisture
+F0656,7,taltirelin hydrate,orodispersible (ODT),IR,direct compression,5 mg,neurology,peptide,1,none
+F0657,7,zolmitriptan,orodispersible (ODT),IR,direct compression,2.5 mg,neurology,free base / neutral,1,none
+F0658,7,zonisamide,film-coated,IR,wet granulation high-shear,100 mg,neurology,free base / neutral,1,none
+F0659,7,cabozantinib malate,film-coated,IR,direct compression,60 mg,oncology,salt,1,potent / cytotoxic
+F0660,7,darolutamide,film-coated,IR,wet granulation fluid-bed,300 mg,oncology,free base / neutral,1,potent / cytotoxic; hormone
+F0661,7,everolimus,dispersible,IR,spray drying,2 mg,oncology,amorphous dispersion,1,potent / cytotoxic; narrow therapeutic index; paediatric
+F0662,7,regorafenib monohydrate,film-coated,IR,spray drying,40 mg,oncology,amorphous dispersion,1,potent / cytotoxic
+F0663,7,selinexor,film-coated,IR,wet granulation high-shear,20 mg,oncology,free base / neutral,1,potent / cytotoxic
+F0664,7,tepotinib hydrochloride hydrate,film-coated,IR,roller compaction,225 mg,oncology,salt,1,potent / cytotoxic
+F0665,7,tovorafenib,film-coated,IR,wet granulation fluid-bed,100 mg,oncology,free base / neutral,1,potent / cytotoxic
+F0666,7,carisoprodol,uncoated,IR,wet granulation high-shear,350 mg,pain / musculoskeletal,free base / neutral,1,controlled substance
+F0667,7,fentanyl citrate,sublingual,IR,direct compression,100 µg,pain / musculoskeletal,salt,1,controlled substance
+F0668,7,naproxen,uncoated,IR,roller compaction,500 mg,pain / musculoskeletal,free acid,1,none
+F0669,7,orphenadrine citrate,film-coated,ER hydrophilic matrix,wet granulation fluid-bed,100 mg,pain / musculoskeletal,salt,1,none
+F0670,7,paracetamol + codeine phosphate hemihydrate,effervescent,IR,wet granulation solvent,500 mg + 30 mg,pain / musculoskeletal,free base / neutral,2,controlled substance
+F0671,7,piroxicam,orodispersible (ODT),IR,freeze-drying,20 mg,pain / musculoskeletal,free acid,1,none
+F0672,7,tapentadol hydrochloride,film-coated,ER hydrophilic matrix,hot-melt extrusion,100 mg,pain / musculoskeletal,salt,1,controlled substance
+F0673,7,blonanserin,uncoated,IR,wet granulation fluid-bed,4 mg,psychiatry,free base / neutral,1,none
+F0674,7,fluphenazine hydrochloride,film-coated,IR,roller compaction,5 mg,psychiatry,salt,1,light
+F0675,7,hydroxyzine hydrochloride,film-coated,IR,direct compression,25 mg,psychiatry,salt,1,none
+F0676,7,lurasidone hydrochloride,film-coated,IR,wet granulation high-shear,40 mg,psychiatry,salt,1,none
+F0677,7,melatonin,sublingual,IR,direct compression,3 mg,psychiatry,free base / neutral,1,geriatric
+F0678,7,methylphenidate hydrochloride,uncoated,IR,wet granulation high-shear,10 mg,psychiatry,salt,1,controlled substance
+F0679,7,paliperidone,printed / polished,osmotic,wet granulation fluid-bed,6 mg,psychiatry,free base / neutral,1,none
+F0680,7,paroxetine hydrochloride hemihydrate,film-coated,IR,wet granulation fluid-bed,20 mg,psychiatry,hydrate,1,none
+F0681,7,trifluoperazine hydrochloride,sugar-coated,IR,wet granulation high-shear,5 mg,psychiatry,salt,1,light
+F0682,7,nitisinone,uncoated,IR,direct compression,10 mg,rare disease,free base / neutral,1,none
+F0683,7,sodium phenylbutyrate,uncoated,IR,wet granulation high-shear,500 mg,rare disease,salt,1,moisture
+F0684,7,calcium acetate,film-coated,IR,roller compaction,667 mg,renal / electrolytes,element / mineral,1,none
+F0685,7,finerenone,film-coated,IR,wet granulation fluid-bed,10 mg,renal / electrolytes,free base / neutral,1,none
+F0686,7,ambroxol hydrochloride,uncoated,IR,wet granulation fluid-bed,30 mg,respiratory / allergy,salt,1,none
+F0687,7,ambroxol hydrochloride,lozenge,IR,direct compression,20 mg,respiratory / allergy,salt,1,none
+F0688,7,aminophylline,film-coated,IR,wet granulation fluid-bed,100 mg,respiratory / allergy,salt,1,narrow therapeutic index
+F0689,7,cyproheptadine hydrochloride,uncoated,IR,MADG,4 mg,respiratory / allergy,salt,1,none
+F0690,7,ketotifen fumarate,uncoated,IR,direct compression,1 mg,respiratory / allergy,salt,1,none
+F0691,7,bedaquiline fumarate,scored / functional score,IR,direct compression,20 mg,tuberculosis,salt,1,paediatric
+F0692,7,ethionamide,film-coated,IR,roller compaction,250 mg,tuberculosis,free base / neutral,1,none
+F0693,7,bethanechol chloride,uncoated,IR,direct compression,25 mg,urology,salt,1,none
+F0694,7,cyproterone acetate,scored / functional score,IR,direct compression,50 mg,urology,ester / prodrug,1,hormone
+F0695,7,darifenacin hydrobromide,film-coated,ER hydrophilic matrix,wet granulation fluid-bed,7.5 mg,urology,salt,1,geriatric
+F0696,7,benfotiamine,film-coated,IR,wet granulation high-shear,150 mg,vitamins / minerals,ester / prodrug,1,none
+F0697,7,magnesium lactate dihydrate,film-coated,ER hydrophobic matrix,melt granulation,84 mg,vitamins / minerals,element / mineral,1,none
+F0698,7,methylcobalamin,sugar-coated,IR,wet granulation high-shear,500 µg,vitamins / minerals,free base / neutral,1,light
+F0699,7,estradiol,film-coated,IR,wet granulation fluid-bed,2 mg,women's health,free base / neutral,1,hormone
+F0700,7,ulipristal acetate,uncoated,IR,wet granulation single-pot,30 mg,women's health,ester / prodrug,1,hormone
+F0701,8,ritonavir,film-coated,IR,hot-melt extrusion,100 mg,HIV,amorphous dispersion,1,none
+F0702,8,flurbiprofen,film-coated,pulsatile,wet granulation fluid-bed,100 mg,OTC (throat / cough / antacid),free acid,1,none
+F0703,8,L-carnosine,film-coated,IR,direct compression,500 mg,OTC (throat / cough / antacid),peptide,1,none
+F0704,8,cefixime trihydrate,film-coated,IR,wet granulation solvent,200 mg,antibacterial,hydrate,1,beta-lactam
+F0705,8,cefpodoxime proxetil,film-coated,IR,roller compaction,200 mg,antibacterial,ester / prodrug,1,beta-lactam
+F0706,8,ofloxacin,film-coated,IR,wet granulation high-shear,200 mg,antibacterial,free base / neutral,1,none
+F0707,8,spiramycin,film-coated,IR,wet granulation fluid-bed,3 MIU,antibacterial,IU / CFU / activity potency,1,none
+F0708,8,sulfamethoxazole + trimethoprim,uncoated,IR,wet granulation high-shear,800 mg + 160 mg,antibacterial,free acid,2,none
+F0709,8,clotrimazole,lozenge,IR,direct compression,10 mg,antifungal,free base / neutral,1,none
+F0710,8,atovaquone + proguanil hydrochloride,film-coated,IR,wet granulation high-shear,250 mg + 100 mg,antiparasitic / antimalarial,free base / neutral,2,none
+F0711,8,benznidazole,dispersible,IR,direct compression,12.5 mg,antiparasitic / antimalarial,free base / neutral,1,paediatric
+F0712,8,ivermectin,uncoated,IR,direct compression,3 mg,antiparasitic / antimalarial,free base / neutral,1,none
+F0713,8,adefovir dipivoxil,uncoated,IR,wet granulation high-shear,10 mg,antiviral,ester / prodrug,1,none
+F0714,8,brivudine,uncoated,IR,wet granulation high-shear,125 mg,antiviral,free base / neutral,1,none
+F0715,8,clonidine hydrochloride,uncoated,ER hydrophilic matrix,wet granulation high-shear,0.1 mg,cardiovascular,salt,1,potent / cytotoxic; paediatric
+F0716,8,diosmin + hesperidin,film-coated,IR,roller compaction,450 mg + 50 mg,cardiovascular,extract with marker,2,none
+F0717,8,edoxaban tosilate,film-coated,IR,wet granulation fluid-bed,60 mg,cardiovascular,salt,1,none
+F0718,8,enalapril maleate,mini-tablet,IR,direct compression,0.25 mg,cardiovascular,salt,1,moisture; paediatric
+F0719,8,ezetimibe,uncoated,IR,roller compaction,10 mg,cardiovascular,free base / neutral,1,none
+F0720,8,isosorbide dinitrate,uncoated,IR,slugging,10 mg,cardiovascular,free base / neutral,1,none
+F0721,8,macitentan,film-coated,IR,wet granulation high-shear,10 mg,cardiovascular,free base / neutral,1,potent / cytotoxic
+F0722,8,minoxidil,scored / functional score,IR,direct compression,10 mg,cardiovascular,free base / neutral,1,none
+F0723,8,moexipril hydrochloride,film-coated,IR,roller compaction,7.5 mg,cardiovascular,salt,1,moisture
+F0724,8,olmesartan medoxomil,orodispersible (ODT),IR,direct compression,20 mg,cardiovascular,ester / prodrug,1,none
+F0725,8,phenprocoumon,scored / functional score,IR,wet granulation fluid-bed,3 mg,cardiovascular,free base / neutral,1,narrow therapeutic index
+F0726,8,pitavastatin calcium,film-coated,IR,wet granulation fluid-bed,2 mg,cardiovascular,"salt, 2 drug molecules per salt unit",1,light
+F0727,8,pitavastatin calcium,orodispersible (ODT),IR,direct compression,1 mg,cardiovascular,"salt, 2 drug molecules per salt unit",1,light
+F0728,8,torasemide,uncoated,IR,MADG,10 mg,cardiovascular,free base / neutral,1,none
+F0729,8,triamcinolone acetonide,buccal,IR,direct compression,25 µg,dermatology,ester / prodrug,1,hormone
+F0730,8,gemigliptin tartrate,film-coated,IR,wet granulation fluid-bed,50 mg,diabetes / metabolic,salt,1,none
+F0731,8,imeglimin hydrochloride,film-coated,IR,roller compaction,500 mg,diabetes / metabolic,salt,1,none
+F0732,8,metformin hydrochloride + glimepiride,film-coated,bilayer,roller compaction,500 mg + 2 mg,diabetes / metabolic,salt,2,incompatible APIs
+F0733,8,phentermine hydrochloride,scored / functional score,IR,direct compression,37.5 mg,diabetes / metabolic,salt,1,controlled substance
+F0734,8,ketoconazole,uncoated,IR,wet granulation fluid-bed,200 mg,endocrine / hormones,free base / neutral,1,none
+F0735,8,mesterolone,uncoated,IR,wet granulation single-pot,25 mg,endocrine / hormones,free base / neutral,1,hormone
+F0736,8,methylprednisolone,scored / functional score,IR,direct compression,4 mg,endocrine / hormones,free base / neutral,1,hormone
+F0737,8,Bifidobacterium bifidum,uncoated,IR,direct compression,12 mg,gastrointestinal / hepatic,IU / CFU / activity potency,1,moisture
+F0738,8,calcium carbonate + magnesium carbonate heavy,chewable,IR,roller compaction,680 mg + 80 mg,gastrointestinal / hepatic,element / mineral,2,none
+F0739,8,elobixibat hydrate,film-coated,IR,wet granulation high-shear,5 mg,gastrointestinal / hepatic,hydrate,1,none
+F0740,8,naldemedine tosilate,film-coated,IR,wet granulation fluid-bed,0.2 mg,gastrointestinal / hepatic,salt,1,none
+F0741,8,obeticholic acid,film-coated,IR,wet granulation fluid-bed,10 mg,gastrointestinal / hepatic,free acid,1,none
+F0742,8,sucralfate,uncoated,IR,slugging,1 g,gastrointestinal / hepatic,element / mineral,1,none
+F0743,8,vonoprazan fumarate,film-coated,IR,wet granulation fluid-bed,20 mg,gastrointestinal / hepatic,salt,1,none
+F0744,8,eltrombopag olamine,film-coated,IR,wet granulation fluid-bed,50 mg,haematology,salt,1,none
+F0745,8,Arnica montana D6 trituration,uncoated,IR,moulding,0.25 µg (D6 in a 250 mg tablet),herbal / Ayurvedic / homeopathic,extract with marker,1,none
+F0746,8,Baptisia tinctoria root + Echinacea root + Thuja occidentalis herb,chewable,IR,direct compression,4 mg + 7.5 mg + 2 mg,herbal / Ayurvedic / homeopathic,extract with marker,3,paediatric
+F0747,8,Boswellia serrata gum resin dry extract,film-coated,IR,direct compression,333 mg,herbal / Ayurvedic / homeopathic,extract with marker,1,none
+F0748,8,Cystone (Didymocarpus pedicellata + 8 ingredients),uncoated,IR,roller compaction,130 mg,herbal / Ayurvedic / homeopathic,extract with marker,9,none
+F0749,8,Momordica charantia fruit dry extract,uncoated,IR,wet granulation high-shear,400 mg,herbal / Ayurvedic / homeopathic,extract with marker,1,none
+F0750,8,Septilin (Tinospora cordifolia + 7 ingredients),film-coated,IR,wet granulation high-shear,130 mg,herbal / Ayurvedic / homeopathic,extract with marker,8,none
+F0751,8,apremilast,film-coated,IR,direct compression,30 mg,immunology / rheumatology,free base / neutral,1,none
+F0752,8,mycophenolate sodium,film-coated,enteric / DR,wet granulation high-shear,360 mg,immunology / rheumatology,salt,1,potent / cytotoxic
+F0753,8,amantadine hydrochloride,film-coated,IR + ER,drug layering,129 mg,neurology,salt,1,geriatric
+F0754,8,biperiden hydrochloride,uncoated,IR,wet granulation fluid-bed,2 mg,neurology,salt,1,none
+F0755,8,levodopa + carbidopa,uncoated,IR,wet granulation fluid-bed,100 mg + 25 mg,neurology,free base / neutral,2,geriatric
+F0756,8,oxcarbazepine,film-coated,ER hydrophilic matrix,wet granulation fluid-bed,600 mg,neurology,free base / neutral,1,none
+F0757,8,rimegepant sulfate,orodispersible (ODT),IR,freeze-drying,75 mg,neurology,salt,1,none
+F0758,8,rufinamide,film-coated,IR,roller compaction,400 mg,neurology,free base / neutral,1,none
+F0759,8,solriamfetol hydrochloride,film-coated,IR,roller compaction,75 mg,neurology,salt,1,controlled substance
+F0760,8,sumatriptan succinate,film-coated,IR,wet granulation fluid-bed,50 mg,neurology,salt,1,none
+F0761,8,acalabrutinib maleate monohydrate,film-coated,IR,wet granulation fluid-bed,100 mg,oncology,salt,1,potent / cytotoxic
+F0762,8,afatinib dimaleate,film-coated,IR,direct compression,40 mg,oncology,salt,1,potent / cytotoxic; moisture
+F0763,8,apalutamide,film-coated,IR,spray drying,60 mg,oncology,amorphous dispersion,1,potent / cytotoxic; hormone
+F0764,8,asciminib hydrochloride,film-coated,IR,wet granulation fluid-bed,40 mg,oncology,salt,1,potent / cytotoxic
+F0765,8,binimetinib,film-coated,IR,direct compression,15 mg,oncology,free base / neutral,1,potent / cytotoxic
+F0766,8,bosutinib monohydrate,film-coated,IR,wet granulation high-shear,500 mg,oncology,hydrate,1,potent / cytotoxic
+F0767,8,ibrutinib,film-coated,IR,wet granulation high-shear,420 mg,oncology,free base / neutral,1,potent / cytotoxic
+F0768,8,trametinib dimethyl sulfoxide,film-coated,IR,wet granulation fluid-bed,2 mg,oncology,solvate,1,potent / cytotoxic; light; moisture
+F0769,8,codeine phosphate hemihydrate,uncoated,IR,wet granulation high-shear,30 mg,pain / musculoskeletal,salt,1,controlled substance
+F0770,8,dihydrocodeine tartrate,uncoated,ER hydrophobic matrix,melt granulation,60 mg,pain / musculoskeletal,salt,1,controlled substance
+F0771,8,metamizole sodium monohydrate,film-coated,IR,foam granulation,500 mg,pain / musculoskeletal,hydrate,1,none
+F0772,8,methocarbamol,film-coated,IR,steam granulation,750 mg,pain / musculoskeletal,free base / neutral,1,none
+F0773,8,piroxicam betadex,film-coated,IR,wet granulation high-shear,20 mg,pain / musculoskeletal,cyclodextrin complex,1,none
+F0774,8,sufentanil citrate,sublingual,IR,direct compression,30 µg,pain / musculoskeletal,salt,1,controlled substance
+F0775,8,acamprosate calcium,film-coated,enteric / DR,wet granulation fluid-bed,333 mg,psychiatry,"salt, 2 drug molecules per salt unit",1,none
+F0776,8,amitriptyline hydrochloride,film-coated,IR,direct compression,25 mg,psychiatry,salt,1,none
+F0777,8,chlorpromazine hydrochloride,sugar-coated,IR,wet granulation high-shear,100 mg,psychiatry,salt,1,light
+F0778,8,disulfiram,uncoated,IR,direct compression,250 mg,psychiatry,free base / neutral,1,none
+F0779,8,flupentixol dihydrochloride,film-coated,IR,direct compression,0.5 mg,psychiatry,salt,1,light
+F0780,8,iloperidone,uncoated,IR,direct compression,6 mg,psychiatry,free base / neutral,1,none
+F0781,8,methylphenidate hydrochloride,printed / polished,osmotic,roller compaction,18 mg,psychiatry,salt,1,controlled substance
+F0782,8,oxazepam,uncoated,IR,wet granulation fluid-bed,10 mg,psychiatry,free base / neutral,1,controlled substance
+F0783,8,trazodone hydrochloride,scored / functional score,IR,roller compaction,150 mg,psychiatry,salt,1,none
+F0784,8,carglumic acid,dispersible,IR,direct compression,200 mg,rare disease,free acid,1,moisture
+F0785,8,danicopan,film-coated,IR,roller compaction,100 mg,rare disease,free base / neutral,1,none
+F0786,8,calcium 3-methyl-2-oxovalerate + calcium 4-methyl-2-oxovalerate + calcium 2-oxo-3-phenylpropionate + calcium 3-methyl-2-oxobutyrate + calcium DL-2-hydroxy-4-methylthiobutyrate + lysine acetate + threonine + tryptophan + histidine + tyrosine,film-coated,IR,wet granulation fluid-bed,67 mg + 101 mg + 68 mg + 86 mg + 59 mg + 105 mg + 53 mg + 23 mg + 38 mg + 30 mg,renal / electrolytes,salt,10,none
+F0787,8,chlorphenamine maleate,uncoated,IR,direct compression,4 mg,respiratory / allergy,salt,1,none
+F0788,8,desloratadine,film-coated,IR,direct compression,5 mg,respiratory / allergy,free base / neutral,1,light
+F0789,8,desloratadine,orodispersible (ODT),IR,freeze-drying,5 mg,respiratory / allergy,free base / neutral,1,light
+F0790,8,theophylline,uncoated,ER hydrophilic matrix,3D printing,200 mg,respiratory / allergy,free base / neutral,1,narrow therapeutic index
+F0791,8,isoniazid,uncoated,IR,MADG,300 mg,tuberculosis,free base / neutral,1,none
+F0792,8,fesoterodine fumarate,film-coated,ER hydrophilic matrix,direct compression,8 mg,urology,salt,1,geriatric
+F0793,8,tolterodine tartrate,film-coated,IR,direct compression,2 mg,urology,salt,1,geriatric
+F0794,8,trospium chloride,sugar-coated,IR,wet granulation high-shear,20 mg,urology,salt,1,geriatric
+F0795,8,all-rac-alpha-tocopheryl acetate,film-coated,IR,direct compression,400 IU,vitamins / minerals,IU / CFU / activity potency,1,oxygen
+F0796,8,ascorbic acid + zinc citrate,effervescent,IR,wet granulation solvent,1000 mg + 10 mg,vitamins / minerals,free acid,2,oxygen; moisture
+F0797,8,ferrous gluconate,sugar-coated,IR,wet granulation high-shear,300 mg,vitamins / minerals,element / mineral,1,none
+F0798,8,dydrogesterone,film-coated,IR,wet granulation high-shear,10 mg,women's health,free base / neutral,1,hormone
+F0799,8,fezolinetant,film-coated,IR,wet granulation fluid-bed,45 mg,women's health,free base / neutral,1,none
+F0800,8,norethisterone,uncoated,IR,wet granulation fluid-bed,5 mg,women's health,free base / neutral,1,hormone
+F0801,9,etravirine,uncoated,IR,spray drying,200 mg,HIV,amorphous dispersion,1,none
+F0802,9,lenacapavir sodium,film-coated,IR,wet granulation fluid-bed,300 mg,HIV,salt,1,none
+F0803,9,Streptococcus salivarius K12,lozenge,IR,direct compression,1 billion CFU,OTC (throat / cough / antacid),IU / CFU / activity potency,1,moisture
+F0804,9,zinc gluconate,lozenge,IR,direct compression,13.3 mg,OTC (throat / cough / antacid),element / mineral,1,none
+F0805,9,cefuroxime axetil + potassium clavulanate,film-coated,IR,roller compaction,500 mg + 125 mg,antibacterial,ester / prodrug,2,beta-lactam; moisture
+F0806,9,erythromycin stearate,film-coated,IR,roller compaction,250 mg,antibacterial,salt,1,none
+F0807,9,methenamine hippurate,uncoated,IR,slugging,1 g,antibacterial,salt,1,none
+F0808,9,nitrofurantoin,uncoated,IR,direct compression,100 mg,antibacterial,hydrate,1,light
+F0809,9,sultamicillin tosylate,film-coated,IR,roller compaction,375 mg,antibacterial,ester / prodrug,1,beta-lactam
+F0810,9,voriconazole,film-coated,IR,wet granulation high-shear,200 mg,antifungal,free base / neutral,1,none
+F0811,9,albendazole + ivermectin,chewable,IR,roller compaction,400 mg + 6 mg,antiparasitic / antimalarial,free base / neutral,2,paediatric
+F0812,9,chloroquine phosphate,uncoated,IR,wet granulation high-shear,250 mg,antiparasitic / antimalarial,salt,1,none
+F0813,9,fexinidazole,uncoated,IR,wet granulation fluid-bed,600 mg,antiparasitic / antimalarial,free base / neutral,1,none
+F0814,9,baloxavir marboxil,film-coated,IR,direct compression,40 mg,antiviral,ester / prodrug,1,none
+F0815,9,glecaprevir + pibrentasvir,film-coated,IR,hot-melt extrusion,100 mg + 40 mg,antiviral,amorphous dispersion,2,none
+F0816,9,falecalcitriol,uncoated,IR,wet granulation solvent,0.15 µg,bone,free base / neutral,1,light; oxygen
+F0817,9,azilsartan kamedoxomil,uncoated,IR,wet granulation fluid-bed,40 mg,cardiovascular,ester / prodrug,1,none
+F0818,9,beraprost sodium,film-coated,IR,wet granulation fluid-bed,20 µg,cardiovascular,salt,1,none
+F0819,9,bezafibrate,film-coated,ER hydrophilic matrix,wet granulation fluid-bed,400 mg,cardiovascular,free acid,1,none
+F0820,9,bosentan,dispersible,IR,direct compression,32 mg,cardiovascular,hydrate,1,potent / cytotoxic; paediatric
+F0821,9,cilazapril,film-coated,IR,wet granulation fluid-bed,5 mg,cardiovascular,hydrate,1,none
+F0822,9,digitoxin,uncoated,IR,wet granulation fluid-bed,0.07 mg,cardiovascular,free base / neutral,1,narrow therapeutic index
+F0823,9,enalapril maleate,uncoated,IR,direct compression,10 mg,cardiovascular,salt,1,moisture
+F0824,9,isosorbide dinitrate,sublingual,IR,direct compression,5 mg,cardiovascular,free base / neutral,1,none
+F0825,9,propafenone hydrochloride,film-coated,IR,wet granulation fluid-bed,150 mg,cardiovascular,salt,1,none
+F0826,9,propranolol hydrochloride,film-coated,IR,direct compression,40 mg,cardiovascular,salt,1,none
+F0827,9,propranolol hydrochloride,mini-tablet,IR,direct compression,2 mg,cardiovascular,salt,1,paediatric
+F0828,9,quinidine gluconate,uncoated,ER hydrophilic matrix,wet granulation fluid-bed,324 mg,cardiovascular,salt,1,narrow therapeutic index
+F0829,9,sacubitril + valsartan,film-coated,IR,roller compaction,49 mg + 51 mg,cardiovascular,cocrystal / complex,2,moisture
+F0830,9,trandolapril,uncoated,IR,wet granulation fluid-bed,2 mg,cardiovascular,free base / neutral,1,none
+F0831,9,triamterene + hydrochlorothiazide,scored / functional score,IR,wet granulation fluid-bed,75 mg + 50 mg,cardiovascular,free base / neutral,2,light
+F0832,9,alogliptin benzoate,film-coated,IR,wet granulation high-shear,25 mg,diabetes / metabolic,salt,1,none
+F0833,9,metformin hydrochloride,film-coated,gastroretentive,wet granulation high-shear,500 mg,diabetes / metabolic,salt,1,none
+F0834,9,remogliflozin etabonate,film-coated,IR,direct compression,100 mg,diabetes / metabolic,ester / prodrug,1,none
+F0835,9,vildagliptin,film-coated,ER hydrophilic matrix,wet granulation high-shear,100 mg,diabetes / metabolic,free base / neutral,1,moisture
+F0836,9,prednisolone,film-coated,enteric / DR,roller compaction,5 mg,endocrine / hormones,free base / neutral,1,hormone
+F0837,9,testosterone,buccal,ER hydrophilic matrix,direct compression,30 mg,endocrine / hormones,free base / neutral,1,hormone; controlled substance
+F0838,9,thiamazole,film-coated,IR,wet granulation high-shear,10 mg,endocrine / hormones,free base / neutral,1,none
+F0839,9,Bacillus coagulans,uncoated,IR,direct compression,60 million spores,gastrointestinal / hepatic,IU / CFU / activity potency,1,moisture
+F0840,9,budesonide,orodispersible (ODT),IR,direct compression,1 mg,gastrointestinal / hepatic,free base / neutral,1,hormone
+F0841,9,cimetidine,film-coated,IR,wet granulation high-shear,400 mg,gastrointestinal / hepatic,free base / neutral,1,none
+F0842,9,hydrotalcite,chewable,IR,wet granulation high-shear,500 mg,gastrointestinal / hepatic,element / mineral,1,none
+F0843,9,metoclopramide hydrochloride,orodispersible (ODT),IR,direct compression,10 mg,gastrointestinal / hepatic,salt,1,none
+F0844,9,omeprazole magnesium,printed / polished,multiparticulate (MUPS),pellets compressed,20 mg,gastrointestinal / hepatic,"salt, 2 drug molecules per salt unit",1,moisture
+F0845,9,prucalopride succinate,film-coated,IR,wet granulation fluid-bed,2 mg,gastrointestinal / hepatic,salt,1,none
+F0846,9,hydroxycarbamide,scored / functional score,IR,wet granulation high-shear,1000 mg,haematology,free base / neutral,1,potent / cytotoxic
+F0847,9,garlic bulb powder,film-coated,enteric / DR,direct compression,300 mg,herbal / Ayurvedic / homeopathic,extract with marker,1,none
+F0848,9,Gokshuradi guggulu (Tribulus terrestris + guggulu + 5 ingredients),uncoated,IR,moulding,250 mg,herbal / Ayurvedic / homeopathic,extract with marker,7,geriatric
+F0849,9,Passiflora incarnata herb dry extract,sugar-coated,IR,wet granulation high-shear,425 mg,herbal / Ayurvedic / homeopathic,extract with marker,1,none
+F0850,9,Punarnava mandur (Boerhavia diffusa + mandur bhasma),uncoated,IR,moulding,250 mg,herbal / Ayurvedic / homeopathic,extract with marker,1,none
+F0851,9,Terminalia arjuna bark dry extract,film-coated,IR,wet granulation high-shear,500 mg,herbal / Ayurvedic / homeopathic,extract with marker,1,none
+F0852,9,Traumeel (Arnica montana D2 + 13 homeopathic ingredients),uncoated,IR,direct compression,300 mg tablet; triturations D2-D8,herbal / Ayurvedic / homeopathic,extract with marker,14,none
+F0853,9,leflunomide,film-coated,IR,wet granulation fluid-bed,20 mg,immunology / rheumatology,free base / neutral,1,potent / cytotoxic
+F0854,9,probenecid,film-coated,IR,wet granulation high-shear,500 mg,immunology / rheumatology,free acid,1,none
+F0855,9,eletriptan hydrobromide,film-coated,IR,wet granulation fluid-bed,40 mg,neurology,salt,1,none
+F0856,9,istradefylline,film-coated,IR,direct compression,20 mg,neurology,free base / neutral,1,geriatric
+F0857,9,pizotifen malate,sugar-coated,IR,wet granulation high-shear,0.5 mg,neurology,salt,1,none
+F0858,9,rasagiline mesylate,uncoated,IR,wet granulation fluid-bed,1 mg,neurology,salt,1,geriatric
+F0859,9,rizatriptan benzoate,orodispersible (ODT),IR,freeze-drying,10 mg,neurology,salt,1,none
+F0860,9,taltirelin hydrate,uncoated,IR,wet granulation fluid-bed,5 mg,neurology,peptide,1,none
+F0861,9,tolfenamic acid,film-coated,IR,wet granulation fluid-bed,200 mg,neurology,free acid,1,none
+F0862,9,trihexyphenidyl hydrochloride,uncoated,IR,direct compression,2 mg,neurology,salt,1,none
+F0863,9,zolmitriptan,film-coated,IR,direct compression,2.5 mg,neurology,free base / neutral,1,none
+F0864,9,alpelisib,film-coated,IR,direct compression,150 mg,oncology,free base / neutral,1,potent / cytotoxic
+F0865,9,cyclophosphamide monohydrate,sugar-coated,IR,wet granulation single-pot,50 mg,oncology,hydrate,1,potent / cytotoxic
+F0866,9,gefitinib,film-coated,IR,wet granulation fluid-bed,250 mg,oncology,free base / neutral,1,potent / cytotoxic
+F0867,9,melphalan,film-coated,IR,wet granulation fluid-bed,2 mg,oncology,free base / neutral,1,potent / cytotoxic; light
+F0868,9,pazopanib hydrochloride,film-coated,IR,roller compaction,400 mg,oncology,salt,1,potent / cytotoxic
+F0869,9,sotorasib,film-coated,IR,wet granulation high-shear,120 mg,oncology,free base / neutral,1,potent / cytotoxic
+F0870,9,tegafur + gimeracil + oteracil potassium,orodispersible (ODT),IR,direct compression,20 mg + 5.8 mg + 19.6 mg,oncology,salt,3,potent / cytotoxic
+F0871,9,diflunisal,film-coated,IR,steam granulation,500 mg,pain / musculoskeletal,free acid,1,none
+F0872,9,levorphanol tartrate,scored / functional score,IR,wet granulation fluid-bed,2 mg,pain / musculoskeletal,salt,1,controlled substance
+F0873,9,lornoxicam,film-coated,pulsatile,direct compression,8 mg,pain / musculoskeletal,free acid,1,none
+F0874,9,meloxicam,uncoated,IR,roller compaction,15 mg,pain / musculoskeletal,free acid,1,none
+F0875,9,morphine sulfate pentahydrate,film-coated,IR,roller compaction,10 mg,pain / musculoskeletal,"salt, 2 drug molecules per salt unit",1,controlled substance
+F0876,9,pentazocine lactate,uncoated,IR,wet granulation high-shear,50 mg,pain / musculoskeletal,salt,1,controlled substance
+F0877,9,bupropion hydrochloride,film-coated,ER membrane-coated,wet granulation fluid-bed,150 mg,psychiatry,salt,1,none
+F0878,9,citalopram hydrobromide,film-coated,IR,wet granulation high-shear,20 mg,psychiatry,salt,1,none
+F0879,9,dosulepin hydrochloride,film-coated,IR,foam granulation,75 mg,psychiatry,salt,1,none
+F0880,9,lorazepam,uncoated,IR,direct compression,1 mg,psychiatry,free base / neutral,1,controlled substance
+F0881,9,lorazepam,sublingual,IR,freeze-drying,1 mg,psychiatry,free base / neutral,1,controlled substance
+F0882,9,suvorexant,film-coated,IR,wet granulation high-shear,20 mg,psychiatry,free base / neutral,1,controlled substance
+F0883,9,venlafaxine hydrochloride,film-coated,osmotic,wet granulation fluid-bed,150 mg,psychiatry,salt,1,none
+F0884,9,vilazodone hydrochloride,film-coated,IR,roller compaction,40 mg,psychiatry,salt,1,none
+F0885,9,amifampridine phosphate,scored / functional score,IR,direct compression,10 mg,rare disease,salt,1,none
+F0886,9,vadadustat,film-coated,IR,roller compaction,300 mg,renal / electrolytes,free base / neutral,1,none
+F0887,9,aminophylline,uncoated,ER hydrophobic matrix,melt granulation,225 mg,respiratory / allergy,salt,1,narrow therapeutic index
+F0888,9,levocetirizine dihydrochloride,film-coated,IR,MADG,5 mg,respiratory / allergy,salt,1,none
+F0889,9,mizolastine,film-coated,ER hydrophilic matrix,direct compression,10 mg,respiratory / allergy,free base / neutral,1,none
+F0890,9,promethazine hydrochloride,film-coated,IR,wet granulation high-shear,25 mg,respiratory / allergy,salt,1,light
+F0891,9,zafirlukast,film-coated,IR,roller compaction,20 mg,respiratory / allergy,free base / neutral,1,none
+F0892,9,rifampicin + isoniazid + pyrazinamide,dispersible,IR,direct compression,75 mg + 50 mg + 150 mg,tuberculosis,free base / neutral,3,paediatric; incompatible APIs
+F0893,9,oxybutynin hydrochloride,uncoated,IR,roller compaction,5 mg,urology,salt,1,geriatric
+F0894,9,tamsulosin hydrochloride + solifenacin succinate,film-coated,IR + ER,direct compression,0.4 mg + 6 mg,urology,salt,2,geriatric
+F0895,9,vibegron,film-coated,IR,wet granulation high-shear,75 mg,urology,free base / neutral,1,geriatric
+F0896,9,ferrous bisglycinate,film-coated,IR,direct compression,25 mg,vitamins / minerals,element / mineral,1,none
+F0897,9,ferrous gluconate,effervescent,IR,wet granulation solvent,695 mg,vitamins / minerals,element / mineral,1,none
+F0898,9,menaquinone-7,uncoated,IR,direct compression,100 µg,vitamins / minerals,free base / neutral,1,light; oxygen
+F0899,9,clomifene citrate,uncoated,IR,wet granulation high-shear,50 mg,women's health,salt,1,hormone
+F0900,9,gestodene + ethinylestradiol,film-coated,IR,wet granulation fluid-bed,75 µg + 20 µg,women's health,free base / neutral,2,hormone
+F0901,10,atazanavir sulfate + cobicistat,film-coated,IR,wet granulation fluid-bed,300 mg + 150 mg,HIV,salt,2,none
+F0902,10,lamivudine + zidovudine + nevirapine,dispersible,IR,wet granulation fluid-bed,30 mg + 60 mg + 50 mg,HIV,free base / neutral,3,paediatric
+F0903,10,glutathione,effervescent,IR,wet granulation solvent,250 mg,OTC (throat / cough / antacid),peptide,1,oxygen
+F0904,10,hexylresorcinol,lozenge,IR,moulding,2.4 mg,OTC (throat / cough / antacid),free base / neutral,1,none
+F0905,10,cefalexin monohydrate,film-coated,IR,roller compaction,500 mg,antibacterial,hydrate,1,beta-lactam
+F0906,10,cefditoren pivoxil,film-coated,IR,wet granulation high-shear,200 mg,antibacterial,ester / prodrug,1,beta-lactam
+F0907,10,moxifloxacin hydrochloride,film-coated,IR,roller compaction,400 mg,antibacterial,salt,1,light
+F0908,10,sulopenem etzadroxil + probenecid,film-coated,bilayer,roller compaction,500 mg + 500 mg,antibacterial,ester / prodrug,2,beta-lactam; incompatible APIs
+F0909,10,nystatin,film-coated,IR,direct compression,500000 IU,antifungal,IU / CFU / activity potency,1,none
+F0910,10,mebendazole,chewable,IR,wet granulation high-shear,500 mg,antiparasitic / antimalarial,free base / neutral,1,paediatric
+F0911,10,mebendazole,uncoated,IR,direct compression,100 mg,antiparasitic / antimalarial,free base / neutral,1,paediatric
+F0912,10,satranidazole,film-coated,IR,roller compaction,300 mg,antiparasitic / antimalarial,free base / neutral,1,none
+F0913,10,tafenoquine succinate,film-coated,IR,direct compression,150 mg,antiparasitic / antimalarial,salt,1,none
+F0914,10,daclatasvir dihydrochloride,film-coated,IR,roller compaction,60 mg,antiviral,salt,1,none
+F0915,10,elbasvir + grazoprevir,film-coated,IR,spray drying,50 mg + 100 mg,antiviral,amorphous dispersion,2,none
+F0916,10,minodronic acid hydrate,film-coated,IR,wet granulation high-shear,50 mg,bone,hydrate,1,geriatric
+F0917,10,amiloride hydrochloride,uncoated,IR,MADG,5 mg,cardiovascular,hydrate,1,none
+F0918,10,apixaban,film-coated,IR,roller compaction,5 mg,cardiovascular,free base / neutral,1,none
+F0919,10,aspirin + simvastatin + lisinopril dihydrate + atenolol,film-coated,IR,roller compaction,75 mg + 40 mg + 10 mg + 50 mg,cardiovascular,free acid,4,moisture; incompatible APIs
+F0920,10,bumetanide,uncoated,IR,wet granulation fluid-bed,1 mg,cardiovascular,free acid,1,none
+F0921,10,clonidine hydrochloride,uncoated,IR,wet granulation fluid-bed,0.1 mg,cardiovascular,salt,1,potent / cytotoxic
+F0922,10,dipyridamole,uncoated,gastroretentive,3D printing,100 mg,cardiovascular,free base / neutral,1,none
+F0923,10,dronedarone hydrochloride,film-coated,IR,wet granulation high-shear,400 mg,cardiovascular,salt,1,none
+F0924,10,felodipine,film-coated,ER hydrophilic matrix,wet granulation fluid-bed,5 mg,cardiovascular,free base / neutral,1,light
+F0925,10,furosemide,scored / functional score,IR,direct compression,40 mg,cardiovascular,free acid,1,light
+F0926,10,indapamide,sugar-coated,IR,wet granulation high-shear,2.5 mg,cardiovascular,free base / neutral,1,geriatric
+F0927,10,nicorandil,uncoated,IR,direct compression,10 mg,cardiovascular,free base / neutral,1,moisture
+F0928,10,potassium aspartate + magnesium aspartate,uncoated,IR,wet granulation fluid-bed,158 mg + 140 mg,cardiovascular,element / mineral,2,none
+F0929,10,quinapril hydrochloride,film-coated,IR,wet granulation solvent,20 mg,cardiovascular,salt,1,moisture
+F0930,10,sotagliflozin,film-coated,IR,direct compression,200 mg,cardiovascular,free base / neutral,1,none
+F0931,10,timolol maleate,uncoated,IR,MADG,10 mg,cardiovascular,salt,1,none
+F0932,10,canagliflozin hemihydrate,film-coated,IR,wet granulation high-shear,100 mg,diabetes / metabolic,hydrate,1,none
+F0933,10,ipragliflozin L-proline,film-coated,IR,wet granulation fluid-bed,50 mg,diabetes / metabolic,cocrystal / complex,1,none
+F0934,10,pioglitazone hydrochloride + glimepiride,uncoated,IR,roller compaction,30 mg + 2 mg,diabetes / metabolic,salt,2,none
+F0935,10,trelagliptin succinate,film-coated,IR,direct compression,100 mg,diabetes / metabolic,salt,1,none
+F0936,10,cortisone acetate,uncoated,IR,direct compression,25 mg,endocrine / hormones,ester / prodrug,1,hormone
+F0937,10,levothyroxine sodium,scored / functional score,IR,direct compression,100 µg,endocrine / hormones,salt,1,narrow therapeutic index; light; moisture
+F0938,10,doxylamine succinate + pyridoxine hydrochloride,film-coated,enteric / DR,wet granulation high-shear,10 mg + 10 mg,gastrointestinal / hepatic,salt,2,none
+F0939,10,esomeprazole magnesium trihydrate,film-coated,multiparticulate (MUPS),drug layering,40 mg,gastrointestinal / hepatic,"salt, 2 drug molecules per salt unit",1,moisture
+F0940,10,granisetron hydrochloride,film-coated,IR,wet granulation fluid-bed,1 mg,gastrointestinal / hepatic,salt,1,none
+F0941,10,loperamide hydrochloride,orodispersible (ODT),IR,freeze-drying,2 mg,gastrointestinal / hepatic,salt,1,none
+F0942,10,otilonium bromide,film-coated,IR,wet granulation high-shear,40 mg,gastrointestinal / hepatic,salt,1,none
+F0943,10,rifaximin,film-coated,IR,wet granulation high-shear,550 mg,gastrointestinal / hepatic,free base / neutral,1,none
+F0944,10,sennosides + docusate sodium,film-coated,IR,wet granulation high-shear,8.6 mg + 50 mg,gastrointestinal / hepatic,extract with marker,2,none
+F0945,10,tranexamic acid,film-coated,IR,wet granulation fluid-bed,500 mg,haematology,free acid,1,none
+F0946,10,Arogyavardhini vati (Picrorhiza kurroa + kajjali + bhasmas),uncoated,IR,moulding,250 mg,herbal / Ayurvedic / homeopathic,extract with marker,1,potent / cytotoxic
+F0947,10,Ginkgo biloba leaf dry extract,film-coated,IR,direct compression,120 mg,herbal / Ayurvedic / homeopathic,extract with marker,1,geriatric
+F0948,10,Lianhua Qingwen (Forsythia suspensa + 12 ingredients),film-coated,IR,wet granulation fluid-bed,350 mg,herbal / Ayurvedic / homeopathic,extract with marker,13,none
+F0949,10,Salvia miltiorrhiza root extract + Panax notoginseng root powder + borneol,film-coated,IR,direct compression,170 mg + 50 mg + 3 mg,herbal / Ayurvedic / homeopathic,extract with marker,3,none
+F0950,10,Shankh vati (shankha bhasma + 8 ingredients),uncoated,IR,direct compression,250 mg,herbal / Ayurvedic / homeopathic,element / mineral,9,none
+F0951,10,Trigonella foenum-graecum seed dry extract,film-coated,IR,wet granulation fluid-bed,500 mg,herbal / Ayurvedic / homeopathic,extract with marker,1,none
+F0952,10,colchicine,film-coated,IR,direct compression,0.6 mg,immunology / rheumatology,free base / neutral,1,potent / cytotoxic
+F0953,10,cinnarizine + dimenhydrinate,uncoated,IR,roller compaction,20 mg + 40 mg,neurology,free base / neutral,2,none
+F0954,10,clonazepam,orodispersible (ODT),IR,freeze-drying,0.25 mg,neurology,free base / neutral,1,controlled substance
+F0955,10,fampridine,film-coated,ER hydrophilic matrix,direct compression,10 mg,neurology,free base / neutral,1,narrow therapeutic index
+F0956,10,gabapentin enacarbil,uncoated,ER hydrophilic matrix,wet granulation fluid-bed,600 mg,neurology,ester / prodrug,1,none
+F0957,10,memantine hydrochloride,film-coated,IR,direct compression,10 mg,neurology,salt,1,geriatric
+F0958,10,neostigmine bromide,uncoated,IR,wet granulation fluid-bed,15 mg,neurology,salt,1,none
+F0959,10,perampanel,film-coated,IR,wet granulation high-shear,4 mg,neurology,free base / neutral,1,controlled substance
+F0960,10,tizanidine hydrochloride,uncoated,IR,direct compression,4 mg,neurology,salt,1,none
+F0961,10,capivasertib,film-coated,IR,wet granulation high-shear,200 mg,oncology,free base / neutral,1,potent / cytotoxic
+F0962,10,cobimetinib fumarate,film-coated,IR,wet granulation high-shear,20 mg,oncology,"salt, 2 drug molecules per salt unit",1,potent / cytotoxic
+F0963,10,exemestane,sugar-coated,IR,wet granulation single-pot,25 mg,oncology,free base / neutral,1,hormone; potent / cytotoxic
+F0964,10,lorlatinib,film-coated,IR,continuous line,100 mg,oncology,free base / neutral,1,potent / cytotoxic
+F0965,10,neratinib maleate,film-coated,IR,wet granulation fluid-bed,40 mg,oncology,salt,1,potent / cytotoxic
+F0966,10,relugolix,film-coated,IR,wet granulation high-shear,120 mg,oncology,free base / neutral,1,hormone
+F0967,10,ribociclib succinate,film-coated,IR,wet granulation fluid-bed,200 mg,oncology,salt,1,potent / cytotoxic
+F0968,10,choline magnesium trisalicylate,scored / functional score,IR,slugging,1000 mg,pain / musculoskeletal,salt,1,none
+F0969,10,etodolac,film-coated,ER hydrophilic matrix,foam granulation,400 mg,pain / musculoskeletal,free acid,1,none
+F0970,10,lornoxicam,film-coated,IR,wet granulation fluid-bed,8 mg,pain / musculoskeletal,free acid,1,none
+F0971,10,methadone hydrochloride,scored / functional score,IR,direct compression,10 mg,pain / musculoskeletal,salt,1,controlled substance
+F0972,10,nimesulide,uncoated,IR,steam granulation,100 mg,pain / musculoskeletal,free base / neutral,1,none
+F0973,10,serratiopeptidase,film-coated,enteric / DR,wet granulation high-shear,10 mg,pain / musculoskeletal,IU / CFU / activity potency,1,moisture
+F0974,10,cytisine,film-coated,IR,direct compression,1.5 mg,psychiatry,free base / neutral,1,none
+F0975,10,daridorexant hydrochloride,film-coated,IR,direct compression,50 mg,psychiatry,salt,1,controlled substance
+F0976,10,dexamfetamine sulfate,uncoated,IR,direct compression,5 mg,psychiatry,"salt, 2 drug molecules per salt unit",1,controlled substance
+F0977,10,imipramine hydrochloride,sugar-coated,IR,wet granulation high-shear,25 mg,psychiatry,salt,1,none
+F0978,10,lofexidine hydrochloride,film-coated,IR,wet granulation fluid-bed,0.18 mg,psychiatry,salt,1,none
+F0979,10,mirtazapine,film-coated,IR,wet granulation fluid-bed,15 mg,psychiatry,free base / neutral,1,none
+F0980,10,nicotine,sublingual,IR,direct compression,2 mg,psychiatry,cyclodextrin complex,1,none
+F0981,10,sulpiride,scored / functional score,IR,direct compression,200 mg,psychiatry,free base / neutral,1,none
+F0982,10,zolpidem tartrate,sublingual,IR,direct compression,5 mg,psychiatry,salt,1,controlled substance
+F0983,10,caffeine citrate,mini-tablet,IR,direct compression,20 mg,rare disease,salt,1,paediatric
+F0984,10,daprodustat,film-coated,IR,direct compression,4 mg,renal / electrolytes,free base / neutral,1,none
+F0985,10,sucroferric oxyhydroxide,chewable,IR,roller compaction,2500 mg,renal / electrolytes,element / mineral,1,moisture
+F0986,10,bilastine,uncoated,IR,direct compression,20 mg,respiratory / allergy,free base / neutral,1,none
+F0987,10,dexchlorpheniramine maleate,uncoated,IR,wet granulation fluid-bed,2 mg,respiratory / allergy,salt,1,none
+F0988,10,guaifenesin,uncoated,IR + ER,roller compaction,600 mg,respiratory / allergy,free base / neutral,1,none
+F0989,10,loratadine,orodispersible (ODT),IR,direct compression,10 mg,respiratory / allergy,free base / neutral,1,none
+F0990,10,pseudoephedrine hydrochloride,printed / polished,osmotic,wet granulation high-shear,240 mg,respiratory / allergy,salt,1,controlled substance
+F0991,10,bedaquiline fumarate,uncoated,IR,wet granulation fluid-bed,100 mg,tuberculosis,salt,1,none
+F0992,10,rifapentine,film-coated,IR,roller compaction,150 mg,tuberculosis,free base / neutral,1,light
+F0993,10,alfuzosin hydrochloride,uncoated,trilayer,direct compression,10 mg,urology,salt,1,geriatric
+F0994,10,dapoxetine hydrochloride,film-coated,IR,wet granulation high-shear,30 mg,urology,salt,1,none
+F0995,10,silodosin,orodispersible (ODT),IR,direct compression,4 mg,urology,free base / neutral,1,geriatric
+F0996,10,cyanocobalamin,uncoated,IR,wet granulation fluid-bed,1000 µg,vitamins / minerals,free base / neutral,1,light
+F0997,10,ferrous sulfate,film-coated,ER hydrophobic matrix,melt granulation,325 mg,vitamins / minerals,element / mineral,1,none
+F0998,10,phytomenadione,sugar-coated,IR,wet granulation high-shear,10 mg,vitamins / minerals,free base / neutral,1,light
+F0999,10,conjugated estrogens,film-coated,IR,wet granulation solvent,0.625 mg,women's health,extract with marker,1,hormone
+F1000,10,dienogest,uncoated,IR,wet granulation fluid-bed,2 mg,women's health,free base / neutral,1,hormone
