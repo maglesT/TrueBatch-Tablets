@@ -4,6 +4,7 @@ import type { Sql, Tx } from '../db.js';
 import { audit } from '../audit.js';
 import { parseId, requirePermission, type SessionUser } from '../auth.js';
 import { usableItem } from '../master.js';
+import { handProblem, pullItem, pullLot, pulledWords } from '../pull.js';
 import { SignError, authenticateSigner, contentHash, sign, signBody } from '../signatures.js';
 import { masterVersion } from './masters.js';
 import { batchRecordDoc, type RecordInput, type Signature } from '../batch-record.js';
@@ -12,8 +13,8 @@ import { findBlock } from '../../shared/blocks/index.js';
 import { blocking, masterChecks } from '../../shared/master/checks.js';
 import type { MasterDoc, Step } from '../../shared/master/schema.js';
 import {
-  ACTIONS, BATCH_ACTIONS, batchRefusal, batchView, doneProblems, evaluate, lateItems, openSteps, parseKey, readValue, refusal, review, timers,
-  type Action, type BatchAction, type BatchEvent, type StepEvent, type StepKey, type StepView, type Value,
+  ACTIONS, BATCH_ACTIONS, CERTIFICATE, LINK_OF, batchRefusal, handFields, isHand, batchView, doneProblems, evaluate, lateItems, openSteps, parseKey, readValue, refusal, review, timers,
+  type Action, type BatchAction, type BatchEvent, type DeviationStatus, type LinkState, type Source, type StepEvent, type StepKey, type StepView, type Value,
 } from '../../shared/engine/index.js';
 
 // Plant time zone: the batch number's year is the plant's year.
@@ -72,39 +73,79 @@ export async function recordInput(q: Sql, l: LoadedBatch): Promise<RecordInput> 
   return { ...l, versionNo: v!.versionNo, issuedByName: issuer?.name ?? '', signatures: [...await batchSignatures(q, l.batch.id)] };
 }
 const batchHash = (l: LoadedBatch) => contentHash('batch', l.batch.id, batchContent(l));
-const view = (l: LoadedBatch) => batchView(l.doc, l.events, l.batchEvents, l.now);
+const view = (l: LoadedBatch, read?: ReadonlyMap<string, DeviationStatus> | null) => batchView(l.doc, l.events, l.batchEvents, l.now, read);
+/** TB-21: the batch's deviation references as the Deviations system has them now; null when the link does not answer. */
+async function deviationsRead(app: FastifyInstance, l: LoadedBatch): Promise<{ read: Map<string, DeviationStatus> | null; link: LinkState }> {
+  const refs = [...new Set(l.events.flatMap((e) => (e.kind === 'note' && e.payload.reference ? [e.payload.reference] : [])))];
+  const r = await app.links.deviations.byNumbers(refs);
+  return { read: r.state === 'ok' ? r.value : null, link: r.state };
+}
 
 // What a signer is shown of a step, and its hash: the signature is refused if the step changed since (PL-05).
 const stepContent = (batchId: number, v: StepView) => ({ batch: batchId, step: v.id, values: v.values, results: v.results });
 const stepHash = (batchId: number, v: StepView) => contentHash('batch_step', batchId, stepContent(batchId, v));
 
-/** Reads the typed values of a step; machines and rooms are read from master data now (PL-08) and must fit the stage. */
-async function readValues(app: FastifyInstance, doc: MasterDoc, key: StepKey, raw: Record<string, unknown>, now: Date): Promise<Record<string, Value>> {
+/**
+ * Reads the values of a step. Machines and rooms are read from master data now (PL-08) and must fit the stage; then,
+ * like lots, through their link (Logbook, MMS): pulled when it answers, else typed by hand with the label questions
+ * (server/pull.ts). A pulled value cannot be typed over; certificate values come with the lot.
+ */
+async function readValues(app: FastifyInstance, doc: MasterDoc, key: StepKey, raw: Record<string, unknown>, now: Date, current: StepView, batchNo: string) {
   const stage = doc.stages[key.stage]!;
   const step = stage.steps[key.step]!;
   const block = findBlock(step.block)!;
   const out: Record<string, Value> = {};
+  const source: Record<string, Source> = {};
   const problems: string[] = [];
+  // 1. the linked values: machines, rooms and lots
   for (const [name, x] of Object.entries(raw)) {
     const f = block.fields.find((y) => y.name === name);
-    if (!f) { problems.push(`There is no field ${name}`); continue; }
-    // Whole seconds, as the time templates read them (T13).
-    if (f.kind === 'timer') { out[name] = `${now.toISOString().slice(0, 19)}Z`; continue; }
+    if (!f || !LINK_OF[f.kind]) continue;
+    let pulled;
     if (f.kind === 'machine' || f.kind === 'room') {
       const item = f.kind === 'machine' ? usableItem(await app.master.equipment(), String(x), 'machine') : usableItem(await app.master.rooms(), String(x), 'room');
       const type = 'type' in item ? item.type : item.area;
       const allowed = f.kind === 'machine' ? stage.machineTypes : stage.roomTypes;
       if (allowed.length && !allowed.includes(type ?? '')) { problems.push(`${item.code} is not one of the ${f.kind} types this stage allows (${allowed.join(', ')})`); continue; }
-      out[name] = { itemId: item.itemId, code: item.code, name: item.name, version: item.version };
-      continue;
+      out[name] = { itemId: item.itemId, code: item.code, name: item.name, version: item.version, type, room: 'room' in item ? item.room : item.code };
+      pulled = await pullItem(app, block, f, item, batchNo);
+    } else {
+      const v = readValue(f, x, '');
+      if (typeof v !== 'string') { problems.push((v as { error: string }).error); continue; }
+      out[name] = v;
+      pulled = await pullLot(app, doc, step, block, v, current.values, now, PLANT_TZ);
     }
+    problems.push(...pulled.problems);
+    source[name] = pulled.source;
+    Object.assign(out, pulled.values);
+    Object.assign(source, pulled.sources);
+  }
+  // 2. everything typed, with the questions of what is now entered by hand
+  const sources = { ...current.source, ...source };
+  const fields = [...block.fields, ...handFields(block.fields, sources)];
+  const lot = block.fields.find((f) => f.kind === 'lot');
+  for (const [name, x] of Object.entries(raw)) {
+    const f = fields.find((y) => y.name === name);
+    if (!f) { problems.push(`There is no field ${name}`); continue; }
+    if (LINK_OF[f.kind]) continue;
+    const was = source[name] ?? current.source[name];
+    if (was && !isHand(was)) { problems.push(`${f.label} ${pulledWords(was)}`); continue; }
+    if (lot && CERTIFICATE[name]) {
+      const from = sources[lot.name];
+      if (!from) { problems.push(`${f.label}: record the lot first`); continue; }
+      if (!isHand(from)) { problems.push(`${f.label} comes from MMS with the lot and cannot be typed`); continue; }
+    }
+    // Whole seconds, as the time templates read them (T13).
+    if (f.kind === 'timer') { out[name] = `${now.toISOString().slice(0, 19)}Z`; continue; }
     const setting = f.unit?.startsWith('$') ? step.settings[f.unit.slice(1)] : f.unit;
     const v = readValue(f, x, typeof setting === 'string' ? setting : '');
-    if (typeof v === 'object' && !Array.isArray(v) && 'error' in v) problems.push(v.error);
+    if (typeof v === 'object' && !Array.isArray(v) && 'error' in v) { problems.push(v.error); continue; }
+    const no = name.includes('.') && typeof v === 'string' ? handProblem(f, v, now, PLANT_TZ) : null;
+    if (no) problems.push(no);
     else out[name] = v as Value;
   }
   if (problems.length) throw new StepError(400, 'invalid_values', problems);
-  return out;
+  return { values: out, source };
 }
 
 const reason = z.string().trim().min(1).max(1000);
@@ -227,7 +268,7 @@ export function batchRoutes(app: FastifyInstance, sql: Sql) {
     const out = [];
     for (const { id } of ids) {
       const l = (await loadBatch(sql, id))!;
-      const bv = view(l);
+      const bv = view(l, (await deviationsRead(app, l)).read);
       const waiting = bv.status === 'production approved' ? 'QC' : 'QA';
       if (!req.user!.permissions.includes(waiting === 'QC' ? 'truebatch.qc.approve' : 'truebatch.qa.release')) continue;
       const last = l.batchEvents.filter((e) => e.kind !== 'deviation_closed').at(-1)!;
@@ -245,15 +286,18 @@ export function batchRoutes(app: FastifyInstance, sql: Sql) {
     if (!l) return reply.code(404).send({ error: 'not_found' });
     const v = await masterVersion(sql, l.batch.masterVersionId);
     const { stages, steps } = openSteps(l.doc, l.events, l.now);
-    const bv = view(l);
+    const dv = await deviationsRead(app, l);
+    const bv = view(l, dv.read);
     return {
-      batch: { ...l.batch, ...bv, contentHash: batchHash(l), actions: BATCH_NAMES.filter((a) => a !== 'close-deviation' && !batchRefusal(a, bv, req.user!)) },
+      batch: { ...l.batch, ...bv, deviationsLink: dv.link, contentHash: batchHash(l), actions: BATCH_NAMES.filter((a) => a !== 'close-deviation' && !batchRefusal(a, bv, req.user!)) },
       // The server time: the screens count timers down on the server clock.
       now: l.now, master: { id: v!.id, masterId: v!.masterId, versionNo: v!.versionNo, doc: l.doc }, stages, timers: timers(l.doc, l.events, l.now),
       steps: steps.map((s) => {
         const { events, replaced: _, ...current } = s;
         return {
           ...current, events: events.slice(-LAST_EVENTS), contentHash: stepHash(l.batch.id, s),
+          // The label questions of what was entered by hand (shared/engine/links.ts).
+          handFields: handFields(findBlock(l.doc.stages[s.key.stage]!.steps[s.key.step]!.block)?.fields ?? [], s.source),
           actions: NAMES.filter((a) => !refusal(a, context(l.doc, s, req.user!))),
           problems: s.state === 'in_progress' ? doneProblems(l.doc, s, l.now) : [],
         };
@@ -277,8 +321,29 @@ export function batchRoutes(app: FastifyInstance, sql: Sql) {
     if (!l) return reply.code(404).send({ error: 'not_found' });
     const signatures = await batchSignatures(sql, l.batch.id);
     const names = new Map(l.events.map((e) => [e.person, e.personName]));
-    const r = review(l.doc, l.events, l.batchEvents, l.now);
-    return { status: view(l).status, ...r, corrections: r.corrections.map((c) => ({ ...c, personName: names.get(c.person) ?? null })), signatures };
+    const dv = await deviationsRead(app, l);
+    const r = review(l.doc, l.events, l.batchEvents, l.now, dv.read);
+    // Deviations that name this batch in the Deviations system but no note of the record links.
+    const named = await app.links.deviations.byBatch(l.batch.batchNo);
+    const unlinked = named.state === 'ok' ? named.value.filter((d) => !r.deviations.some((x) => x.reference === d.number)) : [];
+    return { status: view(l, dv.read).status, ...r, deviationsLink: dv.link, unlinked, signatures,
+      corrections: r.corrections.map((c) => ({ ...c, personName: names.get(c.person) ?? null })),
+      hand: r.hand.map((h) => ({ ...h, personName: names.get(h.person) ?? null })) };
+  });
+
+  // The deviations that name this batch in the Deviations system, for the note's pick list (pull, don't type).
+  app.get<{ Params: { id: string } }>('/api/batches/:id/deviations', anyUser, async (req, reply) => {
+    const id = parseId(req.params.id);
+    const [b] = id === null ? [] : await sql<{ batchNo: string }[]>`select batch_no as "batchNo" from batches where id = ${id}`;
+    if (!b) return reply.code(404).send({ error: 'not_found' });
+    const r = await app.links.deviations.byBatch(b.batchNo);
+    return { link: r.state, deviations: r.state === 'ok' ? r.value : [] };
+  });
+
+  // The lots of a material MMS has released and in date today, for the lot's pick list.
+  app.get<{ Querystring: { material?: string } }>('/api/mms/lots', anyUser, async (req) => {
+    const r = await app.links.mms.usable(String(req.query.material ?? ''), new Date().toLocaleDateString('en-CA', { timeZone: PLANT_TZ }));
+    return { link: r.state, lots: r.state === 'ok' ? r.value : [] };
   });
 
   // TB-22: the batch record as a PDF: a complete copy with its values, calculations, changes, notes and signatures.
@@ -286,7 +351,7 @@ export function batchRoutes(app: FastifyInstance, sql: Sql) {
     const id = parseId(req.params.id);
     const l = id === null ? null : await loadBatch(sql, id);
     if (!l) return reply.code(404).send({ error: 'not_found' });
-    const def = batchRecordDoc(await recordInput(sql, l), req.user!.fullName);
+    const def = batchRecordDoc({ ...await recordInput(sql, l), deviationsRead: (await deviationsRead(app, l)).read }, req.user!.fullName);
     return sendPdf(reply, `batch-record-${l.batch.batchNo}`, await render(def));
   });
 
@@ -305,7 +370,7 @@ export function batchRoutes(app: FastifyInstance, sql: Sql) {
           await tx`select pg_advisory_xact_lock(${id}::bigint)`;
           const l = await loadBatch(tx, id);
           if (!l) throw new StepError(404, 'not_found');
-          const no = batchRefusal(action, view(l), user, b.note);
+          const no = batchRefusal(action, view(l, (await deviationsRead(app, l)).read), user, b.note);
           if (no) throw new StepError(no.status, no.error, no.problems);
           if (signer && b.contentHash !== batchHash(l)) throw new StepError(409, 'content_changed', ['The batch record changed since you opened it.']);
           const payload = { ...(b.reportNo ? { reportNo: b.reportNo } : {}), ...(b.reason ? { reason: b.reason } : {}), ...(b.note ? { note: b.note } : {}) };
@@ -357,14 +422,22 @@ export function batchRoutes(app: FastifyInstance, sql: Sql) {
           let payload: Record<string, unknown> = {};
           const uses: number[] = [];
           if (b.values) {
-            const typed = await readValues(app, l.doc, key, b.values, l.now);
-            payload = { values: typed, results: evaluate(l.doc, l.events, key, { ...v.values, ...typed }, uses), uses };
+            const typed = await readValues(app, l.doc, key, b.values, l.now, v, l.batch.batchNo);
+            payload = { values: typed.values, results: evaluate(l.doc, l.events, key, { ...v.values, ...typed.values }, uses), uses,
+              ...(Object.keys(typed.source).length ? { source: typed.source } : {}) };
           }
           // Signed again after an input changed: the results worked out again, as shown, are stored with the signature.
           if (action === 'done' && v.inputChanged.length) payload = { results: evaluate(l.doc, l.events, key, v.values, uses), uses };
           if (b.reason) payload.reason = b.reason;
           if (b.text) payload.text = b.text;
-          if (b.reference) payload.reference = b.reference;
+          if (b.reference) {
+            // The reference must be a deviation of the Deviations system while it answers; else typed, and QA closes it by hand.
+            const r = await app.links.deviations.byNumbers([b.reference]);
+            const d = r.state === 'ok' ? r.value.get(b.reference) : undefined;
+            if (r.state === 'ok' && !d) throw new StepError(409, 'unknown_deviation', [`${b.reference} is not in the Deviations system: pick one of the deviations of this batch, or check the number.`]);
+            payload.reference = b.reference;
+            payload.source = { reference: d ? { from: 'deviations', asOf: null, shown: `${d.number}: ${d.title ?? ''} (${d.status})` } : { from: 'hand', link: 'deviations', state: r.state as 'absent' | 'down' } };
+          }
           // 4. one event, and its signature
           const [ev] = await tx<{ id: number }[]>`
             insert into step_events (batch_id, stage, sub, step, round, kind, payload, person_id)
