@@ -115,12 +115,65 @@ export function t22SieveAnalysis(i: T22Input): Outcome<T22Extra> {
   });
 }
 
+// ---------------------------------------------------------------- T22 Mixed-lot particle size (F0418)
+export interface T22MixInput {
+  /** Each lot with its mass and its laser-diffraction table: size classes (same for every lot) and cumulative % undersize. */
+  readonly lots: readonly { readonly name: string; readonly mass: Q; readonly table: readonly { readonly size: Q; readonly undersize: Q }[] }[];
+  /** The percentiles wanted, e.g. ["50", "90"] for D0.5 and D0.9. */
+  readonly percentiles: readonly string[];
+  /** Straight-line (default) or log-size interpolation between size classes. */
+  readonly interpolation?: 'linear' | 'log';
+  /** Limits per percentile, e.g. { "90": { low: "40", high: "70", unit: "µm" } }. */
+  readonly limits?: Readonly<Record<string, Limit>>;
+}
+
+/**
+ * Predicted particle-size distribution of a mix of API lots: the cumulative % undersize of the mix at each size class
+ * is the mass-weighted mean of the lots' (it is a mass fraction); the percentiles are then read by interpolation.
+ * Percentiles themselves never mix by mass (T26 refuses them). The value is the first percentile asked for, in µm.
+ */
+export function t22MixPsd(i: T22MixInput): Outcome<{ readonly percentiles: readonly { readonly p: string; readonly size: Dec; readonly check?: Check }[] }> {
+  return run(() => {
+    if (i.lots.length < 2) refuse('A mix needs at least two lots');
+    if (i.percentiles.length === 0) refuse('Name the percentiles wanted (e.g. 50 and 90)');
+    const lots = i.lots.map((l) => ({ name: l.name, m: parse(l.mass, `The mass of ${l.name}`), rows: l.table.map((r) => ({ x: to(parse(r.size, 'A size class'), 'µm'), u: percent(r.undersize, '% undersize').v })) }));
+    sameKind(lots.map((l) => l.m), 'Lot masses');
+    const first = lots[0]!.rows;
+    if (first.length < 2) refuse('Each table needs at least two size classes');
+    for (const l of lots) {
+      needKind(l.m, ['mass'], `The mass of ${l.name}`);
+      if (l.rows.length !== first.length || l.rows.some((r, n) => !r.x.eq(first[n]!.x))) refuse(`${l.name} is not on the same size classes as ${lots[0]!.name}: report every lot on one set of classes`);
+      if (l.rows.some((r, n) => n > 0 && (!r.x.gt(l.rows[n - 1]!.x) || r.u.lt(l.rows[n - 1]!.u)))) refuse(`The table of ${l.name} must go from the finest class up, with the % undersize never falling`);
+    }
+    const total = lots.reduce((s, l) => s.plus(to(l.m, 'g')), ZERO);
+    const mix = first.map((r, n) => ({ x: r.x, u: lots.reduce((s, l) => s.plus(to(l.m, 'g').times(l.rows[n]!.u)), ZERO).div(total) }));
+    const out = i.percentiles.map((pt) => {
+      const p = new Dec(pt);
+      const k = mix.findIndex((r) => r.u.gte(p));
+      if (k <= 0) refuse(`D${pt} lies outside the size classes given (${fmt(mix[0]!.u, 1)}–${fmt(mix[mix.length - 1]!.u, 1)} % undersize)`);
+      const lo = mix[k - 1]!;
+      const hi = mix[k]!;
+      const f = p.minus(lo.u).div(hi.u.minus(lo.u));
+      const size = i.interpolation === 'log' ? Dec.exp(Dec.ln(lo.x).plus(f.times(Dec.ln(hi.x).minus(Dec.ln(lo.x))))) : lo.x.plus(f.times(hi.x.minus(lo.x)));
+      const lim = i.limits?.[pt];
+      return { p: pt, size, ...(lim ? { check: checkLimit(size, 'µm', lim) } : {}) };
+    });
+    const shown = `mix of ${lots.map((l) => `${l.m.text} ${l.name}`).join(' + ')}: ` + out.map((o) => `D${o.p} = ${fmt(o.size, 1)} µm${o.check ? ` (${o.check.shown})` : ''}`).join('; ');
+    // The check is the first percentile out of limits, else the first one checked.
+    const worst = out.find((o) => o.check && !o.check.pass) ?? out.find((o) => o.check);
+    return { ok: true, value: out[0]!.size, unit: 'µm', percentiles: out, shown, ...(worst?.check ? { check: worst.check } : {}) };
+  });
+}
+
 // ---------------------------------------------------------------- T23 Compact strength and solid fraction
 export type T23Input =
   | {
       readonly mode: 'compact';
-      /** flat round: 2F ÷ (π D t). convex round: Pitt, Newton and Stanley (1988) equation with the wall (band) thickness. */
-      readonly shape: 'flat round' | 'convex round';
+      /**
+       * flat round: 2F ÷ (π D t). convex round: Pitt, Newton and Stanley (1988) equation with the wall (band) thickness.
+       * fracture area: breaking force per fracture area F ÷ (D × H) in N/mm², as some dossiers state it (F0039).
+       */
+      readonly shape: 'flat round' | 'convex round' | 'fracture area';
       readonly force: Q;
       readonly diameter: Q;
       /** Overall thickness. */
@@ -176,7 +229,10 @@ export function t23CompactStrength(i: T23Input): Outcome<T23Extra> {
     if (!f.isPositive() || !d.isPositive() || !th.isPositive() || d.isZero() || th.isZero()) refuse('Force, diameter and thickness must be more than zero');
     let sigma: Dec;
     let line: string;
-    if (i.shape === 'flat round') {
+    if (i.shape === 'fracture area') {
+      sigma = f.div(d.times(th));
+      line = `breaking force per fracture area = ${show(f, 'N', 1)} ÷ (${show(d, 'mm', 2)} × ${show(th, 'mm', 2)}) = ${fmt(sigma, i.decimals ?? 2)} N/mm²`;
+    } else if (i.shape === 'flat round') {
       sigma = f.times(2).div(PI.times(d).times(th));
       line = `tensile strength = 2 × ${show(f, 'N', 1)} ÷ (π × ${show(d, 'mm', 2)} × ${show(th, 'mm', 2)}) = ${fmt(sigma, i.decimals ?? 2)} MPa`;
     } else {
@@ -213,7 +269,8 @@ export function t23CompactStrength(i: T23Input): Outcome<T23Extra> {
       extra = { apparentDensity: app, solidFraction: sf, porosity };
       line += `; apparent density = ${m.text} ÷ ${fmt(volCm3, 4)} cm³ = ${fmt(app, 3)} g/cm³; solid fraction = ${fmt(app, 3)} ÷ ${tru.text} = ${fmt(sf, 3)}; porosity ${fmt(porosity, 1)} %`;
     }
-    return { ok: true, value: sigma, unit: 'MPa', ...extra, shown: line, ...checkOf(sigma, 'MPa', i.limit) };
+    const su = i.shape === 'fracture area' ? 'N/mm²' : 'MPa';
+    return { ok: true, value: sigma, unit: su, ...extra, shown: line, ...checkOf(sigma, su, i.limit) };
   });
 }
 
@@ -259,6 +316,8 @@ export interface T25Input {
   readonly temperature: Q;
   /** Air pressure (default 1013.25 hPa). */
   readonly pressure?: Q;
+  /** g water per kg of dry air (default), or per m³ of air (F0033: inlet air 6-9 g/m³). */
+  readonly per?: 'kg dry air' | 'm³ air';
   readonly decimals?: number;
   readonly limit?: Limit;
 }
@@ -284,10 +343,13 @@ export function t25AbsoluteHumidity(i: T25Input): Outcome<{ readonly dewPoint: D
     const es = new Dec('6.112').times(Dec.exp(a.times(t).div(b.plus(t))));
     const e = rh.v.div(HUNDRED).times(es);
     if (e.gte(p)) refuse('The vapour pressure cannot reach the air pressure');
-    const value = new Dec('621.98').times(e).div(p.minus(e));
+    // Per m³ of air: ρ = e × M(water) ÷ (R × T) with e in Pa, M = 18.01528 g/mol, R = 8.314462618 J/(mol K).
+    const perM3 = i.per === 'm³ air';
+    const value = perM3 ? e.times(100).times('18.01528').div(new Dec('8.314462618').times(t.plus('273.15'))) : new Dec('621.98').times(e).div(p.minus(e));
+    const vu = perM3 ? 'g/m³' : 'g/kg';
     const gamma = Dec.ln(rh.v.div(HUNDRED)).plus(a.times(t).div(b.plus(t)));
     const dewPoint = b.times(gamma).div(a.minus(gamma));
-    const shown = `${rh.text} at ${T.text} (${fmt(p, 2)} hPa): saturation ${fmt(es, 2)} hPa, vapour ${fmt(e, 2)} hPa → ${fmt(value, i.decimals ?? 2)} g/kg dry air; dew point ${fmt(dewPoint, 1)} °C`;
-    return { ok: true, value, unit: 'g/kg', dewPoint, shown, ...checkOf(value, 'g/kg', i.limit) };
+    const shown = `${rh.text} at ${T.text} (${fmt(p, 2)} hPa): saturation ${fmt(es, 2)} hPa, vapour ${fmt(e, 2)} hPa → ${fmt(value, i.decimals ?? 2)} ${perM3 ? 'g/m³ of air' : 'g/kg dry air'}; dew point ${fmt(dewPoint, 1)} °C`;
+    return { ok: true, value, unit: vu, dewPoint, shown, ...checkOf(value, vu, i.limit) };
   });
 }

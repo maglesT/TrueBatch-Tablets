@@ -129,3 +129,45 @@ export function t14ContentUniformity(i: T14Input): Outcome<T14Extra> {
     return { ok: true, value: AV, unit: '', n, mean: s.mean, sd, M, k, decision, contents, outsideL2, shown, check };
   });
 }
+
+// ---------------------------------------------------------------- T14 stratified (Bergum, ASTM E2709) (F0229)
+export interface T14StratifiedInput {
+  /** All individual contents in % of label claim, e.g. 3 tablets at each of 20 times (60 results). */
+  readonly results: Series;
+  readonly locations: number;
+  readonly perLocation: number;
+  /**
+   * The acceptance table the master takes from Bergum's method (ASTM E2709) for this sample size, confidence and
+   * coverage: the largest RSD allowed at each sample mean. The library does not compute it (as for the large sample).
+   */
+  readonly bergum: { readonly n: number; readonly rows: readonly { readonly mean: string; readonly maxRsd: string }[] };
+}
+
+/** Stratified content uniformity: the RSD of all results against the RSD the Bergum table allows at their mean. */
+export function t14Stratified(i: T14StratifiedInput): Outcome<{ readonly mean: Dec; readonly allowedRsd?: Dec }> {
+  return run(() => {
+    const ps = readSeries(i.results, 'Result');
+    const n = ps.length;
+    if (n !== i.locations * i.perLocation) refuse(`${i.locations} locations × ${i.perLocation} units is ${i.locations * i.perLocation} results; ${n} were given`);
+    if (n !== i.bergum.n) refuse(`The Bergum table is for ${i.bergum.n} results, not ${n}: use the table for this sample size`);
+    const rows = i.bergum.rows.map((r) => ({ m: new Dec(r.mean), r: new Dec(r.maxRsd), dp: r.maxRsd.split('.')[1]?.length ?? 0 }));
+    if (rows.length < 2 || rows.some((r, k) => k > 0 && !r.m.gt(rows[k - 1]!.m))) refuse('The Bergum table needs at least two rows with the mean rising');
+    const s = stats(contentsFrom(ps).map((v) => ({ v, unit: unitOf('%'), text: '' })));
+    const rsd = (s.sd ?? new Dec(0)).div(s.mean).times(HUNDRED);
+    const k = rows.findIndex((r) => r.m.gte(s.mean));
+    let allowed: Dec | undefined;
+    if (k === 0 && rows[0]!.m.eq(s.mean)) allowed = rows[0]!.r;
+    else if (k > 0) {
+      const lo = rows[k - 1]!;
+      const hi = rows[k]!;
+      allowed = lo.r.plus(s.mean.minus(lo.m).div(hi.m.minus(lo.m)).times(hi.r.minus(lo.r)));
+    }
+    const dp = rows[0]!.dp;
+    const pass = allowed !== undefined && rsd.toDecimalPlaces(dp, Dec.ROUND_HALF_UP).lte(allowed.toDecimalPlaces(dp, Dec.ROUND_HALF_UP));
+    const shown = `${i.locations} × ${i.perLocation} = ${n} results: mean ${fmt(s.mean, 2)} %, RSD ${fmt(rsd, dp)} %; ` +
+      (allowed === undefined ? `the mean is outside the Bergum table (${rows[0]!.m.toString()}–${rows[rows.length - 1]!.m.toString()} %): FAIL`
+        : `largest RSD allowed at this mean ${fmt(allowed, dp)} %: ${pass ? 'PASS' : 'FAIL'}`);
+    const check: Check = { pass, level: pass ? 'pass' : 'fail', rounded: `${fmt(rsd, dp)} %`, shown };
+    return { ok: true, value: rsd, unit: '%', mean: s.mean, ...(allowed ? { allowedRsd: allowed } : {}), shown, check };
+  });
+}
