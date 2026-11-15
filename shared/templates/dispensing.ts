@@ -3,7 +3,7 @@
  * T10 Compensating excipient, T11 Salt / base factor, T12 Dry basis, T15 Re-scale to actual yield,
  * T16 Overage, T18 Content-adjusted quantity, T19 Split into portions, T20 Multi-lot quantity.
  */
-import { checkOf, defaultDecimals, Dec, fmt, HUNDRED, needKind, parse, percent, refuse, run, sameKind, show, to, unitOf, ZERO, type Done, type Outcome, type Parsed, type Q } from './core.js';
+import { checkOf, defaultDecimals, Dec, fmt, HUNDRED, needKind, parse, percent, refuse, run, sameKind, show, shownNumber, to, unitOf, ZERO, type Done, type Outcome, type Parsed, type Q } from './core.js';
 import type { Limit } from './rounding.js';
 import type { Kind, Unit } from './units.js';
 
@@ -292,7 +292,7 @@ export function t9PotencyAdjusted(i: T9Input): Outcome<T9Extra> {
       standardIs = 'anhydrous';
     }
     if (isT11(i.standard)) {
-      std = { v: i.standard.value, unit: unitOf(i.standard.unit), text: show(i.standard.value, i.standard.unit, defaultDecimals(i.standard.unit) + 1) };
+      std = { v: i.standard.value, unit: unitOf(i.standard.unit), text: `${shownNumber(i.standard.value, i.standard.unit)} ${i.standard.unit}` };
       const fromForm = i.standard.form.hydrateOrSolvate ? 'hydrate or solvate' : 'anhydrous';
       if (standardIs !== undefined && standardIs !== fromForm) refuse(`The salt factor (T11) used the ${fromForm} molecular weight, but the standard quantity is said to be ${standardIs}`);
       standardIs = fromForm;

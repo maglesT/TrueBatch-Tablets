@@ -20,6 +20,11 @@ with the rest of the suite (`npm test`, `npm run ci`). They need no database.
   - Some templates add their own fields (T4 `unaccounted`, T7 `stats`, T14 `decision` …).
 - **A refusal** is `{ ok: false, message }`. The message says in plain English what is wrong and what to do.
 - **Display decimals** can be set with `decimals`. Defaults: kg 3, g/mg 2, % 1.
+- **Numbers inside a worked line** follow one rule (`shownNumber` in `core.ts`): a value written with at most 4
+  decimals is shown as written; a full-precision value passed on from an earlier calculation is shown at the unit's
+  display decimals + 1 (kg 4, g and mg 3, % 2; at least 4 significant figures when small), cut and marked "…"
+  (`10.2553… kg`), so rounding the shown figure gives the same result. The value before rounding at a limit is shown
+  with 2 decimals more than the limit. Only the display is shortened; nothing is rounded inside a calculation.
 
 ## Units (`units.ts`)
 
