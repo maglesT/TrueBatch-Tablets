@@ -393,7 +393,7 @@ describe('the views TrueBatch publishes', () => {
     const batchwright = ['batch_id uuid', 'batch_number text', 'product_code text', 'strength text', 'mbr_version_id uuid', 'family_code text',
       'record_kind text', 'status text', 'issued_at timestamp with time zone', 'completed_at timestamp with time zone', 'released boolean',
       'read_at timestamp with time zone', 'data_as_of timestamp with time zone'];
-    expect(await columns('batch_fact_v1')).toEqual([...batchwright, 'manufactured_on date']);
+    expect(await columns('batch_fact_v1')).toEqual([...batchwright, 'manufactured_on date', 'product_name text', 'master_version integer']);
     expect(await columns('equipment_use_v1')).toEqual(['batch_number text', 'equipment_code text', 'equipment_type text', 'room_code text', 'step text',
       'started_at timestamp with time zone', 'ended_at timestamp with time zone', 'read_at timestamp with time zone', 'data_as_of timestamp with time zone']);
     expect(await columns('deviation_note_v1')).toEqual(['note_id bigint', 'source_ref text', 'batch_number text', 'product_code text', 'step text', 'note text',
@@ -420,6 +420,8 @@ describe('the views TrueBatch publishes', () => {
     const notes = await t.owner.unsafe(`select source_ref, step, note, reference, status from ${r}.deviation_note_v1 where reference is not null order by note_id`);
     expect(notes.map((n) => [n.reference, n.status])).toEqual([['DEV-26-0001', 'open'], ['DEV-PAPER-7', 'closed']]);
     expect(notes[0]!.source_ref).toMatch(/^truebatch:note:\d+$/);
+    // A deviation filed from a note is titled with where it was written, in words, not the master's keys.
+    expect(notes[0]!.step).toBe('Stage 0 › Check a value against limits: pH');
   });
 
   it('TB-P8 batch_fact_v1.manufactured_on, the date of manufacture, is the plant-time date the first processing step started, not the issue date; null before any step started', async () => {
@@ -436,6 +438,34 @@ describe('the views TrueBatch publishes', () => {
       (${started}, 0, 1, 0, 1, 'value', '{}', ${b!.by}, '2026-11-02 21:00+00')`;
     const rows = await t.owner.unsafe(`select batch_number, issued_at::date::text as issued, manufactured_on::text from ${rep()}.batch_fact_v1 where batch_number like 'MFG-%' order by batch_number`);
     expect(rows).toEqual([{ batch_number: 'MFG-NOT-STARTED', issued: '2026-10-30', manufactured_on: null }, { batch_number: 'MFG-STARTED', issued: '2026-10-30', manufactured_on: '2026-11-03' }]);
+  });
+
+  it('batch_fact_v1 names the product and gives the master version as its number', async () => {
+    const [f] = await t.owner.unsafe(`select f.family_code, f.product_name, f.master_version from ${rep()}.batch_fact_v1 f
+      join batches b on b.batch_no = f.batch_number join master_versions v on v.id = b.master_version_id order by b.id limit 1`);
+    expect(f).toEqual({ family_code: '1', product_name: 'P', master_version: 1 });
+  });
+
+  it('material_use_v1 publishes what was dispensed, for MMS to reduce the lot\'s stock: lot, material, net quantity; a correction shows the corrected quantity', async () => {
+    const [u] = await t.owner<{ id: number }[]>`select id::int from users order by id limit 1`;
+    const [v] = await t.owner<{ id: number }[]>`insert into master_versions (version_no, doc, created_by) values (1, ${t.owner.json(tablet() as never)}, ${u!.id}) returning id::int`;
+    const [b] = await t.owner<{ id: number }[]>`insert into batches (batch_no, master_version_id, issued_by) values ('MAT-USE-1', ${v!.id}, ${u!.id}) returning id::int`;
+    const net = (value: string) => ({ ok: true, value, unit: 'kg', shown: `${value} kg` });
+    const e = (step: number, kind: string, payload: object, at: string) => t.owner`insert into step_events (batch_id, stage, sub, step, round, kind, payload, person_id, at)
+      values (${b!.id}, 1, 1, ${step}, 1, ${kind}, ${t.owner.json(payload as never)}, ${u!.id}, ${at})`;
+    // Granulation: weigh the API (signed, then its tare corrected) and the lactose (recorded, not signed: not dispensed yet).
+    await e(0, 'started', {}, '2026-11-15 08:00+00');
+    await e(0, 'value', { values: { lot: 'API-L1', gross: { value: '10.652', unit: 'kg' }, tare: { value: '0.500', unit: 'kg' } }, results: { net: net('10.152') } }, '2026-11-15 08:05+00');
+    await e(0, 'done', {}, '2026-11-15 08:06+00');
+    await e(1, 'value', { values: { lot: 'LAC-L1' }, results: { net: net('11.800') } }, '2026-11-15 08:10+00');
+    const rows = async () => t.owner.unsafe(`select batch_number, lot_number, material_code, material_master_id, quantity::text, unit, dispensed_at, step, status
+      from ${rep()}.material_use_v1 where batch_number = 'MAT-USE-1'`);
+    expect(await rows()).toEqual([{ batch_number: 'MAT-USE-1', lot_number: 'API-L1', material_code: 'MAT-001', material_master_id: 'mat-api', quantity: '10.152', unit: 'kg',
+      dispensed_at: new Date('2026-11-15T08:06:00Z'), step: 'granulation/weigh-api', status: 'dispensed' }]);
+    await e(0, 'corrected', { values: { tare: { value: '0.502', unit: 'kg' } }, results: { net: net('10.150') }, reason: 'Tare misread' }, '2026-11-15 08:20+00');
+    expect(await rows()).toMatchObject([{ lot_number: 'API-L1', quantity: '10.150', status: 'corrected' }]);
+    expect(await columns('material_use_v1')).toEqual(['batch_number text', 'lot_number text', 'material_code text', 'material_master_id text', 'quantity numeric', 'unit text',
+      'dispensed_at timestamp with time zone', 'step text', 'event_id bigint', 'status text', 'read_at timestamp with time zone', 'data_as_of timestamp with time zone']);
   });
 
   it('nobody reads the views without a link: the app login itself has no grant', async () => {

@@ -17,8 +17,9 @@ the QC and QA release screens with the audit-trail review (`web/src/release/`). 
 makes its copies. Line clearance is a standard block; the process skeletons start every stage with it. The links to
 Deviations, QMS, Logbook and MMS (`server/links.ts`, `docs/design.md` "Links") are optional: with a link the value is
 pulled and cannot be typed over; without it, or while it is down, it is typed by hand with a second-person check and
-listed for QA. TrueBatch publishes `report.batch_fact_v1` (with `manufactured_on` at its end, 0007),
-`equipment_use_v1` and `deviation_note_v1` (`db/migrations/0006_report_views.sql`).
+listed for QA. TrueBatch publishes `report.batch_fact_v1` (with `manufactured_on` at its end, 0007, and the product
+name and master version, 0008), `equipment_use_v1`, `deviation_note_v1` (`db/migrations/0006_report_views.sql`) and
+`material_use_v1`, the quantities dispensed, which MMS reads to reduce lot stock (0008).
 
 ## TrueBatch Tablets Packing
 The packing batch record is a separate product on the platform, built from this repository on the same engine and
