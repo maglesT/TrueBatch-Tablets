@@ -10,7 +10,8 @@ import { StepScreen } from './StepScreen.js';
 import './floor.css';
 
 // One batch on the floor: its header, the stages as a progress bar and the alerts, then the overview, one step, or
-// production approval. Reloaded every 20 s (a background poll), and after every action.
+// production approval. Read again on every move between them (what others did shows at once) and after every action;
+// a background poll every 20 s is the fallback.
 export function BatchScreen({ me, id, step, approve }: { me: Me; id: number; step?: string; approve?: boolean }) {
   const [d, setD] = useState<BatchDetail | null>(null);
   const [error, setError] = useState('');
@@ -18,9 +19,9 @@ export function BatchScreen({ me, id, step, approve }: { me: Me; id: number; ste
   const reload = useCallback(async (background = false) => {
     try { setD(await api<BatchDetail>('GET', `/api/batches/${id}`, undefined, background)); setError(''); } catch (e) { setError(plainError(e)); }
   }, [id]);
+  useEffect(() => setD(null), [id]);
+  useEffect(() => { void reload(); }, [reload, step, approve]);
   useEffect(() => {
-    setD(null);
-    void reload();
     const t = setInterval(() => void reload(true), 20_000);
     return () => clearInterval(t);
   }, [reload]);

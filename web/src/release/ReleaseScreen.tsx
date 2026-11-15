@@ -45,13 +45,18 @@ export function ReleaseScreen({ me, id }: { me: Me; id: number }) {
   const [signing, setSigning] = useState<Signing | null>(null);
   const [closing, setClosing] = useState<Review['deviations'][number] | null>(null);
   const blocks = useBlocks();
-  const reload = useCallback(async () => {
+  const reload = useCallback(async (background = false) => {
     try {
-      const [b, v] = await Promise.all([api<BatchDetail>('GET', `/api/batches/${id}`), api<Review>('GET', `/api/batches/${id}/review`)]);
+      const [b, v] = await Promise.all([api<BatchDetail>('GET', `/api/batches/${id}`, undefined, background), api<Review>('GET', `/api/batches/${id}/review`, undefined, background)]);
       setD(b); setR(v); setError('');
     } catch (e) { setError(plainError(e)); }
   }, [id]);
-  useEffect(() => { void reload(); }, [reload]);
+  // Read on opening and after every action; a background poll every 20 s shows what others did meanwhile.
+  useEffect(() => {
+    void reload();
+    const t = setInterval(() => void reload(true), 20_000);
+    return () => clearInterval(t);
+  }, [reload]);
 
   const back = <button className="back" onClick={() => go('#/release')}>← To review</button>;
   if (!d || !r || !blocks) return <div className="fl">{back}{error ? <p className="notice bad" role="alert">{error}</p> : <div className="dash-panel"><div className="skel skel-line w40" /><div className="skel skel-block" /></div>}</div>;
