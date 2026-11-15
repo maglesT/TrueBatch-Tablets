@@ -387,6 +387,12 @@ export function batchRoutes(app: FastifyInstance, sql: Sql) {
     return { link: r.state, lots: r.state === 'ok' ? r.value : [] };
   });
 
+  // Packing: the bulk batches TrueBatch Tablets has released of a product, for the issue's pick list (pull, don't type).
+  app.get<{ Querystring: { product?: string } }>('/api/bulk-batches', { preHandler: requirePermission('truebatch.batch.issue') }, async (req) => {
+    const r = await app.links.truebatch.released(String(req.query.product ?? ''));
+    return { link: r.state, batches: r.state === 'ok' ? r.value.map((b) => ({ batchNo: b.batchNo, mfgDate: b.mfgDate })) : [] };
+  });
+
   // TB-22: the batch record as a PDF: a complete copy with its values, calculations, changes, notes and signatures.
   app.get<{ Params: { id: string } }>('/api/batches/:id/pdf', anyUser, async (req, reply) => {
     const id = parseId(req.params.id);

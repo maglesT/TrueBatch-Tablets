@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { ApiError, can, plantTime, type Me } from '../api.js';
 import { listMasters, loadMasterData, newVersion, STATE_CHIP, STATE_LABEL, type MasterData, type MasterRow } from '../api-designer.js';
 import { Designer } from './Designer.js';
+import { IssueDialog } from '../floor/IssueDialog.js';
 import { NewMaster } from './Header.js';
 import './designer.css';
 
@@ -13,6 +14,7 @@ export function Masters({ me }: { me: Me }) {
   const [error, setError] = useState('');
   const [open, setOpen] = useState<number | null>(null);
   const [creating, setCreating] = useState<{ copyOf?: MasterRow } | null>(null);
+  const [issuing, setIssuing] = useState<MasterRow | null>(null);
   const [q, setQ] = useState('');
   const author = can(me, 'master.author');
   const load = async () => setRows(await listMasters());
@@ -59,6 +61,7 @@ export function Masters({ me }: { me: Me }) {
                       <button onClick={() => setOpen(r.id)}>Open</button>
                       {author && <button onClick={() => setCreating({ copyOf: r })} disabled={!md}>Copy</button>}
                       {author && r.state === 'effective' && !pending(r.masterId) && <button onClick={() => void addVersion(r)}>New version</button>}
+                      {can(me, 'batch.issue') && r.state === 'effective' && <button className="primary" onClick={() => setIssuing(r)}>Issue a batch</button>}
                     </span>
                   </td>
                 </tr>
@@ -67,6 +70,7 @@ export function Masters({ me }: { me: Me }) {
           </table>
         </div>
       )}
+      {issuing && <IssueDialog row={issuing} onCancel={() => setIssuing(null)} />}
       {creating && md && (
         <NewMaster md={md} masters={rows ?? []} copyOf={creating.copyOf} onCancel={() => setCreating(null)}
           onCreated={(id) => { setCreating(null); setOpen(id); }} />

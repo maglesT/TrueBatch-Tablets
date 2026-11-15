@@ -31,6 +31,8 @@ export function App() {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+  // A batch opened from another page (a batch just issued from the master records) shows on the floor screens.
+  useEffect(() => { if (route.batch) setPage('home'); }, [route.batch]);
 
   if (me === undefined) return <main className="page">Loading…</main>;
   if (me === null) return <Login />;

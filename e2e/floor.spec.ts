@@ -7,7 +7,7 @@ import { logIn } from './helpers.js';
 
 // The floor screens, one stage of a small fixture master: a pH check (second-person check) and the stage yield.
 
-/** Writes the fixture master through the API, makes it effective (no approval workflow yet: the database owner does it, as in the server tests) and issues a batch. */
+/** Writes the fixture master through the API, makes it effective (the database owner does it, as in the server tests) and issues a batch on the master records screen (TB-03). */
 async function issueBatch(page: Page): Promise<{ id: number; batchNo: string }> {
   await logIn(page, 'iss1');
   const doc = small([{ name: 'Blending', steps: [{ checker: true },
@@ -18,17 +18,20 @@ async function issueBatch(page: Page): Promise<{ id: number; batchNo: string }> 
   const owner = connect(TEST_DATABASE_URL, { searchPath: E2E_SCHEMA });
   for (const s of ['in_review', 'approved', 'effective']) await owner`update master_versions set state = ${s} where id = ${id}`;
   await owner.end();
-  // The signing proof, as the sign window gets it after core asked for the password again (here the stand-in).
-  await page.goto('/sign?meanings=issued');
-  const proof = /"signProof":"([^"]+)"/.exec(await page.content())?.[1];
-  const b = await page.request.post('/api/batches', { data: { masterVersionId: id, proof } });
-  expect(b.ok()).toBe(true);
-  return (await b.json()) as { id: number; batchNo: string };
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Master records' }).click();
+  await page.getByRole('row', { name: /PRD-050/ }).last().getByRole('button', { name: 'Issue a batch' }).click();
+  await expect(page.getByRole('dialog', { name: 'Issue a batch' })).toContainText('Demolol 50 mg tablets, version 1');
+  await page.getByRole('button', { name: 'Next: sign' }).click();
+  await sign(page);
+  await page.waitForURL(/#\/batch\/\d+$/);
+  const batchNo = (await page.locator('.bno').textContent())!;
+  return { id: Number(/#\/batch\/(\d+)$/.exec(page.url())![1]), batchNo };
 }
 
 /** Signs in the open sign dialog: the sign window opens, the stand-in for core confirms, the window closes. */
 async function sign(page: Page) {
-  await page.getByRole('dialog').getByRole('button', { name: 'Sign', exact: true }).click();
+  await page.getByRole('dialog').last().getByRole('button', { name: 'Sign', exact: true }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
 }
 
@@ -45,7 +48,7 @@ test('TB-14 floor journey: start, a value out of limits needs a deviation note, 
   await op.getByRole('button', { name: new RegExp(`${batch.batchNo} · Demolol 50 mg tablets`) }).click();
   await expect(op.locator('.bh')).toContainText('Master version');
   await expect(op.getByRole('navigation', { name: 'Stages' })).toContainText('Blending');
-  await op.getByRole('button', { name: /Check a value against limits: pH/ }).click();
+  await op.getByRole('button', { name: /^1 Check a value against limits: pH/ }).click();
   await op.getByRole('button', { name: 'Start', exact: true }).click();
   await op.getByLabel('Reading').fill('7.5');
   await op.getByLabel('Reading').press('Enter');
@@ -77,8 +80,10 @@ test('TB-14 floor journey: start, a value out of limits needs a deviation note, 
   await sign(chk);
   await expect(chk.locator('.step-title')).toContainText('Checked');
 
-  // Stage yield: the operator records the output, samples and rejects and signs.
+  // Stage yield: the operator records the output, samples and rejects and signs. Back on the batch, the check made on
+  // the other device shows at once (read again on the way back, not at the next poll).
   await op.getByRole('button', { name: `← Batch ${batch.batchNo}` }).click();
+  await expect(op.locator('.step-row').first()).toContainText('Checked', { timeout: 5_000 });
   await op.getByRole('button', { name: /Stage yield/ }).click();
   await expect(op.locator('.step-title')).toContainText('Stage end · Blending');
   await op.getByRole('button', { name: 'Start', exact: true }).click();
@@ -96,6 +101,18 @@ test('TB-14 floor journey: start, a value out of limits needs a deviation note, 
   await chk.getByRole('button', { name: 'My work' }).click();
   await expect(chk.getByRole('region', { name: 'Waiting for your check' })).toContainText('Stage yield');
   await expect(chk.getByRole('region', { name: 'Waiting for your check' })).toContainText(batch.batchNo);
+
+  // TB-06: a correction keeps the old value struck through; the new value and the reason are not struck.
+  await op.getByRole('button', { name: `← Batch ${batch.batchNo}` }).click();
+  await op.getByRole('button', { name: /^1 Check a value against limits: pH/ }).click();
+  await op.getByRole('button', { name: 'Correct', exact: true }).click();
+  await op.getByRole('dialog').getByLabel('Reading').fill('6.5');
+  await op.getByLabel('Reason for the correction').fill('Meter read before the buffer had mixed in');
+  await op.getByRole('button', { name: 'Save the correction' }).click();
+  const line = op.locator('.corrected').first();
+  await expect(line).toContainText('Meter read before the buffer had mixed in');
+  expect(await line.evaluate((e) => getComputedStyle(e).textDecorationLine)).toBe('none');
+  expect(await line.locator('s').evaluate((e) => getComputedStyle(e).textDecorationLine)).toBe('line-through');
   await opCtx.close();
   await chkCtx.close();
 });
