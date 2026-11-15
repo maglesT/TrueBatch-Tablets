@@ -5,8 +5,8 @@
 import type { Permission } from '../../server/auth.js';
 import { findBlock } from '../blocks/index.js';
 import type { MasterDoc } from '../master/schema.js';
-import { openSteps, outOfLimits, timers, type StepView, type Timer } from './batch.js';
-import { keyId, type StepEvent } from './state.js';
+import { openSteps, outOfLimits, stepLabel, timers, type StepView, type Timer } from './batch.js';
+import { keyId, parseKey, type State, type StepEvent } from './state.js';
 import { failed } from './values.js';
 import { isHand, type Source } from './links.js';
 
@@ -30,10 +30,13 @@ export const BATCH_ACTIONS: Record<BatchAction, { event: BatchEventKind; permiss
  * A note with a reference is a linked deviation. While the Deviations link answers, its status is Deviations' (TB-21):
  * open until closed (or rejected) there. Otherwise it is open until QA closes it by hand with a reason.
  */
-export interface Deviation { note: number; step: string; reference: string; text: string; open: boolean; by: number | null; closed?: BatchEvent; status?: string; closedAt?: string | null }
+export interface Deviation { note: number; step: string; reference: string; text: string; open: boolean; by: number | null; closed?: BatchEvent; status?: string; closedAt?: string | null; where?: string }
 /** A deviation as read from the Deviations system now (server/links.ts). */
 export interface DeviationStatus { status: string; closedAt: string | null }
 export const DEVIATION_DONE = ['closed', 'rejected'];
+const DEVIATION_WORDS: Record<string, string> = { classification: 'waiting for classification', investigation: 'under investigation', capa: 'waiting for its CAPA', closure: 'waiting for closure' };
+/** A status of the Deviations system in plain words (its workflow step names are not shown as keys). */
+export const deviationStatusWords = (s: string) => DEVIATION_WORDS[s] ?? s.replaceAll('_', ' ');
 export function deviations(events: readonly StepEvent[], batchEvents: readonly BatchEvent[], read?: ReadonlyMap<string, DeviationStatus> | null): Deviation[] {
   return events.filter((e) => e.kind === 'note' && e.payload.reference).map((e) => {
     const closed = batchEvents.find((b) => b.kind === 'deviation_closed' && b.payload.note === e.id);
@@ -52,6 +55,7 @@ export function lateItems(doc: MasterDoc, events: readonly StepEvent[], now: Dat
 }
 
 const FINISHED = ['done', 'checked', 'not_applicable'];
+const STATE_WORDS: Record<State, string> = { waiting: 'is not started', open: 'is not started', in_progress: 'is in progress', done_awaiting_check: 'is waiting for its check', done: 'is done', checked: 'is checked', not_applicable: 'is not applicable' };
 const isYield = (doc: MasterDoc, v: StepView) => findBlock(doc.stages[v.key.stage]!.steps[v.key.step]!.block)?.gmp === 'yield';
 
 // QC approves before QA releases, for a packing record too (owner, 15 Nov 2026: "QC signs first").
@@ -61,13 +65,13 @@ export interface BatchView { status: BatchStatus; open: string[]; late: string[]
 export function batchView(doc: MasterDoc, events: readonly StepEvent[], batchEvents: readonly BatchEvent[], now: Date, read?: ReadonlyMap<string, DeviationStatus> | null): BatchView {
   const { stages, steps } = openSteps(doc, events, now);
   const open = [
-    ...steps.filter((s) => !FINISHED.includes(s.state)).map((s) => `Step ${s.stepKey} (${s.id}) ${s.needsResign ? 'needs signing again' : `is ${s.state.replaceAll('_', ' ')}`}`),
+    ...steps.filter((s) => !FINISHED.includes(s.state)).map((s) => `${stepLabel(doc, s.key)} ${s.needsResign ? 'needs signing again' : STATE_WORDS[s.state]}`),
     ...stages.filter((s) => !s.closed).map((s) => `Stage ${s.name} is not closed`),
   ];
   const late = lateItems(doc, events, now).filter((l) => !l.notes.length).map((l) => `${l.timer.label} ran over: a deviation note is needed`);
-  const devs = deviations(events, batchEvents, read);
+  const devs = deviations(events, batchEvents, read).map((d) => ({ ...d, where: stepLabel(doc, parseKey(d.step)!) }));
   const yieldOut = steps.filter((s) => isYield(doc, s) && Object.values(s.results).some(failed) && !devs.some((d) => d.step === s.id))
-    .map((s) => `The yield of step ${s.stepKey} (${s.id}) is out of limits: a deviation note with its reference is needed`);
+    .map((s) => `The yield of ${stepLabel(doc, s.key)} is out of limits: a deviation note with its reference is needed`);
   const has = (k: BatchEventKind) => batchEvents.some((e) => e.kind === k);
   const status: BatchStatus = has('released') ? 'released' : has('rejected') ? 'rejected' : has('qc_approved') ? 'QC approved'
     : has('production_approved') ? 'production approved' : open.length ? 'in production' : 'manufacturing complete';
@@ -83,7 +87,7 @@ export function batchRefusal(action: BatchAction, v: BatchView, user: { id?: num
     if (v.status === 'released' || v.status === 'rejected') return no(`The batch is ${v.status}.`);
     const d = v.deviations.find((x) => x.note === note && x.open);
     if (!d) return no('There is no open deviation note with this number.');
-    if (d.status !== undefined) return no(`The status of ${d.reference} comes from the Deviations system (now ${d.status}): it is closed there.`);
+    if (d.status !== undefined) return no(`The status of ${d.reference} comes from the Deviations system (now ${deviationStatusWords(d.status)}): it is closed there.`);
     // By hand: a second person, who checked the closure in the deviation system or its paper record.
     if (d.by === user.id) return { status: 403, error: 'own_work', problems: ['You typed this deviation number: another QA person closes it.'] };
     return null;
@@ -94,7 +98,7 @@ export function batchRefusal(action: BatchAction, v: BatchView, user: { id?: num
   if (action === 'production-approve') return no(...v.late);
   if (action === 'qc-approve') return null;
   // TB-21: release or rejection only with every linked deviation closed; TB-18: a yield out of limits blocks release.
-  const open = v.deviations.filter((d) => d.open).map((d) => `Deviation ${d.reference} (step ${d.step}) is ${d.status ? `${d.status} in the Deviations system` : 'open'}`);
+  const open = v.deviations.filter((d) => d.open).map((d) => `Deviation ${d.reference} (${d.where ?? `step ${d.step}`}) is ${d.status ? `still open in the Deviations system (${deviationStatusWords(d.status)}): it is closed there first` : 'open'}`);
   return no(...open, ...(action === 'release' ? v.yieldOut : []));
 }
 

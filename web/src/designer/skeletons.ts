@@ -8,7 +8,7 @@ import type { MasterDoc, Pack, SettingValue, Stage, Step } from '../../../shared
 import { stepFrom } from './model.js';
 
 type Header = MasterDoc['header'];
-interface StepPlan { block: string; key?: string; settings?: (h: Header) => Record<string, SettingValue>; minMinutes?: number }
+interface StepPlan { block: string; key?: string; name?: string; checker?: boolean; settings?: (h: Header) => Record<string, SettingValue>; minMinutes?: number }
 interface StagePlan { key: string; name: string; kind?: Stage['kind']; role: string; produces?: [string, number]; uses?: string[]; steps: StepPlan[] }
 
 const pct = (h: Header, mg: string, by: string) => new Dec(mg).times(new Dec(100).plus(by)).div(100).toFixed(1);
@@ -18,10 +18,10 @@ const weighStep = (key: string): StepPlan => ({ block: 'weigh', key, settings: (
 const compressStep: StepPlan = { block: 'compress', settings: (h) => ({
   meanLimit: { low: pct(h, h.coreWeightMg, '-5'), high: pct(h, h.coreWeightMg, '5'), unit: 'mg' }, weightBand: '5.0', weightOuterBand: '10.0' }) };
 // TB-16: the tooling is checked before and after compression; the tablets are reconciled at the end.
-const tooling = (key: string): StepPlan => ({ block: 'punch-die-check', key });
+const tooling = (key: string, name: string): StepPlan => ({ block: 'punch-die-check', key, name });
 const reconcile: StepPlan = { block: 'tablet-reconciliation', key: 'yield', settings: () => ({ theoretical: { header: 'batchSize' },
   meanWeight: { ref: 'compression/compress/meanWeight' }, yieldLimit: { low: '97.0', high: '100.5', unit: '%' }, accountabilityLimit: { low: '99.0', high: '100.5', unit: '%' } }) };
-const compression = [tooling('tooling-before'), compressStep, tooling('tooling-after'), reconcile];
+const compression = [tooling('tooling-before', 'Punch and die check — before compression'), compressStep, tooling('tooling-after', 'Punch and die check — after compression'), reconcile];
 
 const SKELETONS: { id: string; name: string; text: string; stages: StagePlan[] }[] = [
   {
@@ -64,7 +64,8 @@ export function skeletonStages(id: string, h: Header): Stage[] {
     steps: [{ block: 'line-clearance' }, ...p.steps].reduce<Step[]>((steps, sp) => {
       const block = findBlock({ id: sp.block, version: 1 })!;
       const settings = Object.fromEntries(Object.entries(sp.settings?.(h) ?? {}).filter(([, v]) => v !== ''));
-      return [...steps, { ...stepFrom(block, steps.map((t) => t.key)), ...(sp.key ? { key: sp.key } : {}), settings, ...(sp.minMinutes ? { minMinutes: sp.minMinutes } : {}) }];
+      return [...steps, { ...stepFrom(block, steps.map((t) => t.key)), ...(sp.key ? { key: sp.key } : {}), ...(sp.name ? { name: sp.name } : {}), settings,
+        ...(sp.checker ? { checker: true } : {}), ...(sp.minMinutes ? { minMinutes: sp.minMinutes } : {}) }];
     }, []),
   }));
 }

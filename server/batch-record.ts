@@ -3,8 +3,8 @@
 // is struck through and kept with the reason, the person and the time.
 import type { Content, TDocumentDefinitions } from 'pdfmake/interfaces.js';
 import { findBlock, type Block } from '../shared/blocks/index.js';
-import { materialLines, type MasterDoc, type Step } from '../shared/master/schema.js';
-import { batchView, deviations, fieldLabel, handFields, lateItems, lineQuantity, notYetText, openSteps, PROVIDER_NAME, type DeviationStatus, type EventKind, type Source, type Stored, type StepView, type Value } from '../shared/engine/index.js';
+import type { Step } from '../shared/master/schema.js';
+import { batchView, deviations, fieldLabel, handFields, lateItems, lineQuantity, notYetText, openSteps, PROVIDER_NAME, deviationStatusWords, stepTitle, type DeviationStatus, type EventKind, type Source, type Stored, type StepView, type Value } from '../shared/engine/index.js';
 import type { LoadedBatch } from './routes/batches.js';
 import { pageFrame, plant, runs } from './pdf.js';
 
@@ -57,7 +57,7 @@ export function batchRecordDoc(r: RecordInput, by: string, printedAt = new Date(
   const stepName = (v: StepView) => {
     const s = doc.stages[v.key.stage]!;
     const st = stepOf(v);
-    return `${v.key.stage + 1}.${v.key.step + 1} ${title(doc, st)}${s.kind === 'sub-batch' ? ` · sub-batch ${v.key.sub}` : ''}${st.flow.kind === 'repeat-until' ? ` · round ${v.key.round}` : ''}`;
+    return `${v.key.stage + 1}.${v.key.step + 1} ${stepTitle(doc, st)}${s.kind === 'sub-batch' ? ` · sub-batch ${v.key.sub}` : ''}${st.flow.kind === 'repeat-until' ? ` · round ${v.key.round}` : ''}`;
   };
   const byId = new Map(steps.map((v) => [v.id, v]));
   const stepLabel = (id: string) => { const v = byId.get(id); return v ? `${doc.stages[v.key.stage]!.name} · ${stepName(v)}` : id; };
@@ -136,7 +136,7 @@ export function batchRecordDoc(r: RecordInput, by: string, printedAt = new Date(
     const d = devs.find((x) => x.note === e.id);
     const closed = d?.closed && batchEvents.find((b) => b.id === d.closed!.id);
     return [small(e.payload.reference ?? '—'), small(stepLabel(`${e.stage}.${e.sub}.${e.step}.${e.round}`)), small(e.payload.text ?? ''), small(`${who(e.person)}, ${plant(e.at)}`),
-      small(!d ? 'note (no deviation number)' : d.status ? `${d.open ? 'OPEN: ' : ''}${d.status} in the Deviations system${d.closedAt ? `, ${plant(d.closedAt)}` : ''}` : d.open ? 'OPEN' : `closed by ${closed?.personName ?? ''}, ${plant(closed?.at)}: ${closed?.payload.reason ?? ''}`, d?.open ? { color: RED } : {})];
+      small(!d ? 'note (no deviation number)' : d.status ? `${d.open ? 'OPEN: ' : ''}${deviationStatusWords(d.status)} in the Deviations system${d.closedAt ? `, ${plant(d.closedAt)}` : ''}` : d.open ? 'OPEN' : `closed by ${closed?.personName ?? ''}, ${plant(closed?.at)}: ${closed?.payload.reason ?? ''}`, d?.open ? { color: RED } : {})];
   })));
 
   // Every signature of the batch with its meaning.
@@ -156,12 +156,6 @@ export function batchRecordDoc(r: RecordInput, by: string, printedAt = new Date(
   if (view.status !== 'released' && view.status !== 'rejected') content.push(small(`This copy was made while the batch is ${view.status}: it is not a released record.`, { color: RED, margin: [0, 4, 0, 0] }));
 
   return pageFrame(`${doc.pack ? 'TrueBatch Tablets Packing' : 'TrueBatch Tablets'} · ${record} ${r.batch.batchNo} · ${h.productCode} ${h.productName}`, by, content, printedAt);
-}
-
-function title(doc: MasterDoc, st: Step): string {
-  const line = Object.values(st.settings).find((v): v is { formula: string } => typeof v === 'object' && 'formula' in v);
-  const what = line ? materialLines(doc).find((l) => l.key === line.formula)?.name : typeof st.settings.what === 'string' ? st.settings.what : undefined;
-  return [findBlock(st.block)?.name ?? st.key, what].filter(Boolean).join(': ');
 }
 
 /** The recorded values; a corrected value shows the original struck through, the reason, the person and the time. */

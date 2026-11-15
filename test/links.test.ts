@@ -223,7 +223,7 @@ describe('TB-12 MMS: only released, in-date lots of the material; certificate va
   it.each([
     ['NOPE', 'Lot NOPE is not in MMS.'],
     ['LAC-1', 'Lot LAC-1 is MAT-002 in MMS, not MAT-001 Examplol.'],
-    ['API-Q', 'Lot API-Q is quarantine in MMS: only a released lot may be used.'],
+    ['API-Q', 'Lot API-Q is in quarantine in MMS: only a released lot may be used.'],
     ['API-EXP', 'Lot API-EXP expired on 2020-01-31.'],
     ['API-RT', 'Lot API-RT is past its retest date 2021-06-30.'],
     ['API-ASIS', "MMS gives the assay of lot API-ASIS on the as is basis; the master's line is on the dried basis."],
@@ -294,7 +294,7 @@ describe('TB-21 Deviations: the deviation number and its status come from the De
     const note = ((await as('meera', 'GET', `/api/batches/${b.id}/review`)).json() as { deviations: { note: number }[]; unlinked: { number: string }[] });
     expect(note.unlinked.map((d) => d.number)).toEqual(['DEV-26-0099']);
     expect((await as('meera', 'POST', `/api/batches/${b.id}/close-deviation`, { note: note.deviations[0]!.note, reason: 'Closed' })).json())
-      .toMatchObject({ problems: ['The status of DEV-26-0001 comes from the Deviations system (now investigation): it is closed there.'] });
+      .toMatchObject({ problems: ['The status of DEV-26-0001 comes from the Deviations system (now under investigation): it is closed there.'] });
     await t.owner.unsafe(`update ${S.dv}.deviation_v1 set status = 'closed', closed_at = now() where number = 'DEV-26-0001'`);
     expect(await devs()).toMatchObject({ deviations: [{ reference: 'DEV-26-0001', open: false, status: 'closed' }] });
   });
@@ -306,7 +306,7 @@ describe('TB-21 Deviations: the deviation number and its status come from the De
     const approved: BatchEvent[] = [{ id: 1, kind: 'production_approved', payload: {}, person: 3, at: at(5) }, { id: 2, kind: 'qc_approved', payload: { reportNo: 'QC-1' }, person: 4, at: at(6) }];
     const qa = { id: 9, permissions: ['truebatch.qa.release'] };
     const release = (status: string) => batchRefusal('release', batchView(doc, events, approved, at(10), new Map([['DEV-26-001', { status, closedAt: null }]])), qa)?.problems ?? null;
-    expect(release('investigation')).toEqual(['Deviation DEV-26-001 (step 0.1.0.1) is investigation in the Deviations system']);
+    expect(release('investigation')).toEqual(['Deviation DEV-26-001 (Stage 0 › Check a value against limits: pH) is still open in the Deviations system (under investigation): it is closed there first']);
     expect(release('closed')).toBeNull();
     expect(release('rejected')).toBeNull();
   });
@@ -343,7 +343,7 @@ describe('TB-02 QMS: a new master version needs a QA-approved change control', (
     const { id, review } = await draft();
     expect((await review('quality', 'approve', { changeControl: 'CC-404' })).json()).toMatchObject({ error: 'unknown_change_control' });
     expect((await review('quality', 'approve', { changeControl: 'CC-2026-0002' })).json())
-      .toMatchObject({ error: 'change_not_approved', message: 'CC-2026-0002 is qa in QMS, not approved by QA: only a QA-approved change control (implementation, closure, closed) can carry a new version.' });
+      .toMatchObject({ error: 'change_not_approved', message: 'CC-2026-0002 is at the step “qa” in QMS and not approved by QA: only a QA-approved change control (implementation, closure, closed) can carry a new version.' });
     expect((await review('quality', 'approve', { changeControl: 'CC-2026-0003' })).json()).toMatchObject({ error: 'change_not_approved' });
     expect((await review('quality', 'approve', { changeControl: 'CC-2026-0001' })).statusCode).toBe(200);
     const [e] = await t.owner<{ payload: { source: { changeControl: { from: string; shown: string } } } }[]>`

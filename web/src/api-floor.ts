@@ -6,6 +6,7 @@ import type { MasterDoc, Step } from '../../shared/master/schema.js';
 import type { Action, EventKind, Payload, State, StepKey } from '../../shared/engine/state.js';
 import type { Stored, Value } from '../../shared/engine/values.js';
 import { PROVIDER_NAME, type Source } from '../../shared/engine/links.js';
+import { stepTitle as sharedStepTitle } from '../../shared/engine/batch.js';
 
 export type { Block, BlockField, MasterDoc, Step, Action, State, StepKey, Stored, Value, Source };
 
@@ -88,12 +89,8 @@ export const stepOf = (doc: MasterDoc, k: StepKey) => doc.stages[k.stage]!.steps
 export const blockOf = (all: Block[], st: Step) => all.find((b) => b.id === st.block.id && b.version === st.block.version);
 export const keyOf = (k: StepKey) => `${k.stage}.${k.sub}.${k.step}.${k.round}`;
 
-/** A step as people name it (as the My work list does on the server): the block, and the formula line or the thing checked. */
-export function stepTitle(doc: MasterDoc, all: Block[], st: Step): string {
-  const line = Object.values(st.settings).find((v): v is { formula: string } => typeof v === 'object' && 'formula' in v);
-  const what = line ? doc.formula.find((l) => l.key === line.formula)?.name : typeof st.settings.what === 'string' ? st.settings.what : undefined;
-  return [blockOf(all, st)?.name ?? st.key, what].filter(Boolean).join(': ');
-}
+/** A step as people name it, as the server does (shared/engine/batch.ts). */
+export const stepTitle = (doc: MasterDoc, _all: Block[], st: Step) => sharedStepTitle(doc, st);
 /** The unit a number field is recorded in: written in the block, or a setting of the master step ("$unit"). */
 export function unitOf(f: BlockField, st: Step): string {
   if (!f.unit?.startsWith('$')) return f.unit ?? '';

@@ -11,9 +11,9 @@ import { batchRecordDoc, type RecordInput, type Signature } from '../batch-recor
 import { render, sendPdf } from '../pdf.js';
 import { findBlock } from '../../shared/blocks/index.js';
 import { blocking, masterChecks } from '../../shared/master/checks.js';
-import { materialLines, type MasterDoc, type Step } from '../../shared/master/schema.js';
+import type { MasterDoc } from '../../shared/master/schema.js';
 import {
-  ACTIONS, BATCH_ACTIONS, CERTIFICATE, LINK_OF, batchRefusal, handFields, isHand, batchView, doneProblems, evaluate, lateItems, openSteps, parseKey, readValue, refusal, review, timers,
+  ACTIONS, BATCH_ACTIONS, CERTIFICATE, LINK_OF, batchRefusal, stepLabel, stepTitle, handFields, isHand, batchView, doneProblems, evaluate, lateItems, openSteps, parseKey, readValue, refusal, review, timers,
   type Action, type BatchAction, type BatchEvent, type DeviationStatus, type LinkState, type Source, type StepEvent, type StepKey, type StepView, type Value,
 } from '../../shared/engine/index.js';
 
@@ -175,13 +175,6 @@ const NAMES = Object.keys(ACTIONS) as Action[];
 const BATCH_NAMES = Object.keys(BATCH_ACTIONS) as BatchAction[];
 const flowOf = (doc: MasterDoc, k: StepKey) => doc.stages[k.stage]!.steps[k.step]!.flow.kind;
 const context = (doc: MasterDoc, v: StepView, user: SessionUser) => ({ state: v.state, events: v.events, flow: flowOf(doc, v.key), user });
-// A step as people name it: the block, and the formula line or the thing checked.
-function stepTitle(doc: MasterDoc, st: Step): string {
-  const line = Object.values(st.settings).find((v): v is { formula: string } => typeof v === 'object' && 'formula' in v);
-  const what = line ? materialLines(doc).find((l) => l.key === line.formula)?.name : typeof st.settings.what === 'string' ? st.settings.what : undefined;
-  return [findBlock(st.block)?.name ?? st.key, what].filter(Boolean).join(': ');
-}
-
 const FIRST: StepKey = { stage: 0, sub: 1, step: 0, round: 1 };
 /**
  * Packing (TB-P2, TB-P7): a master whose first step is recorded at issue (the line, the released bulk batch, the
@@ -476,6 +469,8 @@ export function batchRoutes(app: FastifyInstance, sql: Sql) {
           if (action === 'done' && v.inputChanged.length) payload = { results: evaluate(l.doc, l.events, key, v.values, uses), uses };
           if (b.reason) payload.reason = b.reason;
           if (b.text) payload.text = b.text;
+          // Where the note was written, in words, for the deviation filed from it (deviation_note_v1.step).
+          if (action === 'note') payload.where = stepLabel(l.doc, key);
           if (b.reference) {
             // The reference must be a deviation of the Deviations system while it answers; else typed, and QA closes it by hand.
             const r = await app.links.deviations.byNumbers([b.reference]);

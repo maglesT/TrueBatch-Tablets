@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  currentValues, doneProblems, evaluate, openSteps, parseKey, refusal, stepState, timers,
+  currentValues, doneProblems, evaluate, openSteps, parseKey, refusal, stepLabel, stepState, stepTitle, timers,
   type Action, type State, type StepEvent,
 } from '../shared/engine/index.js';
 import { at, ev, fail, pass, reading, small, tablet } from './engine-fixture.js';
@@ -154,7 +154,7 @@ describe('openSteps', () => {
     const doc = small([{ steps: [{ flow: { kind: 'qa-hold' } }, {}] }]);
     const done = [ev('started', '0.1.0.1'), ev('done', '0.1.0.1')];
     const v = openSteps(doc, done, at(100)).steps[1]!;
-    expect([v.state, v.blocked]).toEqual(['waiting', 'Waits for QA to release the hold on step t0']);
+    expect([v.state, v.blocked]).toEqual(['waiting', 'Waits for QA to release the hold on “Check a value against limits: pH”']);
     expect(stateOf(doc, [...done, ev('qa_released_hold', '0.1.0.1', { person: 3 })], '0.1.1.1')).toBe('open');
   });
 
@@ -432,5 +432,19 @@ describe('yield accountability (T4)', () => {
     expect(r.accountability).toMatchObject({ ok: true, value: '99.2' });
     expect((r.accountability as { check?: unknown }).check !== undefined).toBe(limits);
     expect(r.yield).toMatchObject({ ok: true, value: '98', check: { pass: true } });
+  });
+});
+
+describe('steps as people name them', () => {
+  it('a step is named by the master, or by its block and material; a waiting step names the step it waits for, never its key', () => {
+    const doc = tablet();
+    expect(stepTitle(doc, doc.stages[1]!.steps[0]!)).toBe('Weigh a material: Examplol');
+    expect(stepLabel(doc, { stage: 1, sub: 1, step: 4, round: 2 })).toBe('Granulation › Dry to an LOD limit (round 2)');
+    const named = small([{ steps: [{ name: 'Punch and die check — before compression', checker: true }, {}] }]);
+    expect(stepTitle(named, named.stages[0]!.steps[0]!)).toBe('Punch and die check — before compression');
+    const v = openSteps(named, [ev('started', '0.1.0.1'), ev('done', '0.1.0.1')], at(10)).steps.find((x) => x.id === '0.1.1.1')!;
+    expect(v.blocked).toBeUndefined();
+    const wait = small([{ steps: [{ name: 'Granulate to the end point', checker: true, waitForCheck: true }, {}] }]);
+    expect(openSteps(wait, [ev('started', '0.1.0.1'), ev('done', '0.1.0.1')], at(10)).steps[1]!.blocked).toBe('Waits for “Granulate to the end point” to be checked');
   });
 });

@@ -136,7 +136,7 @@ describe('F4 by rule and F6 with a changing interval (data-level options)', () =
     expect(masterChecks(d)).toEqual([]);
     const events = [ev('started', '2.1.0.1', { min: 0 }), ev('started', '2.1.0.2', { min: 30 }), ev('started', '2.1.0.3', { min: 60 })];
     const t = timers(d, events, at(61)).find((x) => x.kind === 'periodic' && x.key.round === 4)!;
-    expect([t.at.getTime() - at(0).getTime(), t.label]).toEqual([75 * 60_000, 'Check 4 of step compress (every 15 min)']);
+    expect([t.at.getTime() - at(0).getTime(), t.label]).toEqual([75 * 60_000, 'Check 4 of “Compress with periodic checks” (every 15 min)']);
     step(d, 'compression', 'compress').everyMinutesLater = { afterMinutes: 60, everyMinutes: 45 };
     expect(masterChecks(d).map((p) => p.message)).toEqual(['Periodic checks every 45 min: they must be at least every 30 min']);
   });

@@ -2,10 +2,12 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { api, can, MEANING_LABEL, type Me } from '../api.js';
 import { SignDialog } from '../components/SignDialog.js';
 import {
-  blockOf, changed, go, headline, pdfLink, plainClock, plainError, stepOf, stepTitle, tone, useBlocks, valueText, words,
+  blockOf, changed, go, headline, pdfLink, plainClock, plainError, stepOf, tone, useBlocks, valueText, words,
   type BatchDetail, type Block, type FloorEvent, type Source, type TimerRow, type Value,
 } from '../api-floor.js';
 import { fieldLabel as labelOf, PROVIDER_NAME } from '../../../shared/engine/links.js';
+import { stepLabel } from '../../../shared/engine/batch.js';
+import { deviationStatusWords } from '../../../shared/engine/release.js';
 import { BatchHeader } from '../floor/BatchScreen.js';
 import { ReasonDialog } from '../floor/ReasonDialog.js';
 import { product } from '../product.js';
@@ -55,7 +57,7 @@ export function ReleaseScreen({ me, id }: { me: Me; id: number }) {
   if (!d || !r || !blocks) return <div className="fl">{back}{error ? <p className="notice bad" role="alert">{error}</p> : <div className="dash-panel"><div className="skel skel-line w40" /><div className="skel skel-block" /></div>}</div>;
 
   const doc = d.master.doc;
-  const name = (step: string) => stepName(d, blocks, step);
+  const name = (step: string) => stepName(d, step);
   // Server messages name steps by their position; people see the step's name.
   const plain = (t: string) => words(t.replace(/(?:step|Step) \S+ \((\d+\.\d+\.\d+\.\d+)\)|\(step (\d+\.\d+\.\d+\.\d+)\)/g, (m, a, b) => (a ? `step ${name(a)}` : `(${name(b)})`)));
   const fieldLabel = (step: string, field: string) => fieldOf(d, blocks, step, field);
@@ -64,7 +66,7 @@ export function ReleaseScreen({ me, id }: { me: Me; id: number }) {
   const openDevs = r.deviations.filter((x) => x.open);
   const qcTurn = d.batch.status === 'production approved';
   const qaTurn = d.batch.status === 'QC approved';
-  const blockers = [...openDevs.map((x) => `Deviation ${x.reference} (${name(x.step)}) is ${x.status ? `${x.status} in the Deviations system: it is closed there.` : 'open: close it first.'}`), ...d.batch.yieldOut.map(plain)];
+  const blockers = [...openDevs.map((x) => `Deviation ${x.reference} (${name(x.step)}) is ${x.status ? `still open in the Deviations system (${deviationStatusWords(x.status)}): it is closed there first.` : 'open: close it first.'}`), ...d.batch.yieldOut.map(plain)];
   const handLabel = (step: string, field: string) => field === 'reference' ? 'deviation number' : fieldLabel(step, field);
 
   const sign = async ({ proof }: { proof: string }) => {
@@ -119,10 +121,10 @@ export function ReleaseScreen({ me, id }: { me: Me; id: number }) {
           <li key={x.step}><b>{name(x.step)}</b><small>{x.changes.map((e) => `${e.personName}, ${plainClock(e.at)}`).join(' · ')}</small></li>))}</Group>}
         <Group title="Deviation notes" empty="No deviation note has a deviation number.">{r.deviations.map((x) => (
           <li key={x.note} className={x.open ? 'bad' : 'ok'}><b>{x.reference} · {name(x.step)}</b><span>{x.text}</span>
-            <small>{x.status ? `${x.status} in the Deviations system${x.closedAt ? `, ${plainClock(x.closedAt)}` : ''}` : x.open ? 'Open: QA closes it before release' : `Closed by ${x.closed?.personName}, ${plainClock(x.closed?.at ?? '')}: ${x.closed?.payload.reason ?? ''}`}</small>
+            <small>{x.status ? `${deviationStatusWords(x.status)} in the Deviations system${x.closedAt ? `, ${plainClock(x.closedAt)}` : ''}` : x.open ? 'Open: QA closes it before release' : `Closed by ${x.closed?.personName}, ${plainClock(x.closed?.at ?? '')}: ${x.closed?.payload.reason ?? ''}`}</small>
             {x.open && !x.status && !decided && can(me, 'qa.release') && <button onClick={() => setClosing(x)}>Close the deviation…</button>}</li>))}</Group>
         {r.unlinked.length > 0 && <Group title="Deviations naming this batch that no note links" empty="">{r.unlinked.map((x) => (
-          <li key={x.number} className="bad"><b>{x.number}</b><span>{x.title}</span><small>{x.status} in the Deviations system</small></li>))}</Group>}
+          <li key={x.number} className="bad"><b>{x.number}</b><span>{x.title}</span><small>{deviationStatusWords(x.status)} in the Deviations system</small></li>))}</Group>}
         <Group title="Typed by hand (a link was off or down)" empty="Every linked value came through its link.">{r.hand.map((h, i) => (
           <li key={i}><b>{name(h.step)} · {handLabel(h.step, h.field)}</b><span>{PROVIDER_NAME[h.link]} {h.state === 'down' ? 'link was down' : 'not linked'}</span>
             <small>{h.personName}, {plainClock(h.at)}</small></li>))}</Group>
@@ -189,14 +191,9 @@ function fieldOf(d: BatchDetail, blocks: Block[], step: string, field: string) {
   return labelOf(blockFor(d, blocks, step)?.fields ?? [], field);
 }
 /** "Granulation › Weigh a material: Examplol (sub-batch 2, round 3)". */
-function stepName(d: BatchDetail, blocks: Block[], step: string): string {
+function stepName(d: BatchDetail, step: string): string {
   const s = d.steps.find((x) => x.id === step);
-  if (!s) return `step ${step}`;
-  const doc = d.master.doc;
-  const stage = doc.stages[s.key.stage]!;
-  const st = stepOf(doc, s.key);
-  const extra = [stage.kind === 'sub-batch' ? `sub-batch ${s.key.sub}` : '', st.flow.kind === 'repeat-until' ? `round ${s.key.round}` : ''].filter(Boolean).join(', ');
-  return `${stage.name} › ${stepTitle(doc, blocks, st)}${extra ? ` (${extra})` : ''}`;
+  return s ? stepLabel(d.master.doc, s.key) : `step ${step}`;
 }
 
 function Kpi({ n, label, tone: t }: { n: number; label: string; tone: 'warn' | 'bad' }) {

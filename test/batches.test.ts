@@ -308,14 +308,14 @@ describe('production approval, QC approval and QA release', () => {
   });
 
   it('TB-20 production cannot sign while anything in the record is open', async () => {
-    expect((await batchSign('sam', 'production-approve')).json()).toMatchObject({ error: 'not_ready', problems: ['Step t0 (0.1.0.1) is open', 'Step t1 (0.1.1.1) is waiting', 'Stage Stage 0 is not closed'] });
+    expect((await batchSign('sam', 'production-approve')).json()).toMatchObject({ error: 'not_ready', problems: ['Stage 0 › Check a value against limits: pH is not started', 'Stage 0 › Stage yield is not started', 'Stage Stage 0 is not closed'] });
     await act('asha', id, '0.1.0.1', 'start');
     await act('asha', id, '0.1.0.1', 'record', { values: { reading: '6.0' } });
     expect((await sign('asha', id, '0.1.0.1', 'done')).statusCode).toBe(200);
     await act('asha', id, '0.1.1.1', 'start');
     await act('asha', id, '0.1.1.1', 'record', { values: { output: '0.099', samples: '0.000', rejects: '0.001' } });
     expect((await sign('asha', id, '0.1.1.1', 'done')).statusCode).toBe(200);
-    expect((await batchSign('sam', 'production-approve')).json()).toMatchObject({ problems: ['Step t1 (0.1.1.1) is done awaiting check', 'Stage Stage 0 is not closed'] });
+    expect((await batchSign('sam', 'production-approve')).json()).toMatchObject({ problems: ['Stage 0 › Stage yield is waiting for its check', 'Stage Stage 0 is not closed'] });
     expect((await sign('ravi', id, '0.1.1.1', 'check')).statusCode).toBe(200);
     expect((await full()).batch).toMatchObject({ status: 'manufacturing complete', open: [] });
   });
@@ -346,7 +346,7 @@ describe('production approval, QC approval and QA release', () => {
     expect((await batchSign('quinn', 'qc-approve', { reportNo: 'QC-26-0042' })).statusCode).toBe(200);
     expect([await toReview('quinn'), await toReview('meera')]).toMatchObject([[], [{ waiting: 'QA', openDeviations: 1 }]]);
     expect((await batchSign('meera', 'reject', {})).statusCode).toBe(400);
-    expect((await batchSign('meera', 'release')).json()).toMatchObject({ error: 'not_ready', problems: ['Deviation DEV-26-010 (step 0.1.0.1) is open'] });
+    expect((await batchSign('meera', 'release')).json()).toMatchObject({ error: 'not_ready', problems: ['Deviation DEV-26-010 (Stage 0 › Check a value against limits: pH) is open'] });
     expect((await batchAct('quinn', 'close-deviation', { note, reason: 'x' })).statusCode).toBe(403);
     expect((await batchAct('meera', 'close-deviation', { note, reason: 'Meter recalibrated; results confirmed by a second meter' })).statusCode).toBe(200);
     expect((await batchAct('meera', 'close-deviation', { note, reason: 'again' })).statusCode).toBe(409);

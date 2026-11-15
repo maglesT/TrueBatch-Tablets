@@ -41,7 +41,7 @@ test('TB-02 build a master from a skeleton, fix a master-check problem, then che
   await author.getByRole('button', { name: 'Process', exact: true }).click();
   await expect(author.locator('.steps-col .olist li').first()).toContainText('Line clearance');
   await author.locator('.steps-col').getByRole('button', { name: /4\. Dry mix for a time/ }).click();
-  await author.getByRole('button', { name: 'Remove step blend' }).click();
+  await author.getByRole('button', { name: 'Remove Dry mix for a time' }).click();
   await expect(author.locator('.steps-col .olist li')).toHaveCount(4);
 
   // The master check shows what is missing; its link selects the step, and the template sentence takes the input.

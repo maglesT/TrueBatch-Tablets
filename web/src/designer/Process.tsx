@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import type { MasterData } from '../api-designer.js';
 import { findBlock } from '../../../shared/blocks/index.js';
+import { stepTitle } from '../../../shared/engine/batch.js';
 import type { MasterDoc, Stage, Step } from '../../../shared/master/schema.js';
 import { move, newStage, searchBlocks, stepFrom, type Place } from './model.js';
 import { StepSettings } from './StepSettings.js';
@@ -65,8 +66,8 @@ export function Process({ doc, onChange, md, place, onPlace, editable }: {
                 const b = findBlock(t.block);
                 return (
                   <li key={t.key} className={j === ti ? 'on' : ''}>
-                    <span className="ol-main" {...pickable(() => select(si, j))} aria-current={j === ti}><b>{j + 1}. {b?.name ?? t.block.id}</b><small>{t.key}{t.checker ? ' · checked' : ''}{t.critical ? ' · critical' : ''}{t.flow.kind !== 'none' ? ` · ${t.flow.kind.replaceAll('-', ' ')}` : ''}</small></span>
-                    {editable && <Order index={j} count={stage.steps.length} what={`step ${t.key}`} onMove={(by) => { setSteps(move(stage.steps, j, by)); select(si, j + by); }}
+                    <span className="ol-main" {...pickable(() => select(si, j))} aria-current={j === ti}><b>{j + 1}. {b ? stepTitle(doc, t) : t.block.id}</b><small>{[t.checker && 'checked', t.critical && 'critical', t.flow.kind !== 'none' && t.flow.kind.replaceAll('-', ' ')].filter(Boolean).join(' · ')}</small></span>
+                    {editable && <Order index={j} count={stage.steps.length} what={stepTitle(doc, t)} onMove={(by) => { setSteps(move(stage.steps, j, by)); select(si, j + by); }}
                       onRemove={() => { setSteps(stage.steps.filter((_, k) => k !== j)); select(si); }} />}
                   </li>
                 );
@@ -92,7 +93,7 @@ export function Process({ doc, onChange, md, place, onPlace, editable }: {
 
       <div className="card col settings-col">
         {stage && ti !== undefined ? (
-          <StepSettings doc={doc} si={si} ti={ti} onChange={(t) => setSteps(stage.steps.map((x, k) => (k === ti ? t : x)))} />
+          <StepSettings key={`${si}/${stage.steps[ti]!.key}`} doc={doc} si={si} ti={ti} onChange={(t) => setSteps(stage.steps.map((x, k) => (k === ti ? t : x)))} />
         ) : stage ? (
           <StageForm doc={doc} si={si} stage={stage} onChange={putStage} roles={roles} machineTypes={machineTypes} areas={areas} />
         ) : null}

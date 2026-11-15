@@ -3,6 +3,7 @@
 // critical, the flow, and "More options" for the rare settings.
 import { useEffect, useState } from 'react';
 import { findBlock, type Block } from '../../../shared/blocks/index.js';
+import { stepTitle } from '../../../shared/engine/batch.js';
 import type { Stored, Value } from '../../../shared/engine/index.js';
 import type { Kind } from '../../../shared/templates/index.js';
 import { HEADER_VALUES, materialLines, type Limit, type MasterDoc, type SettingValue, type Step } from '../../../shared/master/schema.js';
@@ -34,6 +35,8 @@ export function StepSettings({ doc, si, ti, onChange }: { doc: MasterDoc; si: nu
   return (
     <div className="step-settings">
       <h2>{block.name}</h2>
+      <label>Name of the step (as people read it)<input value={step.name ?? ''} placeholder={stepTitle(doc, { ...step, name: undefined })}
+        onChange={(e) => { const { name: _, ...rest } = step; onChange(e.target.value ? { ...rest, name: e.target.value } : rest); }} /></label>
       <label>Instruction to the operator
         <textarea value={step.instruction ?? block.instruction} onChange={(e) => onChange({ ...step, instruction: e.target.value === block.instruction ? undefined : e.target.value })} />
       </label>

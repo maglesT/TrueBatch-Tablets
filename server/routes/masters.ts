@@ -210,7 +210,7 @@ async function changeControlSource(app: FastifyInstance, number: string): Promis
   if (r.state !== 'ok') return { from: 'hand', link: 'qms', state: r.state };
   const c = r.value;
   if (!c) throw new ReviewError(409, 'unknown_change_control', [`${number} is not a change control in QMS.`]);
-  if (!approvedChange(c)) throw new ReviewError(409, 'change_not_approved', [`${number} is ${c.status} in QMS${c.qaApprovedAt ? '' : ', not approved by QA'}: only a QA-approved change control (${CHANGE_STEPS.join(', ')}) can carry a new version.`]);
+  if (!approvedChange(c)) throw new ReviewError(409, 'change_not_approved', [`${number} is at the step “${c.status.replaceAll('_', ' ')}” in QMS${c.qaApprovedAt ? '' : ' and not approved by QA'}: only a QA-approved change control (${CHANGE_STEPS.join(', ')}) can carry a new version.`]);
   return { from: 'qms', asOf: c.qaApprovedAt, shown: `${c.number}: ${c.title ?? ''} (${c.status}, QA approved ${c.qaApprovedAt})${c.products ? `; products: ${c.products}` : ''}` };
 }
 

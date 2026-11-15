@@ -158,18 +158,13 @@ function Approval({ d, blocks, reload }: { d: BatchDetail; blocks: Block[]; relo
   const [signing, setSigning] = useState(false);
   const [notice, setNotice] = useState('');
   const doc = d.master.doc;
-  const named = (t: string) => t.replace(/Step \S+ \((\d+)\.(\d+)\.(\d+)\.(\d+)\)/g, (_, a, sub, b, r) => {
-    const st = doc.stages[Number(a)]?.steps[Number(b)];
-    const stage = doc.stages[Number(a)]!;
-    return st ? `${stage.name}: ${stepTitle(doc, blocks, st)}${stage.kind === 'sub-batch' ? ` (sub-batch ${sub})` : ''}${st.flow.kind === 'repeat-until' ? ` round ${r}` : ''}` : t;
-  });
   // The stage yield (from the stage-yield step), as signed.
   const stageYield = (i: number) => d.steps.filter((x) => x.key.stage === i && x.results.yield?.ok).map((x) => {
     const r = x.results.yield!;
     return ` · yield ${headline(r)}${tone(r) === 'bad' ? ' (out of limits)' : tone(r) === 'ok' ? ' (within limits)' : ''}${doc.stages[i]!.kind === 'sub-batch' ? ` in sub-batch ${x.key.sub}` : ''}`;
   }).join('');
   const can = d.batch.actions.includes('production-approve');
-  const problems = [...d.batch.open, ...d.batch.late].map((t) => words(named(t)));
+  const problems = [...d.batch.open, ...d.batch.late].map(words);
   const sign = async ({ proof }: { proof: string }) => {
     try {
       await api('POST', `/api/batches/${d.batch.id}/production-approve`, { proof, contentHash: d.batch.contentHash });
