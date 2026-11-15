@@ -23,6 +23,8 @@ export interface Payload {
   results?: Record<string, Stored>;
   reason?: string;
   text?: string;
+  // The events of other steps the results were worked out from (values.ts, inputChanges).
+  uses?: number[];
   timer?: string;
   [k: string]: unknown;
 }

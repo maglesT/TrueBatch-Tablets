@@ -5,7 +5,7 @@
 import { findBlock } from '../blocks/index.js';
 import type { MasterDoc, Step } from '../master/schema.js';
 import { keyId, stepState, type EventKind, type State, type StepEvent, type StepKey } from './state.js';
-import { currentValues, failed, type Current } from './values.js';
+import { currentValues, evaluate, failed, inputChanges, type Current } from './values.js';
 
 export interface StepView extends Current {
   key: StepKey;
@@ -17,6 +17,9 @@ export interface StepView extends Current {
   // Why a waiting step is not open yet.
   blocked?: string;
   events: StepEvent[];
+  // The changes to inputs from other steps since the results were worked out: the results shown are worked out
+  // again (not stored), and the step must be signed again (and checked again).
+  inputChanged: StepEvent[];
 }
 export interface StageView { index: number; key: string; name: string; open: boolean; blocked?: string; closed: boolean }
 export interface Timer {
@@ -115,11 +118,18 @@ export function openSteps(doc: MasterDoc, events: readonly StepEvent[], now: Dat
         for (let round = 1; ; round++) {
           const key = { stage: si, sub, step: ti, round };
           const evs = byKey.get(keyId(key)) ?? [];
-          const { state, needsResign } = stepState(evs, st.checker);
+          const c = currentValues(evs);
+          const inputChanged = inputChanges(events, c.uses);
+          let { state, needsResign } = stepState(evs, st.checker);
+          if (inputChanged.length) {
+            c.results = evaluate(doc, events, key, c.values);
+            if (state === 'done' || state === 'done_awaiting_check' || state === 'checked') [state, needsResign] = ['in_progress', true];
+          }
           last = { key, id: keyId(key), stageKey: s.key, stepKey: st.key, state: state === 'waiting' && gate === null ? 'open' : state, needsResign,
-            ...(state === 'waiting' && gate !== null ? { blocked: gate } : {}), events: evs, ...currentValues(evs) };
+            ...(state === 'waiting' && gate !== null ? { blocked: gate } : {}), events: evs, ...c, inputChanged };
           steps.push(last);
-          if (st.flow.kind !== 'repeat-until' || !finished(last, st.waitForCheck) || stopPassed(last, st) || round >= maxRounds(st)) break;
+          // A round that has events is always shown (an earlier round may be back in progress after a correction).
+          if (!byKey.has(keyId({ ...key, round: round + 1 })) && (st.flow.kind !== 'repeat-until' || !finished(last, st.waitForCheck) || stopPassed(last, st) || round >= maxRounds(st))) break;
           gate = null;
         }
         gate = after(st, last!, st.waitForCheck);
@@ -141,7 +151,9 @@ export function doneProblems(doc: MasterDoc, v: StepView, now: Date): string[] {
   for (const r of Object.values(v.results)) if (!r.ok) p.push(r.message);
   const stop = stopName(st);
   const out = block.calcs.filter((c) => c.name !== stop && failed(v.results[c.name])).map((c) => c.label);
-  if (out.length && !noteAfter(v.events, latest(v.events, ['value', 'corrected']))) p.push(`Out of limits: ${out.join(', ')}. Add a deviation note first.`);
+  // The note must come after the last value, or after the last change of an input from another step.
+  const since = [...v.events.filter((e) => e.kind === 'value' || e.kind === 'corrected'), ...v.inputChanged].map((e) => e.at).sort((a, b) => a.getTime() - b.getTime()).at(-1);
+  if (out.length && !noteAfter(v.events, since)) p.push(`Out of limits: ${out.join(', ')}. Add a deviation note first.`);
   const started = earliest(v.events, 'started');
   if (st.minMinutes && started && now < plus(started, st.minMinutes)) {
     p.push(`The minimum time is ${st.minMinutes} min: the step can be finished from ${plus(started, st.minMinutes).toISOString()}`);

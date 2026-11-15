@@ -192,6 +192,30 @@ describe('walking a stage', () => {
     expect((await sign('ravi', id, '1.1.0.1', 'check')).statusCode).toBe(200);
   });
 
+  it('TB-06 a correction reaches the step that used the value: it shows the new result and who changed it, and is signed and checked again', async () => {
+    expect((await act('asha', id, '1.1.1.1', 'start')).statusCode).toBe(200);
+    await act('asha', id, '1.1.1.1', 'record', { values: { lot: 'LAC-2611', balance: 'eq-bal', gross: '12.700', tare: '0.850' } });
+    expect((await sign('asha', id, '1.1.1.1', 'done')).statusCode).toBe(200);
+    expect((await sign('ravi', id, '1.1.1.1', 'check')).statusCode).toBe(200);
+    const before = (await stepOf(id, '1.1.1.1')).results as unknown as { target: { value: string } };
+    // The API's assay is corrected after the lactose target (T10) was worked out from it.
+    expect((await act('asha', id, '1.1.0.1', 'correct', { values: { assay: '98.0' }, reason: 'Assay typed from the old certificate' })).statusCode).toBe(200);
+    const s = (await stepOf(id, '1.1.1.1')) as unknown as { state: string; needsResign: boolean; inputChanged: { kind: string; personName: string; payload: { reason: string } }[]; results: { target: { value: string } } };
+    expect([s.state, s.needsResign]).toEqual(['in_progress', true]);
+    expect(s.inputChanged).toMatchObject([{ kind: 'corrected', personName: 'ASHA', payload: { reason: 'Assay typed from the old certificate' } }]);
+    expect(Number(s.results.target.value)).toBeLessThan(Number(before.target.value));
+    // Signed again with the new target, then checked again. 11.850 kg is now 0.9 % over the new target: a note first.
+    await sign('asha', id, '1.1.0.1', 'done');
+    await sign('ravi', id, '1.1.0.1', 'check');
+    expect((await sign('asha', id, '1.1.1.1', 'done')).json()).toMatchObject({ error: 'not_ready', problems: ['Out of limits: Net against target. Add a deviation note first.'] });
+    await act('asha', id, '1.1.1.1', 'note', { text: 'Lactose 0.9 % over the corrected target', reference: 'DEV-26-003' });
+    expect((await sign('asha', id, '1.1.1.1', 'done')).statusCode).toBe(200);
+    expect((await stepOf(id, '1.1.1.1')).state).toBe('done_awaiting_check');
+    expect((await sign('ravi', id, '1.1.1.1', 'check')).statusCode).toBe(200);
+    const after = (await stepOf(id, '1.1.1.1')) as unknown as { inputChanged: unknown[]; results: { target: { value: string } } };
+    expect([after.inputChanged, after.results.target.value]).toEqual([[], s.results.target.value]);
+  });
+
   it('step events are insert-only: the app role cannot change or delete them, nor can the owner', async () => {
     expect(await code(t.sql`update step_events set kind = 'checked'`)).toBe('42501');
     expect(await code(t.sql`delete from step_events`)).toBe('42501');

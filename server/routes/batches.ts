@@ -173,10 +173,13 @@ export function batchRoutes(app: FastifyInstance, sql: Sql) {
           if (action === 'done') { const p = doneProblems(l.doc, v, l.now); if (p.length) throw new StepError(409, 'not_ready', p); }
           if (signer && b.contentHash !== stepHash(id, v)) throw new StepError(409, 'content_changed', ['The step changed since you opened it.']);
           let payload: Record<string, unknown> = {};
+          const uses: number[] = [];
           if (b.values) {
             const typed = await readValues(app, l.doc, key, b.values, l.now);
-            payload = { values: typed, results: evaluate(l.doc, l.events, key, { ...v.values, ...typed }) };
+            payload = { values: typed, results: evaluate(l.doc, l.events, key, { ...v.values, ...typed }, uses), uses };
           }
+          // Signed again after an input changed: the results worked out again, as shown, are stored with the signature.
+          if (action === 'done' && v.inputChanged.length) payload = { results: evaluate(l.doc, l.events, key, v.values, uses), uses };
           if (b.reason) payload.reason = b.reason;
           if (b.text) payload.text = b.text;
           // 4. one event, and its signature
