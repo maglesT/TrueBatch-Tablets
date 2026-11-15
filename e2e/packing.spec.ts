@@ -4,8 +4,8 @@ import { logIn } from './helpers.js';
 
 // TrueBatch Tablets Packing in the browser: a packing master built in the designer from the packing skeleton (its
 // materials picked from master data), checked and approved; a packing batch issued from the released bulk batch of
-// TrueBatch Tablets; the record run (the first step on the floor screen, the rest through the API); then QA release
-// without QC approval and the packing record PDF.
+// TrueBatch Tablets; the record run (the first step on the floor screen, the rest through the API); then QC approval
+// with the QC report number, QA release and the packing record PDF.
 
 const baseURL = `http://127.0.0.1:${E2E_PACKING_PORT}`;
 test.use({ baseURL });
@@ -23,7 +23,7 @@ async function sign(page: Page) {
 }
 const masters = async (page: Page) => page.getByRole('button', { name: 'Packing masters' }).click();
 
-test('TB-P2 packing journey: packing master from the skeleton, approved; a packing batch from the released bulk batch, run, QA released without QC; the packing record PDF', async ({ browser }) => {
+test('TB-P2 packing journey: packing master from the skeleton, approved; a packing batch from the released bulk batch, run, QC approved, then QA released; the packing record PDF', async ({ browser }) => {
   // The author: a new packing master for the pack, from the packing skeleton.
   const author = await person(browser, 'pauthor');
   await expect(author.page.locator('.brand')).toContainText('TrueBatch Tablets Packing');
@@ -105,7 +105,7 @@ test('TB-P2 packing journey: packing master from the skeleton, approved; a packi
   await expect(op.page.getByRole('navigation', { name: 'Stages' })).toContainText('Issue to the line');
   await op.page.getByRole('button', { name: /Bulk tablets issued to the line/ }).click();
   await expect(op.page.locator('main')).toContainText('TB260001');
-  await expect(op.page.locator('main')).toContainText('From TrueBatch Tablets: TrueBatch Tablets batch TB260001: RELEASED');
+  await expect(op.page.locator('main')).toContainText('From TrueBatch Tablets: TrueBatch Tablets batch TB260001: RELEASED, PRD-001, manufactured 2026-11-03');
   await op.page.getByRole('group', { name: 'Containers closed and intact, labels show this bulk batch and RELEASED' }).getByRole('button', { name: 'Yes' }).click();
   await expect(op.page.getByRole('region', { name: 'Results' })).toContainText('expiry 10/2028');
   await op.page.getByRole('button', { name: 'Done', exact: true }).click();
@@ -150,7 +150,20 @@ test('TB-P2 packing journey: packing master from the skeleton, approved; a packi
   expect(pa.ok(), await pa.text()).toBe(true);
   await sup.ctx.close();
 
-  // QA: the batch waits for QA release straight after production approval (no QC approval in packing); QA releases it.
+  // QC signs first: the batch waits for QC approval after production approval, not for QA.
+  const qc = await person(browser, 'pqc');
+  await qc.page.getByRole('button', { name: 'To review' }).click();
+  await qc.page.getByRole('region', { name: 'Waiting for QC approval' }).getByRole('button', { name: new RegExp(batch.batchNo) }).click();
+  await expect(qc.page.getByText('the finished packed product was tested and complies with its specification')).toBeVisible();
+  await expect(qc.page.getByRole('button', { name: 'Sign: QC approved' })).toBeDisabled();
+  await qc.page.getByLabel('QC report number').fill('QC-26-0101');
+  await qc.page.getByRole('button', { name: 'Sign: QC approved' }).click();
+  await sign(qc.page);
+  await expect(qc.page.getByRole('status')).toContainText('QC approval signed');
+  await expect(qc.page.locator('.bh')).toContainText('QC approved');
+  await qc.ctx.close();
+
+  // QA: then the batch waits for QA release; QA releases it.
   const qa = await person(browser, 'pqa');
   await qa.page.getByRole('button', { name: 'To review' }).click();
   await qa.page.getByRole('region', { name: 'Waiting for QA release' }).getByRole('button', { name: new RegExp(batch.batchNo) }).click();

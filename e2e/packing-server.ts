@@ -15,8 +15,8 @@ await globalSetup();
 const owner = connect(TEST_DATABASE_URL);
 await owner.unsafe(`drop schema if exists ${S} cascade; drop schema if exists ${S}_report cascade; drop schema if exists ${S}_tb cascade; create schema ${S}; create schema ${S}_tb;
   create table ${S}_tb.batch_fact_v1 (batch_number text, product_code text, record_kind text, status text, issued_at timestamptz, completed_at timestamptz, released boolean,
-    read_at timestamptz default now(), data_as_of timestamptz default now());
-  insert into ${S}_tb.batch_fact_v1 values ('TB260001', 'PRD-001', 'PROCESSING', 'RELEASED', '2026-11-03 06:00+00', '2026-11-08 06:00+00', true);
+    read_at timestamptz default now(), data_as_of timestamptz default now(), manufactured_on date);
+  insert into ${S}_tb.batch_fact_v1 values ('TB260001', 'PRD-001', 'PROCESSING', 'RELEASED', '2026-11-02 06:00+00', '2026-11-08 06:00+00', true, now(), now(), '2026-11-03');
   grant usage on schema ${S}_tb to ${PACKING_APP_ROLE}; grant select on all tables in schema ${S}_tb to ${PACKING_APP_ROLE};`);
 await owner.end();
 

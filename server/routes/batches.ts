@@ -4,7 +4,7 @@ import type { Sql, Tx } from '../db.js';
 import { audit } from '../audit.js';
 import { parseId, requirePermission, type SessionUser } from '../auth.js';
 import { usableItem } from '../master.js';
-import { handProblem, pullBulk, pullItem, pullLot, pulledWords } from '../pull.js';
+import { handProblem, mfgDateProblem, pullBulk, pullItem, pullLot, pulledWords } from '../pull.js';
 import { SignError, authenticateSigner, contentHash, sign, signBody } from '../signatures.js';
 import { masterVersion } from './masters.js';
 import { batchRecordDoc, type RecordInput, type Signature } from '../batch-record.js';
@@ -140,7 +140,8 @@ async function readValues(app: FastifyInstance, doc: MasterDoc, key: StepKey, ra
     const setting = f.unit?.startsWith('$') ? step.settings[f.unit.slice(1)] : f.unit;
     const v = readValue(f, x, typeof setting === 'string' ? setting : '');
     if (typeof v === 'object' && !Array.isArray(v) && 'error' in v) { problems.push(v.error); continue; }
-    const no = name.includes('.') && typeof v === 'string' ? handProblem(f, v, now, PLANT_TZ) : null;
+    const no = typeof v !== 'string' ? null : name.includes('.') ? handProblem(f, v, now, PLANT_TZ)
+      : name === 'mfgDate' && block.packing ? mfgDateProblem(f, v, now, PLANT_TZ) : null;
     if (no) problems.push(no);
     else out[name] = v as Value;
   }
@@ -314,7 +315,7 @@ export function batchRoutes(app: FastifyInstance, sql: Sql) {
     for (const { id } of ids) {
       const l = (await loadBatch(sql, id))!;
       const bv = view(l, (await deviationsRead(app, l)).read);
-      const waiting = bv.status === 'production approved' && bv.qc ? 'QC' : 'QA';
+      const waiting = bv.status === 'production approved' ? 'QC' : 'QA';
       if (!req.user!.permissions.includes(waiting === 'QC' ? 'truebatch.qc.approve' : 'truebatch.qa.release')) continue;
       const last = l.batchEvents.filter((e) => e.kind !== 'deviation_closed').at(-1)!;
       out.push({ id, batchNo: l.batch.batchNo, productCode: l.doc.header.productCode, productName: l.doc.header.productName, status: bv.status, waiting,

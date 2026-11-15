@@ -372,10 +372,12 @@ describe('the views TrueBatch publishes', () => {
     select column_name || ' ' || data_type as c from information_schema.columns where table_schema = ${rep()} and table_name = ${view} order by ordinal_position`).map((r) => r.c);
 
   it('batch_fact_v1 and equipment_use_v1 have the names and columns of Batchwright\'s, as the Logbook and Deviations read them', async () => {
-    // Batchwright's columns, as on the platform demo database.
-    expect(await columns('batch_fact_v1')).toEqual(['batch_id uuid', 'batch_number text', 'product_code text', 'strength text', 'mbr_version_id uuid', 'family_code text',
+    // Batchwright's columns, in its order, as on the platform demo database; then TrueBatch's own manufactured_on, added
+    // at the end only (0007), so every reader that selects Batchwright's named columns reads TrueBatch unchanged.
+    const batchwright = ['batch_id uuid', 'batch_number text', 'product_code text', 'strength text', 'mbr_version_id uuid', 'family_code text',
       'record_kind text', 'status text', 'issued_at timestamp with time zone', 'completed_at timestamp with time zone', 'released boolean',
-      'read_at timestamp with time zone', 'data_as_of timestamp with time zone']);
+      'read_at timestamp with time zone', 'data_as_of timestamp with time zone'];
+    expect(await columns('batch_fact_v1')).toEqual([...batchwright, 'manufactured_on date']);
     expect(await columns('equipment_use_v1')).toEqual(['batch_number text', 'equipment_code text', 'equipment_type text', 'room_code text', 'step text',
       'started_at timestamp with time zone', 'ended_at timestamp with time zone', 'read_at timestamp with time zone', 'data_as_of timestamp with time zone']);
     expect(await columns('deviation_note_v1')).toEqual(['note_id bigint', 'source_ref text', 'batch_number text', 'product_code text', 'step text', 'note text',
@@ -402,6 +404,22 @@ describe('the views TrueBatch publishes', () => {
     const notes = await t.owner.unsafe(`select source_ref, step, note, reference, status from ${r}.deviation_note_v1 where reference is not null order by note_id`);
     expect(notes.map((n) => [n.reference, n.status])).toEqual([['DEV-26-0001', 'open'], ['DEV-PAPER-7', 'closed']]);
     expect(notes[0]!.source_ref).toMatch(/^truebatch:note:\d+$/);
+  });
+
+  it('TB-P8 batch_fact_v1.manufactured_on, the date of manufacture, is the plant-time date the first processing step started, not the issue date; null before any step started', async () => {
+    const [b] = await t.owner<{ mv: number; by: number }[]>`select master_version_id::int as mv, issued_by::int as by from batches order by id limit 1`;
+    const made = async (batchNo: string) => (await t.owner<{ id: number }[]>`
+      insert into batches (batch_no, master_version_id, issued_by, issued_at) values (${batchNo}, ${b!.mv}, ${b!.by}, '2026-10-30 10:00+00') returning id::int`)[0]!.id;
+    const started = await made('MFG-STARTED');
+    await made('MFG-NOT-STARTED');
+    // A timer finding before the first start is no start; the first start is 20:00 UTC on 2 Nov, 01:30 on 3 Nov in plant time.
+    await t.owner`insert into step_events (batch_id, stage, sub, step, round, kind, payload, person_id, at) values
+      (${started}, 0, 1, 0, 1, 'late', '{"timer":"mfg-test"}', null, '2026-10-31 08:00+00'),
+      (${started}, 1, 1, 0, 1, 'started', '{}', ${b!.by}, '2026-11-04 08:00+00'),
+      (${started}, 0, 1, 0, 1, 'started', '{}', ${b!.by}, '2026-11-02 20:00+00'),
+      (${started}, 0, 1, 0, 1, 'value', '{}', ${b!.by}, '2026-11-02 21:00+00')`;
+    const rows = await t.owner.unsafe(`select batch_number, issued_at::date::text as issued, manufactured_on::text from ${rep()}.batch_fact_v1 where batch_number like 'MFG-%' order by batch_number`);
+    expect(rows).toEqual([{ batch_number: 'MFG-NOT-STARTED', issued: '2026-10-30', manufactured_on: null }, { batch_number: 'MFG-STARTED', issued: '2026-10-30', manufactured_on: '2026-11-03' }]);
   });
 
   it('nobody reads the views without a link: the app login itself has no grant', async () => {

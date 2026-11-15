@@ -29,7 +29,7 @@ Clauses: the binding clauses each rule rests on (US: 21 CFR 211 and Part 11; EU:
 | TB-18 | Yield is calculated and verified; out of limits blocks release | US 211.103; 211.186(b)(7); 211.188(b)(7); 211.192; EU C4 4.17(d), 4.20(g); C5 5.44; IN SCHM 17.3.6.2(d); 17.3.8.3(j); 18.2.3; 18.4.6 | `test/engine.test.ts`, `test/release.test.ts` |
 | TB-19 | Rework only as a new batch issued from an approved master | US 211.115(a),(b); EU C5 5.67, 5.68, 5.69; C4 4.20(d); IN SCHM 14.32, 14.33, 14.34; 17.3.8.3(f) | `test/batches.test.ts` |
 | TB-20 | The record is complete before production signs | US 211.188(b); EU C4 4.20(i); IN SCHM 17.3.8.3 (lead-in, (d)); 18.5.12 | `test/release.test.ts`, `test/batches.test.ts` |
-| TB-21 | QC approval, then QA review and release or rejection by e-signature; all changes and deviations shown; release blocked until linked deviations are closed | US 211.22(a); 211.192; 211.165(a); EU C4 4.27; A11 9, 15 (only if certifying here); IN SCHM 1 PQS (i); 11.3.6-11.3.9; 18.5.12; 19.8.1 | `test/release.test.ts`, `test/batches.test.ts`, `test/links.test.ts` (Deviations status) |
+| TB-21 | QC approval, then QA review and release or rejection by e-signature; all changes and deviations shown; release blocked until linked deviations are closed | US 211.22(a); 211.192; 211.165(a); EU C4 4.27; A11 9, 15 (only if certifying here); IN SCHM 1 PQS (i); 11.3.6-11.3.9; 18.5.12; 19.8.1 | `test/release.test.ts`, `test/batches.test.ts`, `test/links.test.ts` (Deviations status), `test/packing.test.ts` and `test/packing-api.test.ts` (packing: QC before QA) |
 | TB-22 | A complete copy (PDF) with its signatures and changes | US 11.10(b); 211.180(c); EU A11 8.1, 8.2; C4 4.27; IN SCHM 17.2.8 ("readily available") | `test/batches.test.ts`, `e2e/release.spec.ts` |
 
 ## Packing rules (TrueBatch Tablets Packing)
@@ -38,7 +38,7 @@ The 9 packing rules of the minimum register, section E (owner, 15 November 2026:
 "TrueBatch Tablets Packing", with the shared engine). Each uses the mechanisms of the rules above: the master and its
 check (TB-01, TB-02), issue (TB-03), entries, signatures and second-person checks (TB-04 to TB-08), deviation notes
 (TB-09), in-process checks and periodic checks (TB-14, TB-15), reconciliation that blocks release (TB-18) and QA
-release (TB-21, TB-22), which apply to the packing record unchanged (QA releases it without a QC approval). The tests
+release (TB-21, TB-22), which apply to the packing record unchanged (QC approves it, then QA releases it). The tests
 name the packing rule; the tests of the shared rules cover the packing record through the same engine and routes.
 
 | Rule | Requirement | Clauses | Tests |
@@ -50,7 +50,7 @@ name the packing rule; the tests of the shared rules cover the packing record th
 | TB-P5 | Coding (batch number, dates, MRP) checked at the start and at intervals; the camera challenged; packs inspected on line; line samples never returned; the customer's serialisation checked (codes of this batch, no serial twice, reconciled), never generated | US 211.122(g), 211.130(c), 211.134; EU C5 5.55-5.60; IN SCHM 18.5.4-18.5.9 | `test/packing.test.ts` |
 | TB-P6 | Bulk tablets and every printed material reconciled (issued = used + destroyed + returned); a gap needs a deviation note and blocks release until its number is linked; batch-coded leftovers destroyed and recorded | US 211.125(c)-(e), 211.192; EU C4 4.21(h), C5 5.61, 5.62; IN SCHM 18.2.3, 18.5.10, 18.5.11 | `test/packing.test.ts`, `test/packing-api.test.ts` |
 | TB-P7 | One active packing order per line; the line is named on the record, with the product and batch | US 211.130(a); EU C5 5.49, 5.51; IN SCHM 18.5.1, 18.5.3 | `test/packing-api.test.ts` |
-| TB-P8 | The expiry is worked out from the approved shelf life and the bulk's date of manufacture, never typed | US 211.137; EU C4 4.16; IN SCHM 17.3.1.2 | `test/packing.test.ts` |
+| TB-P8 | The expiry is worked out from the approved shelf life and the bulk's date of manufacture, never typed | US 211.137; EU C4 4.16; IN SCHM 17.3.1.2 | `test/packing.test.ts`, `test/links.test.ts` (`batch_fact_v1.manufactured_on`: the date the first step started), `test/packing-api.test.ts` (read from it; a typed date in the future refused) |
 | TB-P9 | Label data per destination (India domestic: dates and MRP); the coding check compares the printed data with the batch record | IN SCHM 17.3.1.2; US 211.137 (expiry) | `test/packing.test.ts` |
 
 ## Notes: safety rules built into the calculation templates

@@ -9,7 +9,7 @@ export const E2E_PACKING_SCHEMA = `${E2E_SCHEMA}_packing`;
 const pk = (...c: string[]) => c.map((x) => `truebatch_packing.${x}` as const);
 export const PACKING_USERS = {
   pauthor: pk('master.author'), pcheck: pk('master.check'), pqa: pk('master.approve', 'qa.release'), pqa2: pk('master.approve'),
-  piss: pk('batch.issue'), pop: pk('batch.operate'), pchk: pk('batch.check'), psup: pk('batch.supervise'),
+  piss: pk('batch.issue'), pop: pk('batch.operate'), pchk: pk('batch.check'), psup: pk('batch.supervise'), pqc: pk('qc.approve'),
 };
 // Invented test people and the TrueBatch permissions core gives them.
 export const USERS: Record<string, Permission[]> = {

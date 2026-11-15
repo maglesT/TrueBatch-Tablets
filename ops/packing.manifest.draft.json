@@ -9,6 +9,7 @@
     {"code": "truebatch_packing.batch.operate", "label": "Record and sign packing steps as performed"},
     {"code": "truebatch_packing.batch.check", "label": "Check packing steps performed by another person (second person)"},
     {"code": "truebatch_packing.batch.supervise", "label": "Production approval of a completed packing record"},
+    {"code": "truebatch_packing.qc.approve", "label": "QC approval of the finished packed product (tested and complies)"},
     {"code": "truebatch_packing.qa.release", "label": "QA review and release of packed batches"},
     {"code": "truebatch_packing.view", "label": "View packing records and packing master versions"}
   ],

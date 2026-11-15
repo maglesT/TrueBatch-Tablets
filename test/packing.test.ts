@@ -9,7 +9,7 @@ import { code, GTIN, packing } from './packing-fixture.js';
 
 // TrueBatch Tablets Packing: the packing master checks (TB-P1 to TB-P9), the packing blocks run by the shared engine,
 // the serialisation check (match, mismatch, duplicate, reconciliation), printed materials reconciled, the expiry from
-// the shelf life, and QA release without QC approval.
+// the shelf life, and QC approval before QA release.
 
 const errors = (d: MasterDoc, rule?: string) => masterChecks(d).filter(blocking).filter((p) => !rule || p.rule === rule).map((p) => p.message);
 const where = (d: MasterDoc, block: string) => {
@@ -204,17 +204,22 @@ describe('the packing blocks', () => {
     expect(r.accountability).toMatchObject({ value: '100.4', check: { pass: true } });
   });
 
-  it('TB-P6 QA releases a packed batch after production approval: there is no QC approval in packing', () => {
-    const d = small([{ steps: [{}] }]);
-    const p = { ...d, pack: packing().pack };
+  it('TB-21 a packed batch: QC approves it after production approval (the QC report), and QA releases it only after QC', () => {
+    const p = { ...small([{ steps: [{}] }]), pack: packing().pack };
     const approved: BatchEvent[] = [{ id: 1, kind: 'production_approved', payload: {}, person: 5, at: at(50) }];
+    const qcApproved: BatchEvent[] = [...approved, { id: 2, kind: 'qc_approved', payload: { reportNo: 'QC-26-0101' }, person: 4, at: at(55) }];
     const events = [ev('started', '0.1.0.1', { min: 1 }), ev('value', '0.1.0.1', { min: 2, payload: { values: { reading: { value: '6.0', unit: '' } }, results: {} } }), ev('done', '0.1.0.1', { min: 3 })];
-    const qa = { id: 3, permissions: ['truebatch.qa.release', 'truebatch.qc.approve'] };
-    expect(batchView(p, events, approved, at(60))).toMatchObject({ status: 'production approved', qc: false });
-    expect(batchRefusal('qc-approve', batchView(p, events, approved, at(60)), qa)?.problems).toEqual(['A packing record has no QC approval: QA releases it after production approval.']);
-    expect(batchRefusal('release', batchView(p, events, approved, at(60)), qa)).toBeNull();
-    // A tablet batch still waits for QC.
-    expect(batchRefusal('release', batchView(d, events, approved, at(60)), qa)?.problems).toEqual(['Not possible while the batch is production approved.']);
+    const qa = { id: 3, permissions: ['truebatch.qa.release'] };
+    const qc = { id: 4, permissions: ['truebatch.qc.approve'] };
+    const view = (b: BatchEvent[]) => batchView(p, events, b, at(60));
+    expect(view(approved).status).toBe('production approved');
+    expect(batchRefusal('release', view(approved), qa)?.problems).toEqual(['Not possible while the batch is production approved.']);
+    expect(batchRefusal('reject', view(approved), qa)?.problems).toEqual(['Not possible while the batch is production approved.']);
+    expect(batchRefusal('qc-approve', view(approved), qa)).toMatchObject({ status: 403 });
+    expect(batchRefusal('qc-approve', view(approved), qc)).toBeNull();
+    expect(view(qcApproved).status).toBe('QC approved');
+    expect(batchRefusal('release', view(qcApproved), qa)).toBeNull();
+    expect(batchRefusal('qc-approve', view(qcApproved), qc)?.problems).toEqual(['Not possible while the batch is QC approved.']);
   });
 });
 

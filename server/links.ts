@@ -121,12 +121,12 @@ export const mmsClient = (l: Link) => ({
 });
 
 // ---- TrueBatch Tablets: report.batch_fact_v1 (published), read by TrueBatch Tablets Packing for its bulk batch. The
-// date of manufacture is the bulk batch's issue date in plant time (batch_fact_v1 has no other date of manufacture).
-export interface BulkRead { batchNo: string; productCode: string | null; status: string; released: boolean; mfgDate: string; dataAsOf: string | null }
-const PLANT_TZ = process.env.DISPLAY_TZ ?? 'Asia/Kolkata';
-type BulkRow = { batch_number: string; product_code: string | null; status: string; released: boolean; mfg_date: string; data_as_of: string | null };
+// date of manufacture is its manufactured_on (owner, 15 Nov 2026): the plant-time date the bulk batch's first
+// processing step started (db/migrations/0007_batch_fact_manufactured_on.sql); null until a step has started.
+export interface BulkRead { batchNo: string; productCode: string | null; status: string; released: boolean; mfgDate: string | null; dataAsOf: string | null }
+type BulkRow = { batch_number: string; product_code: string | null; status: string; released: boolean; mfg_date: string | null; data_as_of: string | null };
 const bulkOf = (r: BulkRow): BulkRead => ({ batchNo: r.batch_number, productCode: r.product_code, status: r.status, released: r.released, mfgDate: r.mfg_date, dataAsOf: r.data_as_of });
-const BULK_COLS = `batch_number, product_code, status, released, (issued_at at time zone '${PLANT_TZ.replace(/'/g, '')}')::date::text as mfg_date, data_as_of::text`;
+const BULK_COLS = 'batch_number, product_code, status, released, manufactured_on::text as mfg_date, data_as_of::text';
 export const truebatchClient = (l: Link) => ({
   batch: (batchNo: string) => l.read(async (q, v) => {
     const [r] = await q<BulkRow[]>`select ${q.unsafe(BULK_COLS)} from ${v('batch_fact_v1')} where batch_number = ${batchNo} limit 1`;

@@ -62,9 +62,8 @@ export function ReleaseScreen({ me, id }: { me: Me; id: number }) {
   const decided = d.batch.status === 'released' || d.batch.status === 'rejected';
   const yields = d.steps.filter((s) => s.results.yield?.ok);
   const openDevs = r.deviations.filter((x) => x.open);
-  // A packing record has no QC approval: QA releases it after production approval.
-  const qcTurn = d.batch.qc && d.batch.status === 'production approved';
-  const qaTurn = d.batch.status === (d.batch.qc ? 'QC approved' : 'production approved');
+  const qcTurn = d.batch.status === 'production approved';
+  const qaTurn = d.batch.status === 'QC approved';
   const blockers = [...openDevs.map((x) => `Deviation ${x.reference} (${name(x.step)}) is ${x.status ? `${x.status} in the Deviations system: it is closed there.` : 'open: close it first.'}`), ...d.batch.yieldOut.map(plain)];
   const handLabel = (step: string, field: string) => field === 'reference' ? 'deviation number' : fieldLabel(step, field);
 
@@ -144,7 +143,7 @@ export function ReleaseScreen({ me, id }: { me: Me; id: number }) {
         {qcTurn && (can(me, 'qc.approve') ? (
           <div className="decide">
             <label>QC report number<input value={reportNo} onChange={(e) => setReportNo(e.target.value)} maxLength={60} placeholder="e.g. QC-26-0042" /></label>
-            <p className="why">Your signature means: the QC results used for release meet the specification, as in the QC report.</p>
+            <p className="why">Your signature means: {product.packing ? 'the finished packed product was tested and complies with its specification' : 'the QC results used for release meet the specification'}, as in the QC report.</p>
             <button className="big primary" disabled={!reportNo.trim()} onClick={() => setSigning({ meaning: 'qc_approved', action: 'qc-approve' })}>Sign: QC approved</button>
           </div>
         ) : <p className="notice">QC approval comes first: it needs the QC approval permission.</p>)}
@@ -160,7 +159,7 @@ export function ReleaseScreen({ me, id }: { me: Me; id: number }) {
             <button className="big soft-bad" disabled={!rejectWhy.trim() || openDevs.length > 0} onClick={() => setSigning({ meaning: 'rejected', action: 'reject' })}>Sign: rejected</button>
           </div>
         </>) : <p className="notice">The batch waits for QA release: it needs the QA release permission.</p>)}
-        {!qcTurn && !qaTurn && !decided && <p className="notice">The batch is {d.batch.status}: production approves it before {d.batch.qc ? 'QC and QA' : 'QA'}.</p>}
+        {!qcTurn && !qaTurn && !decided && <p className="notice">The batch is {d.batch.status}: production approves it before QC and QA.</p>}
       </section>
 
       {signing && (

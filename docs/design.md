@@ -36,7 +36,9 @@ answering) or **ok**.
   hand: the lot label's status and date, the certificate values and their report number.
 - **Published** (`db/migrations/0006_report_views.sql`): `batch_fact_v1` and `equipment_use_v1` with Batchwright's
   names and columns, so the Logbook and Deviations read TrueBatch as they read Batchwright, and `deviation_note_v1`
-  for Deviations to file notes later.
+  for Deviations to file notes later. `batch_fact_v1` has one more column at its end (`0007`): `manufactured_on`, the
+  date of manufacture, the plant-time date the batch's first processing step started (null before), which TrueBatch
+  Tablets Packing reads; readers of Batchwright's columns select them by name and are not affected.
 
 ## Rules and where they are enforced
 - 22 TrueBatch GMP rules (EU GMP Part I and Annex 11, 21 CFR 211 and Part 11, Revised Schedule M), listed in

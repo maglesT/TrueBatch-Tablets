@@ -7,7 +7,7 @@ QA release of the packed batch. Built the Logbook way, as TrueBatch Tablets is.
 - **Its own product on the platform**: its own tile, licence, database (`truebatch_packing`), app login
   (`truebatch_packing_app`), sign-on client (`truebatch_packing`) and permissions (`truebatch_packing.view`,
   `.master.author`, `.master.check`, `.master.approve`, `.batch.issue`, `.batch.operate`, `.batch.check`,
-  `.batch.supervise`, `.qa.release`). The platform allows only lower case and `_` in product, database and permission
+  `.batch.supervise`, `.qc.approve`, `.qa.release`). The platform allows only lower case and `_` in product, database and permission
   names, so the product is written `truebatch_packing`, not `truebatch-packing`.
 - **The same code**: one server (`server/`), one engine, block library, templates, master document and checks
   (`shared/`), one set of screens (`web/src`). Nothing is copied. `server/product.ts` says which product a server is;
@@ -32,8 +32,12 @@ QA release of the packed batch. Built the Logbook way, as TrueBatch Tablets is.
 ## The packing record
 - **Issued from a released bulk batch** (TB-P2): the issue carries the line, the bulk batch and the tablets issued,
   recorded as the first step's values. The bulk batch is read live from TrueBatch Tablets' `batch_fact_v1`: it must
-  be RELEASED and of the master's bulk product; its date of manufacture is its issue date in plant time. Without the
-  link it is typed from the bulk labels ("RELEASED", the product) with a second-person check, and QA's review lists it.
+  be RELEASED and of the master's bulk product. Its date of manufacture (owner, 15 November 2026) is the date the
+  bulk batch's FIRST processing step started, in plant time: TrueBatch Tablets publishes it as
+  `batch_fact_v1.manufactured_on` (`db/migrations/0007_batch_fact_manufactured_on.sql`), not its issue date; a bulk
+  batch without one is refused. Without the link the bulk and its date of manufacture are typed from the bulk labels
+  ("RELEASED", the product) with a second-person check, and QA's review lists them; a typed date in the future is
+  refused.
 - **One active packing order per line** (TB-P7): a line with a batch still being packed takes no other.
 - **Batch facts and pack facts**: block calculations read the issue values (`$batch.bulk`, `$batch.mfgDate`,
   `$batch.tablets`, `$batch.packs`) and the master's pack (`$pack.shelfLifeMonths`, `$pack.mrp` …), so the coding
@@ -43,14 +47,17 @@ QA release of the packed batch. Built the Logbook way, as TrueBatch Tablets is.
   closes when each has its end round.
 - **Coded batch number**: the bulk batch number is printed on the packs; the packing record has its own number
   (`TP` + year + counter).
-- **Expiry** (TB-P8): worked out from the date of manufacture and the approved shelf life (T27), never typed.
+- **Expiry** (TB-P8): worked out from the date of manufacture (above) and the approved shelf life (T27), never typed.
 - **Reconciliation** (TB-P6): tablets (count by weight) and every printed material (issued = used + destroyed +
   returned, zero gap); a gap is out of limits, needs a deviation note and blocks release until its number is linked.
 - **Serialisation** (optional per product): checked, never generated. Serial numbers received (typed, with the order
   or file reference), camera challenge at the start, sample codes at the start, at intervals and at the end (GTIN,
   batch, expiry of this batch; well-formed serial; no serial twice in the batch), and reconciliation (received =
   printed OK + rejected + destroyed + unused). No serial register, no regulator reporting.
-- **Release**: production approval, then QA release or rejection by e-signature; there is no QC approval in packing.
+- **Release** (owner, 15 November 2026: "QC signs first", as for tablets): production approval, then QC approval by
+  e-signature (`truebatch_packing.qc.approve`, meaning `qc_approved`, with the QC report number: the finished packed
+  product was tested and complies), then QA release or rejection by e-signature. QA cannot release or reject before
+  QC has approved. `packing_batch_v1` shows QC_APPROVED in between (`packing/migrations/0101_packing_qc_status.sql`).
 - **Published**: `packing_batch_v1` (packing order, coded batch number, products, pack, dates, packs and cartons,
   status) for MMS finished goods later.
 
