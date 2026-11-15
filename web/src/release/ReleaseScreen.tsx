@@ -29,6 +29,8 @@ interface Review {
   unlinked: { number: string; status: string; title: string | null }[];
   deviationsLink: string;
   notApplicable: FloorEvent[];
+  // Demo installations only: the waits ended at once (server/demo.ts).
+  demoSkips: FloorEvent[];
   batchEvents: { id: number; kind: string; payload: { reportNo?: string; reason?: string }; personName: string; at: string }[];
   signatures: { objectType: string; printedName: string; meaning: string; signedAt: string; step: string | null }[];
 }
@@ -135,6 +137,8 @@ export function ReleaseScreen({ me, id }: { me: Me; id: number }) {
             <small>{h.personName}, {plainClock(h.at)}</small></li>))}</Group>
         <Group title="Steps not applicable" empty="Every step was done.">{r.notApplicable.map((e) => (
           <li key={e.id}><b>{name(idOf(e))}</b><span>{e.payload.reason}</span><small>{e.personName}, {plainClock(e.at)}</small></li>))}</Group>
+        {r.demoSkips.length > 0 && <Group title="DEMO: waits skipped" empty="">{r.demoSkips.map((e) => (
+          <li key={e.id} className="bad"><b>{name(idOf(e))}</b><span>DEMO: wait skipped by {e.personName} at {plainClock(e.at)}</span><small>{String(e.payload.label ?? '')}</small></li>))}</Group>}
         <Group title={`Signatures (${r.signatures.length})`} empty="No signatures.">{r.signatures.map((s, i) => (
           <li key={i} className="sig"><b>{MEANING_LABEL[s.meaning] ?? s.meaning}</b><span>{s.printedName}</span>
             <small>{plainClock(s.signedAt)} · {s.step ? name(s.step) : s.objectType === 'batch' ? `Batch ${d.batch.batchNo} issued` : 'The batch record'}</small></li>))}</Group>

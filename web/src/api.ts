@@ -42,6 +42,8 @@ export interface Me {
   username: string;
   fullName: string;
   permissions: string[];
+  // A demo installation (server/demo.ts): every screen says DEMO; waits may be skipped.
+  demo?: boolean;
 }
 export const can = (me: Me, code: string) => me.permissions.includes(`truebatch.${code}`);
 

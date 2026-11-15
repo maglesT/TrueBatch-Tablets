@@ -7,6 +7,7 @@ import {
 } from '../api-floor.js';
 import { Alerts } from './BatchScreen.js';
 import { FieldInput } from './Fields.js';
+import { DemoSkip } from './DemoSkip.js';
 import { ReasonDialog } from './ReasonDialog.js';
 import { CERTIFICATE, fieldLabel, handEntered, LINK_OF } from '../../../shared/engine/links.js';
 import { notYetText } from '../../../shared/engine/batch.js';
@@ -181,9 +182,10 @@ export function StepScreen({ me, d, blocks, row, now, reload }: { me: Me; d: Bat
         )}
         {row.inputChanged.map((e) => <InputChanged key={e.id} e={e} d={d} blocks={blocks} />)}
         {row.needsResign && !row.inputChanged.length && <div className="fl-alert warn"><span className="tag">Sign again</span><span>A value of this step was corrected after it was signed: check it and sign the step again.</span><span /></div>}
-        {periodic && <div className={`fl-alert ${periodic.state === 'late' ? 'bad' : 'info'}`}><span className="tag">Next check</span><span>Check {periodic.key.round} (every {st.everyMinutes} min)<small>due {plainClock(periodic.at)}</small></span>
+        {periodic && <div className={`fl-alert ${periodic.state === 'late' ? 'bad' : 'info'}`}><span className="tag">Next check</span><span>Check {periodic.key.round} (every {st.everyMinutes} min)<small>due {plainClock(periodic.at)}{periodic.skipped ? ' · DEMO: wait skipped' : ''}</small></span>
             <span className="countdown">{Date.parse(periodic.at) > now ? `in ${timeLeft(Date.parse(periodic.at) - now)}` : 'now'}</span></div>}
       </div>
+      <DemoSkip me={me} d={d} row={row} reload={() => reload()} />
 
       <div className="step-grid">
         <div>

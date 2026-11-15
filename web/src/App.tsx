@@ -14,6 +14,10 @@ type Page = 'home' | 'masters';
 export function App() {
   const [me, setMe] = useState<Me | null | undefined>(undefined);
   const [page, setPage] = useState<Page>('home');
+  // A demo installation says so on every screen, the sign-in screen too (GET /api/health needs no session).
+  const [demo, setDemo] = useState(false);
+  useEffect(() => { void api<{ demo?: boolean }>('GET', '/api/health', undefined, true).then((h) => setDemo(!!h.demo), () => {}); }, []);
+  const banner = demo && <div className="demo-banner" role="note">DEMO · a demonstration installation, not for GMP use · waits can be skipped</div>;
   // Floor screens: #/batch/12, #/batch/12/step/0.1.0.1, #/batch/12/approve (the tablet's back button works); the QC
   // and QA screens: #/release, #/release/12.
   const route = useRoute();
@@ -44,8 +48,8 @@ export function App() {
   // A batch opened from another page (a batch just issued from the master records) shows on the floor screens.
   useEffect(() => { if (route.batch) setPage('home'); }, [route.batch]);
 
-  if (me === undefined) return <main className="page">Loading…</main>;
-  if (me === null) return <Login />;
+  if (me === undefined) return <>{banner}<main className="page">Loading…</main></>;
+  if (me === null) return <>{banner}<Login /></>;
 
   // Ends the core session too (shared terminals, one person per browser): the browser goes to core's sign-out page.
   const logout = async () => {
@@ -56,6 +60,7 @@ export function App() {
 
   return (
     <>
+      {banner}
       <header className="bar">
         <span className="brand"><img className="brand-mark" src="/truebatch-mark.svg" alt="TrueBatch" /><span><b>{product.name}</b><small>by Medhanta</small></span></span>
         <nav>

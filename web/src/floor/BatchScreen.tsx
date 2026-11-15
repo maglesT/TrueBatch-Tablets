@@ -7,6 +7,7 @@ import {
   type BatchDetail, type Block, type StepRow,
 } from '../api-floor.js';
 import { StepScreen } from './StepScreen.js';
+import { DemoSkip } from './DemoSkip.js';
 import './floor.css';
 
 // One batch on the floor: its header, the stages as a progress bar and the alerts, then the overview, one step, or
@@ -43,7 +44,7 @@ export function BatchScreen({ me, id, step, approve }: { me: Me; id: number; ste
       {error && <p className="notice bad" role="alert">{error}</p>}
       {step ? (row ? <StepScreen me={me} d={d} blocks={blocks} row={row} now={now} reload={reload} /> : <p className="notice">This step is not open in the batch yet.</p>)
         : approve ? <Approval d={d} blocks={blocks} reload={reload} />
-        : <Overview d={d} blocks={blocks} now={now} />}
+        : <><Overview d={d} blocks={blocks} now={now} /><DemoSkip me={me} d={d} reload={() => reload()} /></>}
     </div>
   );
 }
@@ -126,12 +127,13 @@ export function Alerts({ d, blocks, now, only }: { d: BatchDetail; blocks: Block
   // On the step screen the step shows its next periodic check itself.
   for (const t of d.timers.filter((x) => !only || x.kind !== 'periodic')) {
     const left = Date.parse(t.at) - now;
-    const late = t.state === 'late' || (t.kind !== 'minimum' && left < 0);
+    // A wait skipped in a demo installation is due from the skip, never late (server/demo.ts).
+    const late = t.state === 'late' || (t.kind !== 'minimum' && !t.skipped && left < 0);
     // The periodic timer belongs to the next round; it is shown on the round that started it.
     const prev = t.kind === 'periodic' ? id({ ...t.key, round: t.key.round - 1 }) : id(t.key);
     items.push({ tone: late ? 'bad' : t.state === 'due soon' || t.state === 'due' ? 'warn' : 'info', tag: t.kind === 'hold' ? (late ? 'Hold time exceeded' : 'Hold time') : t.kind === 'periodic' ? (late ? 'Check overdue' : 'Next check') : 'Minimum time',
-      text: t.label, sub: late ? `Ran out ${plainClock(t.at)}: a deviation note is needed` : t.kind === 'minimum' ? `Can be finished from ${plainClock(t.at)}` : `Due ${plainClock(t.at)}`,
-      step: t.kind === 'hold' ? undefined : prev, at: late || (t.kind === 'minimum' && left <= 0) ? undefined : left });
+      text: t.label, sub: t.skipped ? `DEMO: wait skipped, ${plainClock(t.skipped.at)}` : late ? `Ran out ${plainClock(t.at)}: a deviation note is needed` : t.kind === 'minimum' ? `Can be finished from ${plainClock(t.at)}` : `Due ${plainClock(t.at)}`,
+      step: t.kind === 'hold' ? undefined : prev, at: late || t.skipped || (t.kind === 'minimum' && left <= 0) ? undefined : left });
   }
   // The step screen explains these itself.
   for (const s of only ? [] : d.steps) {
