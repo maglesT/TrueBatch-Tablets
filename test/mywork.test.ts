@@ -82,7 +82,7 @@ describe('My work', () => {
     { block: { id: 'stage-yield', version: 1 }, checker: true, settings: { theoretical: '0.100 kg', yieldLimit: { low: '97.0', high: '100.5', unit: '%' } } }] }]));
     await act('asha', c.id, '0.1.0.1', 'start');
     const due = (await mine('asha')).find((w) => w.id === c.id)!.badges;
-    expect(due).toMatchObject([{ kind: 'due', step: '0.1.0.1', stage: 'Stage 0', title: 'Check 2 of “Compress with periodic checks” (every 30 min)' }]);
+    expect(due).toMatchObject([{ kind: 'due', step: '0.1.0.1', stage: 'Stage 0', title: 'Compress with periodic checks' }]);
     expect(Date.parse(due[0]!.at!) - Date.now()).toBeGreaterThan(29 * 60_000);
   });
 });

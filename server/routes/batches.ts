@@ -15,7 +15,7 @@ import { blocking, masterChecks } from '../../shared/master/checks.js';
 import type { MasterDoc } from '../../shared/master/schema.js';
 import {
   ACTIONS, BATCH_ACTIONS, CERTIFICATE, LINK_OF, batchRefusal, stepLabel, stepTitle, handFields, isHand, batchView, doneProblems, evaluate, lateItems, openSteps, parseKey, readValue, refusal, review, timers,
-  type Action, type BatchAction, type BatchEvent, type DeviationStatus, type LinkState, type Source, type StepEvent, type StepKey, type StepView, type Value,
+  type Action, type BatchAction, type BatchEvent, type DeviationStatus, type LinkState, type Source, type StepEvent, type StepKey, type StepView, type Timer, type Value,
 } from '../../shared/engine/index.js';
 
 // Plant time zone: the batch number's year is the plant's year.
@@ -223,11 +223,13 @@ function myWork(l: LoadedBatch, user: SessionUser) {
     if (!refusal('check', context(l.doc, v, user))) badges.push({ kind: 'check', step: v.id, stage: stageName(v.key.stage), title: title(v) });
     if (v.needsResign && user.permissions.includes('truebatch.batch.operate')) badges.push({ kind: 'resign', step: v.id, stage: stageName(v.key.stage), title: title(v) });
   }
+  // A periodic check's badge names the check: "Coding check due in 59 min".
+  const check = (t: Timer) => (t.kind === 'periodic' ? stepTitle(l.doc, l.doc.stages[t.key.stage]!.steps[t.key.step]!) : t.label);
   for (const t of timers(l.doc, l.events, l.now)) {
-    if (t.kind === 'periodic' && t.state !== 'late') badges.push({ kind: 'due', step: `${t.key.stage}.${t.key.sub}.${t.key.step}.${t.key.round - 1}`, stage: stageName(t.key.stage), title: t.label, at: t.at, timer: t.kind });
+    if (t.kind === 'periodic' && t.state !== 'late') badges.push({ kind: 'due', step: `${t.key.stage}.${t.key.sub}.${t.key.step}.${t.key.round - 1}`, stage: stageName(t.key.stage), title: check(t), at: t.at, timer: t.kind });
   }
   for (const { timer: t } of lateItems(l.doc, l.events, l.now).filter((x) => !x.notes.length)) {
-    badges.push({ kind: 'late', stage: stageName(t.key.stage), title: t.label, at: t.at, timer: t.kind });
+    badges.push({ kind: 'late', stage: stageName(t.key.stage), title: check(t), at: t.at, timer: t.kind });
   }
   if (!batchRefusal('production-approve', bv, user)) badges.push({ kind: 'approve', stage: '', title: 'Production approval' });
   const now = steps.find((s) => s.state === 'in_progress') ?? steps.find((s) => s.state === 'open');
