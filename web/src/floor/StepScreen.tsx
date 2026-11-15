@@ -7,6 +7,7 @@ import {
 } from '../api-floor.js';
 import { Alerts } from './BatchScreen.js';
 import { FieldInput } from './Fields.js';
+import { DemoSkip } from './DemoSkip.js';
 import { ReasonDialog } from './ReasonDialog.js';
 import { CERTIFICATE, fieldLabel, handEntered, LINK_OF } from '../../../shared/engine/links.js';
 import { notYetText } from '../../../shared/engine/batch.js';
@@ -18,10 +19,12 @@ type Dialog = { kind: 'done' | 'repeat' | 'check' | 'na' | 'send-back' | 'note' 
 const INVOLVING = ['started', 'value', 'done', 'corrected', 'not_applicable'];
 const same = (a: StepRow['key'], b: StepRow['key']) => a.stage === b.stage && a.sub === b.sub && a.step === b.step;
 
-/** The limits and values the master set for this step, in words. */
-function settingsText(block: Block, st: Step): [string, string][] {
+/** The material, limits and values the master set for this step, in words. */
+function settingsText(doc: BatchDetail['master']['doc'], block: Block, st: Step): [string, string][] {
   return block.settings.flatMap((s): [string, string][] => {
     const v = st.settings[s.name];
+    const m = v && typeof v === 'object' && 'formula' in v ? materialLines(doc).find((l) => l.key === v.formula) : undefined;
+    if (m) return [[s.label, `${m.code} · ${m.name}${'perPack' in m ? ` (${m.kind}, ${m.perPack} ${m.unit} per pack)` : ''}`]];
     if (typeof v === 'string') return v && s.kind !== 'text' ? [[s.label, v]] : [];
     if (!v || !('unit' in v)) return [];
     const u = v.unit ? ` ${v.unit}` : '';
@@ -179,15 +182,16 @@ export function StepScreen({ me, d, blocks, row, now, reload }: { me: Me; d: Bat
         )}
         {row.inputChanged.map((e) => <InputChanged key={e.id} e={e} d={d} blocks={blocks} />)}
         {row.needsResign && !row.inputChanged.length && <div className="fl-alert warn"><span className="tag">Sign again</span><span>A value of this step was corrected after it was signed: check it and sign the step again.</span><span /></div>}
-        {periodic && <div className={`fl-alert ${periodic.state === 'late' ? 'bad' : 'info'}`}><span className="tag">Next check</span><span>Check {periodic.key.round} (every {st.everyMinutes} min)<small>due {plainClock(periodic.at)}</small></span>
+        {periodic && <div className={`fl-alert ${periodic.state === 'late' ? 'bad' : 'info'}`}><span className="tag">Next check</span><span>Check {periodic.key.round} (every {st.everyMinutes} min)<small>due {plainClock(periodic.at)}{periodic.skipped ? ' · DEMO: wait skipped' : ''}</small></span>
             <span className="countdown">{Date.parse(periodic.at) > now ? `in ${timeLeft(Date.parse(periodic.at) - now)}` : 'now'}</span></div>}
       </div>
+      <DemoSkip me={me} d={d} row={row} reload={() => reload()} />
 
       <div className="step-grid">
         <div>
           <section className="dash-panel" aria-label="Instruction">
             <p className="instr">{st.instruction || block.instruction}</p>
-            {settingsText(block, st).length > 0 && <dl className="fields">{settingsText(block, st).map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl>}
+            {settingsText(doc, block, st).length > 0 && <dl className="fields">{settingsText(doc, block, st).map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl>}
           </section>
           {checking ? (
             <section className="dash-panel" aria-label="What was recorded">
@@ -362,13 +366,14 @@ function History_({ h, block }: { h: History | null; block: Block }) {
     started: 'Started', value: `Recorded ${fields(e)}`, done: 'Signed: performed', checked: 'Signed: verified (second person)', sent_back: `Sent back: “${e.payload.reason}”`,
     corrected: `Corrected ${fields(e)}: “${e.payload.reason}”`, not_applicable: `Not applicable: “${e.payload.reason}”`, late: 'Ran over its time (recorded by the server)',
     note: `Deviation note${e.payload.reference ? ` ${e.payload.reference}` : ''}: “${e.payload.text}”`, qa_released_hold: 'QA released the hold',
+    demo_wait_skipped: `DEMO: wait skipped by ${e.personName ?? '—'} at ${plainClock(e.at)}: ${String(e.payload.label ?? '')}`,
   })[e.kind];
   return (
     <section className="dash-panel" aria-label="History">
       <div className="panel-head"><h2>History</h2><span className="muted">who did what, on the server clock</span></div>
       {h.events.length === 0 ? <p className="muted">Nothing recorded yet.</p> : (
         <ol className="timeline">{h.events.map((e) => (
-          <li key={e.id} className={e.kind === 'note' ? 'note' : undefined}><time>{plainClock(e.at)}</time><span>{what(e)}{e.personName && <> · <b>{e.personName}</b></>}</span></li>
+          <li key={e.id} className={e.kind === 'note' ? 'note' : undefined}><time>{plainClock(e.at)}</time><span>{what(e)}{e.personName && e.kind !== 'demo_wait_skipped' && <> · <b>{e.personName}</b></>}</span></li>
         ))}</ol>
       )}
     </section>

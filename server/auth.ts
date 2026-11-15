@@ -16,6 +16,7 @@ export const PERMISSIONS = {
   'truebatch.qc.approve': 'QC approval of the results used for release',
   'truebatch.qa.release': 'QA review and release of bulk tablets',
   'truebatch.view': 'View batch records and master versions',
+  'truebatch.demo.skip': 'Skip a running wait (demo installations only)',
 } as const;
 export type Permission = keyof typeof PERMISSIONS;
 export const CODES = Object.keys(PERMISSIONS) as Permission[];

@@ -59,7 +59,9 @@ answering) or **ok**.
 - A fixed, short list of units.
 - A master version is stored as one JSON document.
 - The designer is forms and ordered lists.
-- Server timers as the Logbook does them.
+- Server timers as the Logbook does them. In a demo installation only (`TRUEBATCH_DEMO=1`, set by the platform for the
+  demo customer alone) a person with the demo permission may end a running wait at once; the skip is an insert-only
+  step event the timers count as the wait satisfied (owner, 15 November 2026; README "Demo installations").
 - The second-person checker signs on their own device.
 - Version 1: weights are typed (no balance connection).
 - PDF output as the Logbook does its exports.

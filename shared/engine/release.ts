@@ -117,6 +117,8 @@ export function review(doc: MasterDoc, events: readonly StepEvent[], batchEvents
     hand: events.flatMap((e) => Object.entries(e.payload.source ?? {}).filter(([, x]) => isHand(x))
       .map(([field, x]) => ({ step: keyId(e), event: e.id, kind: e.kind, field, ...(x as Extract<Source, { from: 'hand' }>), person: e.person, at: e.at }))),
     notApplicable: events.filter((e) => e.kind === 'not_applicable'),
+    // Demo installations only: every wait ended at once by a person (server/demo.ts).
+    demoSkips: events.filter((e) => e.kind === 'demo_wait_skipped'),
     batchEvents,
   };
 }

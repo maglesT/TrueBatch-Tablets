@@ -2,10 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { findBlock } from '../shared/blocks/index.js';
 import { blocking, masterChecks } from '../shared/master/checks.js';
 import { masterSchema, type MasterDoc } from '../shared/master/schema.js';
-import { batchRefusal, batchView, doneProblems, evaluate, openSteps, type BatchEvent, type StepEvent } from '../shared/engine/index.js';
+import { batchRefusal, batchView, doneProblems, evaluate, openSteps, stepLabel, stepTitle, type BatchEvent, type StepEvent } from '../shared/engine/index.js';
 import { c8PrintedData, c9SerialCodes, expiryMonth, gs1, printedMonth, t27Expiry } from '../shared/templates/index.js';
 import { at, ev, small } from './engine-fixture.js';
 import { code, GTIN, packing } from './packing-fixture.js';
+import { headline } from '../web/src/api-floor.js';
 
 // TrueBatch Tablets Packing: the packing master checks (TB-P1 to TB-P9), the packing blocks run by the shared engine,
 // the serialisation check (match, mismatch, duplicate, reconciliation), printed materials reconciled, the expiry from
@@ -72,6 +73,12 @@ describe('the packing master (TB-P1 to TB-P9)', () => {
     expect(findBlock({ id: 'pack-material-issue', version: 1 })).toMatchObject({ gmp: 'weighing', checker: true });
   });
 
+  it('TB-P4 each issue step is named after its material from the pack list, so no two look alike', () => {
+    const d = packing();
+    expect(d.stages[0]!.steps.slice(1).map((t) => stepTitle(d, t))).toEqual(['Issue Printed aluminium foil (PM-101)', 'Issue PVC/PVDC film (PM-102)', 'Issue Carton (PM-103)', 'Issue Leaflet (PM-104)']);
+    expect(stepLabel(d, { stage: 2, sub: 1, step: 1, round: 1 })).toBe('Reconciliation and line clearance › Reconcile Printed aluminium foil (PM-101)');
+  });
+
   it('TB-P5 the coding is checked at the start and every N minutes at most, packs are inspected on line, and the camera is challenged with serialisation', () => {
     expect(errors(without(packing(), 'coding-check'), 'TB-P5')).toEqual(['The coding check (at the start and at intervals) is missing']);
     expect(errors(without(packing(), 'online-inspection'), 'TB-P5')).toEqual(['The on-line inspection is missing']);
@@ -116,6 +123,8 @@ describe('the packing blocks', () => {
     const r = results(d, [], '0.1.0.1', { mfgDate: '2026-11-03', tablets: { value: '100000', unit: 'tablets' } });
     expect(r.expiry).toMatchObject({ ok: true, expiry: '2028-10', shown: 'Manufactured 11/2026, shelf life 24 months (to the end of the month before): expiry 10/2028' });
     expect(r.packs).toMatchObject({ ok: true, value: '10000', unit: 'units' });
+    // The bulk step's figure is the expiry date, not the shelf life it is worked out from.
+    expect(headline(r.expiry!)).toBe('10/2028');
     // No packing block has an expiry to type: the coding check works it out from the shelf life.
     for (const id of ['bulk-issue', 'coding-check', 'serial-sample']) expect(findBlock({ id, version: 1 })!.fields.map((f) => f.name)).not.toContain('expiry');
     const coding = where(d, 'coding-check');
@@ -149,6 +158,24 @@ describe('the packing blocks', () => {
     expect(mrp('none')).toMatchObject({ check: { pass: true } });
     expect(mrp('Rs. 125.00')).toMatchObject({ check: { pass: false } });
     expect(c8PrintedData({ what: 'MRP', kind: 'money', printed: '125', expected: '125.00' })).toMatchObject({ check: { pass: true } });
+  });
+
+  it('TB-P9 the coding check reads the common Indian print styles, and still compares the values exactly with the batch record', () => {
+    const d = packing();
+    const c = where(d, 'coding-check');
+    const check = (field: string, printed: string, name: string) => {
+      const values = { printedBatch: 'TB260001', printedMfg: '11/2026', printedExpiry: '10/2028', printedMrp: 'Rs. 125.00', legible: 'yes', packingDone: 'no', [field]: printed };
+      return (results(d, [issued(d)], c.key, values)[name] as { check?: { pass: boolean } }).check?.pass;
+    };
+    for (const p of ['M.R.P. Rs. 125.00 (Incl. of all taxes)', 'MRP Rs.125.00 incl. of all taxes', 'm.r.p.  rs 125.00 (incl. of all taxes)']) expect([p, check('printedMrp', p, 'mrpCheck')]).toEqual([p, true]);
+    for (const p of ['MFG.DT. 11/2026', 'MFD. 11/2026', 'Mfg. Date 11/2026', 'mfg.dt.11/2026']) expect([p, check('printedMfg', p, 'mfgCheck')]).toEqual([p, true]);
+    for (const p of ['EXP.DT. 10/2028', 'EXP. 10/2028', 'Use before 10/2028', 'exp.dt.10/2028']) expect([p, check('printedExpiry', p, 'expiryCheck')]).toEqual([p, true]);
+    for (const p of ['B.No. TB260001', 'Batch No.: TB260001']) expect([p, check('printedBatch', p, 'batchCheck')]).toEqual([p, true]);
+    // The label is read; the value must still be the batch record's.
+    for (const [field, p, name] of [['printedMrp', 'M.R.P. Rs. 152.00 (Incl. of all taxes)', 'mrpCheck'], ['printedMfg', 'MFG.DT. 10/2026', 'mfgCheck'], ['printedMfg', 'Mfg. Date 11/2025', 'mfgCheck'],
+      ['printedExpiry', 'EXP.DT. 11/2028', 'expiryCheck'], ['printedExpiry', 'Use before 10/2029', 'expiryCheck'], ['printedBatch', 'B.No. TB260007', 'batchCheck']] as const) {
+      expect([p, check(field, p, name)]).toEqual([p, false]);
+    }
   });
 
   it('TB-P5 the checks alongside the line: the next check opens after the first round, and the stage closes only when every check has its end round', () => {

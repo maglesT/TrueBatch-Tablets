@@ -16,7 +16,7 @@ QA release of the packed batch. Built the Logbook way, as TrueBatch Tablets is.
 - **`packing/`** holds only what is the packing product's own: its entry points (`packing/server/index.ts`,
   `packing/web/`), its descriptor (`packing/product.ts`), its migrations (`packing/migrate.ts`: TrueBatch Tablets'
   migrations without the views it publishes, with packing's app role, then `packing/migrations/`) and its published
-  view `packing_batch_v1`. `ops/packing.Dockerfile` and `ops/packing.manifest.draft.json` are its image and manifest.
+  views (`packing_batch_v1`, `equipment_use_v1`, `material_use_v1`). `ops/packing.Dockerfile` and `ops/packing.manifest.draft.json` are its image and manifest.
 
 ## The packing master (TB-P1)
 - One master document, as for tablets, with a **pack** section: the pack product (header), the bulk product, pack
@@ -59,7 +59,10 @@ QA release of the packed batch. Built the Logbook way, as TrueBatch Tablets is.
   product was tested and complies), then QA release or rejection by e-signature. QA cannot release or reject before
   QC has approved. `packing_batch_v1` shows QC_APPROVED in between (`packing/migrations/0101_packing_qc_status.sql`).
 - **Published**: `packing_batch_v1` (packing order, coded batch number, products, pack, dates, packs and cartons,
-  status) for MMS finished goods later.
+  status) for MMS finished goods later; `equipment_use_v1` (the line and rooms used, for the Logbook) and
+  `material_use_v1` (per signed issue step its lot, packing material and quantity issued in the material's unit, for
+  MMS to reduce the lot's stock) with TrueBatch Tablets' names and columns
+  (`packing/migrations/0102_packing_equipment_and_material_use.sql`).
 
 ## Left for later
 - An issue screen (as for TrueBatch Tablets, batches are issued through the API for now) and a read-only line display.

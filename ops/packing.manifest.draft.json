@@ -11,10 +11,11 @@
     {"code": "truebatch_packing.batch.supervise", "label": "Production approval of a completed packing record"},
     {"code": "truebatch_packing.qc.approve", "label": "QC approval of the finished packed product (tested and complies)"},
     {"code": "truebatch_packing.qa.release", "label": "QA review and release of packed batches"},
-    {"code": "truebatch_packing.view", "label": "View packing records and packing master versions"}
+    {"code": "truebatch_packing.view", "label": "View packing records and packing master versions"},
+    {"code": "truebatch_packing.demo.skip", "label": "Skip a running wait (demo installations only)"}
   ],
   "signon": { "backchannel_logout": "/backchannel-logout" },
-  "publishes": ["packing_batch_v1"],
+  "publishes": ["packing_batch_v1", "equipment_use_v1", "material_use_v1"],
   "reads": {
     "master_data": ["equipment_v1", "instrument_v1", "room_v1", "material_v1", "product_v1"],
     "truebatch": ["batch_fact_v1"],

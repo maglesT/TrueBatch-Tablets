@@ -160,6 +160,6 @@ export function authRoutes(app: FastifyInstance, sql: Sql, signOn: SignOn) {
 
   app.get('/api/me', { preHandler: requirePermission() }, async (req) => {
     const u = req.user!;
-    return { id: u.id, username: u.username, fullName: u.fullName, permissions: u.permissions };
+    return { id: u.id, username: u.username, fullName: u.fullName, permissions: u.permissions, ...(app.demo ? { demo: true } : {}) };
   });
 }

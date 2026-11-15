@@ -27,9 +27,13 @@ export const fieldSchema = z.object({
   // choice: the fixed list.
   options: z.array(z.string().min(1)).optional(),
   optional: z.boolean().optional(),
-  // machine: words of master data's type it takes (any of them, without case), e.g. ["balance"]; none: any type.
+  // machine: words of master data's type it takes (any of them, without case), e.g. ["balance"]; none: any type. A type
+  // with one of the notTypes words is not taken (a QC lab "Analytical balance" is not a dispensing balance).
   types: z.array(z.string().regex(/^[a-z][a-z ]*$/)).optional(),
+  notTypes: z.array(z.string().regex(/^[a-z][a-z ]*$/)).optional(),
 }).strict();
+// A packing line: master data's blister and strip packers, forming machines and bottle lines' tablet counters.
+export const PACKING_LINE = ['blister', 'strip pack', 'forming', 'tablet counter', 'packing line'];
 
 export const SETTING_KINDS = ['quantity', 'limit', 'number', 'text', 'material'] as const;
 export const settingSchema = z.object({
@@ -72,6 +76,8 @@ export const blockSchema = z.object({
   packing: z.boolean().optional(),
   // A new master step from this block starts as a QA hold (the master may change it).
   qaHold: z.boolean().optional(),
+  // The name of a step that names a material, "{material}" its name and code: "Issue {material}".
+  title: z.string().regex(/\{material\}/).optional(),
 }).strict();
 
 export type BlockField = z.infer<typeof fieldSchema>;

@@ -49,6 +49,7 @@ beforeAll(async () => {
         ('eq-str3', 'STR-03', 'equipment', 'in use', true, '{}', '{}', 'XB26001', null, null, now()),
         ('eq-str4', 'STR-04', 'equipment', 'clean', true, '{}', '{}', null, null, null, now() - interval '10 minutes'),
         ('eq-bal', 'BAL-01', 'instrument', 'clean', true, '{}', '{}', null, null, null, now()),
+        ('eq-rmg', 'RMG-01', 'equipment', 'clean', true, '{}', '{}', null, null, null, now()),
         ('rm-1', 'GRN-01', 'area', 'clean', true, '{}', '{}', null, '2026-11-15 05:30+00', 'CLEANER ONE', now());
       insert into ${S.mms}.lot_v1 (lot_number, kind, material_master_id, material_code, status, expiry_date, retest_date, qc_report_ref) values
         ('API-OK', 'material', 'mat-api', 'MAT-001', 'approved', '2099-01-31', null, 'QC-26-101'),
@@ -68,7 +69,8 @@ beforeAll(async () => {
   for (const l of tablet().formula) t.master.materials_.push({ ...item(l.materialItemId, l.code, l.name), category: null, unit: 'kg' });
   t.master.materials_.push({ ...item('m', 'M', 'M'), category: null, unit: 'kg' });
   t.master.equipment_.push(...['', '2', '3', '4', '5'].map((n) => ({ ...item(`eq-str${n}`, `STR-0${n || 1}`, 'Stirrer'), kind: 'equipment' as const, type: 'stirrer', room: 'GRN-01' })),
-    { ...item('eq-bal', 'BAL-01', 'Balance 60 kg'), kind: 'instrument', type: 'balance', room: 'DSP-01' });
+    { ...item('eq-bal', 'BAL-01', 'Balance 60 kg'), kind: 'instrument', type: 'balance', room: 'DSP-01' },
+    { ...item('eq-rmg', 'RMG-01', 'Granulator'), kind: 'equipment', type: 'granulator', room: 'GRN-01' });
   t.master.rooms_.push({ ...item('rm-1', 'GRN-01', 'Granulation room 1'), area: 'granulation', grade: 'D' });
   const people = {
     author: ['truebatch.master.author'], checker: ['truebatch.master.check'], quality: ['truebatch.master.approve'], quality2: ['truebatch.master.approve'],
@@ -257,7 +259,7 @@ describe('TB-12 MMS: only released, in-date lots of the material; certificate va
     await act('asha', b.id, '0.1.1.1', 'start');
     await cut(S.mms);
     try {
-      const charge = { lot: 'API-OK', machine: 'eq-bal', allCharged: 'yes' };
+      const charge = { lot: 'API-OK', machine: 'eq-rmg', allCharged: 'yes' };
       expect(await problems(record(b.id, '0.1.1.1', { ...charge, 'lot.released': 'yes', 'lot.expiry': '2020-01-31' })))
         .toEqual(['The lot expired or passed its retest date on 2020-01-31: it may not be used.']);
       expect(await problems(record(b.id, '0.1.1.1', { ...charge, 'lot.released': 'no', 'lot.expiry': '2099-01-31' })))

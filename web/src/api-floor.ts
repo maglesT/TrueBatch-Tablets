@@ -19,7 +19,7 @@ export interface StepRow {
   // Where values came from (a link, or by hand) and the label questions of what was entered by hand.
   source: Record<string, Source>; handFields: BlockField[];
 }
-export interface TimerRow { id: string; kind: 'hold' | 'periodic' | 'minimum'; key: StepKey; label: string; from: string; at: string; state: 'running' | 'due soon' | 'due' | 'late' }
+export interface TimerRow { id: string; kind: 'hold' | 'periodic' | 'minimum'; key: StepKey; label: string; from: string; at: string; state: 'running' | 'due soon' | 'due' | 'late'; skipped?: { person: number | null; at: string } }
 export interface StageRow { index: number; key: string; name: string; open: boolean; blocked?: string; closed: boolean }
 export interface Deviation { note: number; step: string; reference: string; text: string; open: boolean; status?: string; closedAt?: string | null }
 export interface BatchDetail {
@@ -155,6 +155,8 @@ export function useServerNow(serverNow: string | undefined): number {
 /** A result's headline (rounded as the limit is written, or the end of its worked line) and its tone. */
 export function headline(r: Stored): string | null {
   if (!r.ok) return null;
+  // The expiry (T27) is a month ("10/2028"), not the shelf life it is worked out from.
+  if (typeof r.expiry === 'string' && /^\d{4}-\d{2}$/.test(r.expiry)) return `${r.expiry.slice(5)}/${r.expiry.slice(0, 4)}`;
   const rounded = (r.check as { rounded?: string } | undefined)?.rounded;
   // Against a target (C1 "around"): the difference from the target, in %.
   if (rounded !== undefined && typeof r.deviation === 'string') return `${r.deviation.startsWith('-') ? '' : '+'}${rounded} %`;

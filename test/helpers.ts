@@ -103,11 +103,11 @@ export function proofFor(username: string, at?: number, meanings: string[] = [..
 }
 
 // withLinks: the links to the other products (test/links.test.ts); without, every link is absent.
-export async function freshApp(withLinks?: (db: TestDb) => Promise<Links>, product: Product = TABLETS): Promise<TestApp> {
+export async function freshApp(withLinks?: (db: TestDb) => Promise<Links>, product: Product = TABLETS, demo = false): Promise<TestApp> {
   const db = await freshDb(product);
   const master = fakeMaster();
   const links = withLinks ? await withLinks(db) : undefined;
-  const app = await buildApp({ sql: db.sql, signOn: fakeSignOn(), proofKey: TEST_PROOF_KEY, master, links, webRoot: '/nonexistent', product });
+  const app = await buildApp({ sql: db.sql, signOn: fakeSignOn(), proofKey: TEST_PROOF_KEY, master, links, webRoot: '/nonexistent', product, demo });
   return {
     ...db,
     app,

@@ -25,7 +25,7 @@ name and master version, 0008), `equipment_use_v1`, `deviation_note_v1` (`db/mig
 ## TrueBatch Tablets Packing
 The packing batch record is a separate product on the platform, built from this repository on the same engine and
 screens: `docs/packing-design.md`, its rules TB-P1 to TB-P9 in `docs/rules.md`. Its own parts are in `packing/` (entry
-points, migrations, the view it publishes) and `ops/packing.*`.
+points, migrations, the views it publishes) and `ops/packing.*`.
 
 ```sh
 export DATABASE_URL=postgres://truebatch_owner:dev@localhost:5432/truebatch_packing_dev DB_APP_ROLE=truebatch_packing_app
@@ -60,6 +60,23 @@ gets its own schema. The test login must be able to create roles and databases (
 `ops/manifest.draft.json` is the draft of the product's platform manifest (permissions, back-channel logout, the
 views it reads from master data and the four linked products, and the views it publishes). The app reads its database from `TRUEBATCH_DATABASE_URL` and runs as the restricted login
 `truebatch_app`, which cannot change or delete audit rows or signatures. Migrations run as the database owner.
+
+## Demo installations
+The platform sets `TRUEBATCH_DEMO=1` only for the demo customer's installation of either product, never for a plant's
+(`server/demo.ts`). Then every screen shows a DEMO banner, and a person with `truebatch.demo.skip` (packing:
+`truebatch_packing.demo.skip`) sees "Skip wait (demo)" on a step that waits (a minimum time, the next periodic check, a
+hold time running), which ends that wait at once. To prepare a demo from a terminal in the product's container:
+
+```sh
+node dist/server/demo-skip.js TB260004 [stage] --as <username>           # TrueBatch Tablets
+node dist/packing/server/demo-skip.js TP260001 [stage] --as <username>   # TrueBatch Tablets Packing
+```
+
+It skips every wait running now in the batch, or in one stage (its key, name or number), as the named demo person
+(someone who has signed in once). Each skip is an insert-only step event `demo_wait_skipped` with who, when and which
+wait, shown in the step history, QA's review and the batch record PDF as "DEMO: wait skipped by … at …"; the engine
+counts that wait as satisfied, nothing else changes. Without `TRUEBATCH_DEMO=1` the button is absent, the route answers
+403 and the command exits non-zero.
 
 ## Conventions
 - One app: `server/` (Fastify), `web/` (React), `db/migrations/` (plain SQL), `test/`, `e2e/` (browser tests), `ops/`, `docs/`;

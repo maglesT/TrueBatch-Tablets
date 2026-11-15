@@ -19,5 +19,6 @@ export const PACKING: Product = {
     'truebatch_packing.qc.approve': 'QC approval of the finished packed product (tested and complies)',
     'truebatch_packing.qa.release': 'QA review and release of packed batches',
     'truebatch_packing.view': 'View packing records and packing master versions',
+    'truebatch_packing.demo.skip': 'Skip a running wait (demo installations only)',
   },
 };
