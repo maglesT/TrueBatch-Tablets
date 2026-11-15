@@ -37,7 +37,8 @@ export function Process({ doc, onChange, md, place, onPlace, editable }: {
   const roles = [...new Set(doc.stages.map((s) => s.role).filter(Boolean)
     .concat(['Production operator', 'Granulation operator', 'Compression operator', 'Coating operator', 'Packing operator', 'Packing supervisor', 'Warehouse officer']))];
   const machineTypes = [...new Set(md.equipment.filter((e) => e.active && e.type).map((e) => e.type!))].sort();
-  const areas = [...new Set(md.rooms.filter((r) => r.active && r.area).map((r) => r.area!))].sort();
+  // Rooms are allowed by their area, or one by one by their code (not every room of an area in every block).
+  const areas = [...[...new Set(md.rooms.filter((r) => r.active && r.area).map((r) => r.area!))].sort(), ...md.rooms.filter((r) => r.active).map((r) => r.code).sort()];
 
   return (
     <div className="process">
@@ -118,7 +119,7 @@ function StageForm({ doc, si, stage, onChange, roles, machineTypes, areas }: {
         <datalist id="roles">{roles.map((r) => <option key={r} value={r} />)}</datalist>
       </div>
       <ChipSet label="Allowed machine types" values={stage.machineTypes} options={machineTypes} onChange={(machineTypes) => onChange({ ...stage, machineTypes })} empty="Any machine type" />
-      <ChipSet label="Allowed rooms (area)" values={stage.roomTypes} options={areas} onChange={(roomTypes) => onChange({ ...stage, roomTypes })} empty="Any room" />
+      <ChipSet label="Allowed rooms (an area, or a room)" values={stage.roomTypes} options={areas} onChange={(roomTypes) => onChange({ ...stage, roomTypes })} empty="Any room" />
       <fieldset className="checklist">
         <legend>Intermediate produced</legend>
         <label className="check"><input type="checkbox" checked={!!stage.produces} onChange={(e) => { const { produces: _, ...rest } = stage; onChange(e.target.checked ? { ...rest, produces: { name: '', holdHours: 24 } } : rest); }} />This stage produces an intermediate</label>

@@ -8,7 +8,7 @@ export const sprayCoat: Block = {
   periodic: { maxMinutes: 30 },
   instruction: 'Record the inlet and product temperatures, the spray rate, the atomising air pressure and the pan speed. Weigh 20 tablets and record their mean weight.',
   fields: [
-    { name: 'machine', label: 'Coater', kind: 'machine' },
+    { name: 'machine', label: 'Coater', kind: 'machine', types: ['coat'] },
     { name: 'inletTemp', label: 'Inlet temperature', kind: 'number', unit: '°C' },
     { name: 'bedTemp', label: 'Product temperature', kind: 'number', unit: '°C' },
     { name: 'sprayRate', label: 'Spray rate', kind: 'number', unit: 'g/min' },

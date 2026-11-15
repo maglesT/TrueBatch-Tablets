@@ -6,7 +6,7 @@ export const coatingSuspension: Block = {
   id: 'coating-suspension', version: 1, name: 'Prepare the coating suspension', checker: true,
   instruction: 'Add the solvent shown to the vessel, stir to form a vortex and add the coating powder slowly. Stir for the time shown, then pass the suspension through the screen. Use it within its hold time.',
   fields: [
-    { name: 'machine', label: 'Vessel with stirrer', kind: 'machine' },
+    { name: 'machine', label: 'Vessel with stirrer', kind: 'machine', types: ['vessel', 'tank', 'stirrer'] },
     { name: 'solventAdded', label: 'Solvent added', kind: 'number', unit: 'kg' },
     { name: 'mixStart', label: 'Start of mixing', kind: 'timer' },
     { name: 'mixEnd', label: 'End of mixing', kind: 'timer' },

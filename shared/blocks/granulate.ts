@@ -5,7 +5,7 @@ export const granulate: Block = {
   id: 'granulate', version: 1, name: 'Granulate to an end point', checker: false,
   instruction: 'Add the binder and granulate until the end point is reached. Record the reading at the end point.',
   fields: [
-    { name: 'machine', label: 'Granulator', kind: 'machine' },
+    { name: 'machine', label: 'Granulator', kind: 'machine', types: ['granulat', 'rmg'] },
     { name: 'endPoint', label: 'End-point reading', kind: 'number', unit: 'kW' },
     { name: 'endPointAt', label: 'End point reached at', kind: 'timer' },
   ],

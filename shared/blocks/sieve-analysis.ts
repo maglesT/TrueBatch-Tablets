@@ -7,7 +7,7 @@ export const sieveAnalysis: Block = {
   id: 'sieve-analysis', version: 1, name: 'Particle size by sieve analysis', checker: false,
   instruction: 'Put the weighed sample on the top sieve of the nest, shake for the time of the method and weigh what is retained on each sieve and in the pan.',
   fields: [
-    { name: 'machine', label: 'Sieve shaker', kind: 'machine' },
+    { name: 'machine', label: 'Sieve shaker', kind: 'machine', types: ['sieve', 'shaker'] },
     { name: 'sample', label: 'Sample weight', kind: 'number', unit: 'g' },
     ...sieves.map((n) => ({ name: `retained${n}`, label: `Retained on sieve ${n}`, kind: 'number' as const, unit: 'g' })),
     { name: 'pan', label: 'In the pan', kind: 'number', unit: 'g' },

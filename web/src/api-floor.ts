@@ -34,7 +34,7 @@ export interface WorkItem {
   id: number; batchNo: string; productCode: string; productName: string; status: string; issuedAt: string; stagesClosed: number; stageCount: number;
   current: { step: string; stage: string; title: string; state: State } | null; badges: WorkBadge[];
 }
-export interface PickItem { itemId: string; code: string; name: string; active: boolean; type?: string | null; area?: string | null }
+export interface PickItem { itemId: string; code: string; name: string; active: boolean; type?: string | null; area?: string | null; room?: string | null }
 
 /** Where a value came from, in plain words. */
 export const sourceWords = (s: Source | undefined) => (!s ? '' : s.from === 'hand'

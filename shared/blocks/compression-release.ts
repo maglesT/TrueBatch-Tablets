@@ -7,7 +7,7 @@ export const compressionRelease: Block = {
   id: 'compression-release', version: 1, name: 'Release of compression', checker: true,
   instruction: 'Take tablets from every station. Record the weights of 20 tablets, then the hardness and thickness of 10, and check their appearance.',
   fields: [
-    { name: 'machine', label: 'Tablet press', kind: 'machine' },
+    { name: 'machine', label: 'Tablet press', kind: 'machine', types: ['press'] },
     { name: 'allStations', label: 'Tablets taken from every station', kind: 'yes-no' },
     { name: 'weights', label: 'Weights of 20 tablets', kind: 'number', unit: 'mg', count: 20 },
     { name: 'hardness', label: 'Hardness of 10 tablets', kind: 'number', unit: 'N', count: 10 },

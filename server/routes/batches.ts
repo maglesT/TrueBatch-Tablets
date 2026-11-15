@@ -4,6 +4,7 @@ import type { Sql, Tx } from '../db.js';
 import { audit } from '../audit.js';
 import { parseId, requirePermission, type SessionUser } from '../auth.js';
 import { usableItem } from '../master.js';
+import { machineRefusal, roomRefusal } from '../../shared/engine/picks.js';
 import { handProblem, mfgDateProblem, pullBulk, pullItem, pullLot, pulledWords } from '../pull.js';
 import { SignError, authenticateSigner, contentHash, sign, signBody } from '../signatures.js';
 import { masterVersion } from './masters.js';
@@ -103,10 +104,11 @@ async function readValues(app: FastifyInstance, doc: MasterDoc, key: StepKey, ra
     if (!f || !LINK_OF[f.kind]) continue;
     let pulled;
     if (f.kind === 'machine' || f.kind === 'room') {
-      const item = f.kind === 'machine' ? usableItem(await app.master.equipment(), String(x), 'machine') : usableItem(await app.master.rooms(), String(x), 'room');
+      const rooms = await app.master.rooms();
+      const item = f.kind === 'machine' ? usableItem(await app.master.equipment(), String(x), 'machine') : usableItem(rooms, String(x), 'room');
       const type = 'type' in item ? item.type : item.area;
-      const allowed = f.kind === 'machine' ? stage.machineTypes : stage.roomTypes;
-      if (allowed.length && !allowed.includes(type ?? '')) { problems.push(`${item.code} is not one of the ${f.kind} types this stage allows (${allowed.join(', ')})`); continue; }
+      const no = 'type' in item ? machineRefusal(stage, f, item, rooms) : roomRefusal(stage, item);
+      if (no) { problems.push(no); continue; }
       out[name] = { itemId: item.itemId, code: item.code, name: item.name, version: item.version, type, room: 'room' in item ? item.room : item.code };
       pulled = await pullItem(app, block, f, item, batchNo);
     } else {

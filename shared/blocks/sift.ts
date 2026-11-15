@@ -6,7 +6,7 @@ export const sift: Block = {
   id: 'sift', version: 1, name: 'Sift materials', checker: true,
   instruction: 'Check that the sieve is the one shown and is intact. Sift the materials, then check the sieve again.',
   fields: [
-    { name: 'machine', label: 'Sifter', kind: 'machine' },
+    { name: 'machine', label: 'Sifter', kind: 'machine', types: ['sift', 'sieve', 'screen'] },
     { name: 'sieveId', label: 'Sieve identification no.', kind: 'text' },
     { name: 'rightSieve', label: 'Sieve no. as shown', kind: 'yes-no' },
     { name: 'intactBefore', label: 'Sieve intact before use', kind: 'yes-no' },

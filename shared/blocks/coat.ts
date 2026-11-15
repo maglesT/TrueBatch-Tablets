@@ -6,7 +6,7 @@ export const coat: Block = {
   id: 'coat', version: 1, name: 'Coat to a weight gain', checker: false, stop: 'gain',
   instruction: 'Spray the coating, then weigh a sample of tablets and record the mean weight.',
   fields: [
-    { name: 'machine', label: 'Coater', kind: 'machine' },
+    { name: 'machine', label: 'Coater', kind: 'machine', types: ['coat'] },
     { name: 'meanWeight', label: 'Mean weight of coated tablets', kind: 'number', unit: 'mg' },
   ],
   settings: [

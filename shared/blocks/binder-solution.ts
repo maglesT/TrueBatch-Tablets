@@ -7,7 +7,7 @@ export const binderSolution: Block = {
   id: 'binder-solution', version: 1, name: 'Prepare the binder solution', checker: true,
   instruction: 'Add the solvent shown to the vessel, start the stirrer, add the binder slowly and stir until it has dissolved. Check that the solution is clear and has no lumps.',
   fields: [
-    { name: 'machine', label: 'Vessel with stirrer', kind: 'machine' },
+    { name: 'machine', label: 'Vessel with stirrer', kind: 'machine', types: ['vessel', 'tank', 'stirrer'] },
     { name: 'solventAdded', label: 'Solvent added', kind: 'number', unit: 'kg' },
     { name: 'mixStart', label: 'Start of mixing', kind: 'timer' },
     { name: 'mixEnd', label: 'End of mixing', kind: 'timer' },
