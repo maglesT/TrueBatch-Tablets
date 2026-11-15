@@ -48,8 +48,8 @@ export const blockSchema = z.object({
   version: z.number().int().min(1),
   name: z.string().min(1),
   instruction: z.string().min(1),
-  // TB-08: weighing, charge-in and yield always need a second-person check.
-  gmp: z.enum(['weighing', 'charge-in', 'yield']).optional(),
+  // TB-08: weighing, charge-in, yield and line clearance always need a second-person check.
+  gmp: z.enum(['weighing', 'charge-in', 'yield', 'line-clearance']).optional(),
   // Default signatures: the performer always signs; a second person checks when true.
   checker: z.boolean(),
   fields: z.array(fieldSchema).min(1),

@@ -54,7 +54,7 @@ describe('master designer', () => {
     expect(rows[2]!.adjusted).toBeUndefined();
   });
 
-  it('both process skeletons are valid drafts; what they leave open is listed by the master check', () => {
+  it('TB-10 both process skeletons are valid drafts and start every stage with line clearance; what they leave open is listed by the master check', () => {
     const header = { productItemId: 'p', productCode: 'P', productName: 'P', batchSize: '100000', coreWeightMg: '250.0', coatedWeightMg: '257.5' };
     for (const s of SKELETON_LIST) {
       const doc = masterSchema.parse({ header, formula: [], stages: skeletonStages(s.id, header) });
@@ -62,8 +62,9 @@ describe('master designer', () => {
       expect(masterChecks(doc).every((p) => /not set|no core materials/.test(p.message))).toBe(true);
     }
     const dc = skeletonStages('direct-compression-uncoated', header);
-    expect(dc.map((s) => s.steps.length)).toEqual([3, 2]);
-    expect(dc[1]!.steps[0]!.settings.meanLimit).toEqual({ low: '237.5', high: '262.5', unit: 'mg' });
+    expect(dc.map((s) => s.steps.length)).toEqual([4, 3]);
+    expect(dc.every((s) => s.steps[0]!.block.id === 'line-clearance')).toBe(true);
+    expect(dc[1]!.steps[1]!.settings.meanLimit).toEqual({ low: '237.5', high: '262.5', unit: 'mg' });
   });
 
   it('copy to a new batch size scales typed batch quantities, not limits or quantities per tablet', () => {
