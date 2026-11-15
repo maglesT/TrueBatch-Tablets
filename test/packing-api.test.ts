@@ -25,18 +25,20 @@ const P = (...codes: string[]) => codes.map((c) => `truebatch_packing.${c}` as c
 beforeAll(async () => {
   t = await freshApp(async (db) => {
     TB = `${db.schema}_tb`;
-    // TrueBatch Tablets' published batch_fact_v1, as a table with its columns.
+    // TrueBatch Tablets' published batch_fact_v1, as a table with its columns. manufactured_on (the date the first
+    // processing step started) is not the issue date: TB260001 was issued on 31 Oct and started on 3 Nov.
     await db.owner.unsafe(`
       create schema ${TB};
       create table ${TB}.batch_fact_v1 (batch_id uuid, batch_number text, product_code text, strength text, mbr_version_id uuid, family_code text, record_kind text,
-        status text, issued_at timestamptz, completed_at timestamptz, released boolean, read_at timestamptz default now(), data_as_of timestamptz default now());
+        status text, issued_at timestamptz, completed_at timestamptz, released boolean, read_at timestamptz default now(), data_as_of timestamptz default now(), manufactured_on date);
       grant usage on schema ${TB} to ${PACKING_APP_ROLE};
       grant select on all tables in schema ${TB} to ${PACKING_APP_ROLE};
-      insert into ${TB}.batch_fact_v1 (batch_number, product_code, record_kind, status, issued_at, released) values
-        ('TB260001', 'PRD-001', 'PROCESSING', 'RELEASED', '2026-11-03 06:00+00', true),
-        ('TB260002', 'PRD-001', 'PROCESSING', 'QC_APPROVED', '2026-11-05 06:00+00', false),
-        ('TB260003', 'PRD-002', 'PROCESSING', 'RELEASED', '2026-11-04 06:00+00', true),
-        ('TB260004', 'PRD-001', 'PROCESSING', 'RELEASED', '2026-11-06 06:00+00', true);`);
+      insert into ${TB}.batch_fact_v1 (batch_number, product_code, record_kind, status, issued_at, released, manufactured_on) values
+        ('TB260001', 'PRD-001', 'PROCESSING', 'RELEASED', '2026-10-31 06:00+00', true, '2026-11-03'),
+        ('TB260002', 'PRD-001', 'PROCESSING', 'QC_APPROVED', '2026-11-05 06:00+00', false, '2026-11-05'),
+        ('TB260003', 'PRD-002', 'PROCESSING', 'RELEASED', '2026-11-04 06:00+00', true, '2026-11-04'),
+        ('TB260004', 'PRD-001', 'PROCESSING', 'RELEASED', '2026-11-06 06:00+00', true, '2026-11-06'),
+        ('TB260005', 'PRD-001', 'PROCESSING', 'RELEASED', '2026-11-07 06:00+00', true, null);`);
     provider = connect(TEST_DATABASE_URL, { role: PACKING_APP_ROLE, link: true });
     return links({ truebatch: provider }, { truebatch: TB });
   }, PACKING);
@@ -102,7 +104,7 @@ describe('TrueBatch Tablets Packing: its own product on the platform', () => {
 
 describe('a packing batch from a released bulk batch', () => {
   let first = 0;
-  it('TB-P2 a packing batch is issued from a RELEASED bulk batch of TrueBatch Tablets: line, bulk and tablets recorded, the date of manufacture pulled', async () => {
+  it('TB-P2 a packing batch is issued from a RELEASED bulk batch of TrueBatch Tablets: line, bulk and tablets recorded, the date of manufacture pulled (the date its first step started, not its issue date)', async () => {
     const res = await issue({ line: 'ln-1', bulk: 'TB260001', tablets: '100000' });
     expect(res.statusCode, res.body).toBe(200);
     expect(res.json()).toMatchObject({ batchNo: expect.stringMatching(/^TP\d{6}$/) });
@@ -121,6 +123,7 @@ describe('a packing batch from a released bulk batch', () => {
     expect((await no('TB260002')).problems).toEqual(['Bulk batch TB260002 is qc approved in TrueBatch Tablets: only a released bulk batch may be packed.']);
     expect((await no('TB260003')).problems).toEqual(['Bulk batch TB260003 is PRD-002 in TrueBatch Tablets, not PRD-001 Examplol 100 mg tablets.']);
     expect((await no('TB269999')).problems).toEqual(['Bulk batch TB269999 is not in TrueBatch Tablets.']);
+    expect((await no('TB260005')).problems).toEqual(['Bulk batch TB260005 has no date of manufacture in TrueBatch Tablets (no processing step started).']);
     expect((await issue({ line: 'ln-2', bulk: 'TB260001' })).json()).toMatchObject({ problems: ['Bulk tablets issued is not recorded'] });
   });
 
@@ -133,6 +136,13 @@ describe('a packing batch from a released bulk batch', () => {
   it('TB-P2 without the TrueBatch Tablets link the bulk is typed from its labels (RELEASED), and a second person checks it', async () => {
     await t.owner.unsafe(`revoke select on ${TB}.batch_fact_v1 from ${PACKING_APP_ROLE}`);
     try {
+      // TB-P8: a typed date of manufacture is a real date, never in the future (plant time).
+      const tomorrow = new Date(Date.now() + 86_400_000).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+      const future = await issue({ line: 'ln-2', bulk: 'TB260004', tablets: '50000', mfgDate: tomorrow, 'bulk.released': 'yes', 'bulk.product': 'yes' });
+      expect(future.statusCode).toBe(400);
+      expect(future.json()).toMatchObject({ problems: [`The date of manufacture ${tomorrow} is in the future: type the date on the bulk labels.`] });
+      expect((await issue({ line: 'ln-2', bulk: 'TB260004', tablets: '50000', mfgDate: '6/11/2026', 'bulk.released': 'yes', 'bulk.product': 'yes' })).json())
+        .toMatchObject({ problems: ['Date of manufacture of the bulk (YYYY-MM-DD): type the date as YYYY-MM-DD.'] });
       const notReleased = await issue({ line: 'ln-2', bulk: 'TB260004', tablets: '50000', mfgDate: '2026-11-06', 'bulk.released': 'no', 'bulk.product': 'yes' });
       expect(notReleased.json()).toMatchObject({ problems: [expect.stringContaining('the bulk container labels say RELEASED (QA) for this batch number: if not, do not use it')] });
       const res = await issue({ line: 'ln-2', bulk: 'TB260004', tablets: '50000', mfgDate: '2026-11-06', 'bulk.released': 'yes', 'bulk.product': 'yes' });

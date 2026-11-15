@@ -105,7 +105,7 @@ test('TB-P2 packing journey: packing master from the skeleton, approved; a packi
   await expect(op.page.getByRole('navigation', { name: 'Stages' })).toContainText('Issue to the line');
   await op.page.getByRole('button', { name: /Bulk tablets issued to the line/ }).click();
   await expect(op.page.locator('main')).toContainText('TB260001');
-  await expect(op.page.locator('main')).toContainText('From TrueBatch Tablets: TrueBatch Tablets batch TB260001: RELEASED');
+  await expect(op.page.locator('main')).toContainText('From TrueBatch Tablets: TrueBatch Tablets batch TB260001: RELEASED, PRD-001, manufactured 2026-11-03');
   await op.page.getByRole('group', { name: 'Containers closed and intact, labels show this bulk batch and RELEASED' }).getByRole('button', { name: 'Yes' }).click();
   await expect(op.page.getByRole('region', { name: 'Results' })).toContainText('expiry 10/2028');
   await op.page.getByRole('button', { name: 'Done', exact: true }).click();
