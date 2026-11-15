@@ -30,8 +30,8 @@ export async function pullItem(app: FastifyInstance, block: Block, f: BlockField
   if (s.inUseBatch && s.inUseBatch !== batchNo) return refused(`${item.code} is in use by batch ${s.inUseBatch} (Logbook).`);
   const source: Source = { from: 'logbook', asOf: s.checkedAt, shown: [`${item.code}: ${s.state}`, ...s.warnings].join('; ') };
   const out: Pulled = { source, values: {}, sources: {}, problems: [] };
-  // The line clearance facts the Logbook has: clean (it is fit for use), when and by whom it was cleaned.
-  if (f.kind === 'room' && block.gmp === 'line-clearance') {
+  // The line clearance facts the Logbook has (the room, or a packing line): clean (it is fit for use), when and by whom it was cleaned.
+  if ((f.kind === 'room' || f.kind === 'machine') && block.gmp === 'line-clearance') {
     const facts: [string, string | null][] = [['clean', 'yes'], ['cleanedOn', s.cleanedAt], ['cleanedBy', s.cleanedBy]];
     for (const [name, v] of facts) if (v && block.fields.some((x) => x.name === name)) { out.values[name] = v; out.sources[name] = source; }
   }
