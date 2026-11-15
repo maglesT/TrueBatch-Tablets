@@ -47,7 +47,7 @@ export function FormulaTable({ doc, onChange, md, masters, selected, onSelect, p
                     <td><b>{l.code}</b><span className="cell-sub">{l.name}</span></td>
                     <td><Decimal label={`mg per tablet of ${l.name}`} value={l.mgPerTablet} onChange={(v) => put(i, { ...l, mgPerTablet: v })} /></td>
                     <td><select aria-label={`Role of ${l.name}`} value={l.role} onChange={(e) => put(i, { ...l, role: e.target.value as FormulaLine['role'] })}>
-                      <option value="api">API</option><option value="excipient">Excipient</option><option value="solvent">Solvent (removed)</option></select></td>
+                      <option value="api">API</option><option value="excipient">Excipient</option><option value="solvent">Removed in processing (solvent, processing aid)</option></select></td>
                     <td><select aria-label={`Place of ${l.name}`} value={l.place === 'coating' ? `coating:${l.layer ?? 1}` : l.place}
                       onChange={(e) => { const [place, layer] = e.target.value.split(':'); const { layer: _, ...rest } = l; put(i, { ...rest, place: place as FormulaLine['place'], ...(layer ? { layer: Number(layer) } : {}) }); }}>
                       {PLACES.map(([v, t]) => <option key={v} value={v}>{t}</option>)}</select></td>
@@ -108,6 +108,7 @@ function AdjustPanel({ doc, line, onChange, problems, onAnswer }: { doc: MasterD
     onChange(Object.keys(clean).length ? { ...rest, adjust: clean } : rest);
   };
   const mode = a.potency ? 'potency' : a.content ? 'content' : 'none';
+  const field = (k: 'labelClaim' | 'batchQuantity', v: string) => { const next: FormulaLine = { ...line, [k]: v.trim() }; if (!v.trim()) delete next[k]; onChange(next); };
   const others = doc.formula.filter((l) => l.key !== line.key && l.adjust && !l.adjust.compensates?.length);
   const form = (which: 'from' | 'to', label: string) => {
     const f = a.salt?.[which] ?? { name: '', mw: '' };
@@ -117,6 +118,7 @@ function AdjustPanel({ doc, line, onChange, problems, onAnswer }: { doc: MasterD
         <label>{label}<input aria-label={`${label} name`} value={f.name} onChange={(e) => setF({ name: e.target.value })} placeholder="e.g. base" /></label>
         <label>Molecular weight<Decimal label={`${label} molecular weight`} value={f.mw} onChange={(mw) => setF({ mw })} /></label>
         <label>Drug molecules per formula unit<input type="number" min={1} max={4} aria-label={`${label} molecules per formula unit`} value={f.moleculesPerUnit ?? 1} onChange={(e) => setF({ moleculesPerUnit: Number(e.target.value) > 1 ? Number(e.target.value) : undefined })} /></label>
+        {which === 'from' && <label>Ion charge (for mEq)<input type="number" min={1} max={4} aria-label={`${label} ion charge`} value={f.charge ?? ''} onChange={(e) => setF({ charge: Number(e.target.value) || undefined })} /></label>}
         {which === 'to' && <label className="check"><input type="checkbox" checked={!!f.hydrateOrSolvate} onChange={(e) => setF({ hydrateOrSolvate: e.target.checked || undefined })} />Its molecular weight includes crystal water or solvent</label>}
       </div>
     );
@@ -164,6 +166,8 @@ function AdjustPanel({ doc, line, onChange, problems, onAnswer }: { doc: MasterD
                 <label>Nominal content (%)<Decimal label="Nominal content" value={a.content.nominalContent} onChange={(v) => put({ ...a, content: { ...a.content!, nominalContent: v || undefined } })} /></label>
                 <label>The content comes from<select value={a.content.contentSource ?? 'certificate'} onChange={(e) => put({ ...a, content: { ...a.content!, contentSource: e.target.value === 'certificate' ? undefined : 'in-process result' } })}>
                   <option value="certificate">the lot's certificate</option><option value="in-process result">an in-process result (granule or blend assay)</option></select></label>
+                {a.content.contentSource === 'in-process result' && <label>The in-process result is<select value={a.content.resultType ?? ''} onChange={(e) => put({ ...a, content: { ...a.content!, resultType: (e.target.value || undefined) as 'content' } })}>
+                  <option value="">(not stated)</option><option value="content">the content (% w/w)</option><option value="percent of theoretical">% of theoretical (nominal content above)</option></select></label>}
               </div>
             )}
           </fieldset>
@@ -186,6 +190,13 @@ function AdjustPanel({ doc, line, onChange, problems, onAnswer }: { doc: MasterD
           )) : <p className="muted small">No adjusted material to compensate.</p>}
         </fieldset>
       )}
+      <fieldset className="checklist">
+        <legend>As written in the source (checked, never used)</legend>
+        <div className="form-grid">
+          {line.role === 'api' && <label>Label claim per tablet<input aria-label="Label claim per tablet" placeholder="e.g. 20 mg or 10 mEq" value={line.labelClaim ?? ''} onChange={(e) => field('labelClaim', e.target.value)} /></label>}
+          <label>Batch quantity<input aria-label="Batch quantity as written" placeholder="e.g. 120.000 kg" value={line.batchQuantity ?? ''} onChange={(e) => field('batchQuantity', e.target.value)} /></label>
+        </div>
+      </fieldset>
       {problems.map((p, i) => <div key={i} className={p.level === 'error' ? 'error' : 'notice'}>{p.level === 'error' ? '⛔' : '⚠️'} {p.message}{p.question && <AnswerBox key={p.question.key} p={p} onAnswer={onAnswer} />}</div>)}
     </div>
   );

@@ -40,9 +40,33 @@ export function HeaderFields({ header, onChange, products }: { header: Header; o
           <Decimal label="Theoretical coated weight (mg per tablet)" placeholder="uncoated" value={header.coatedWeightMg}
             onChange={(v) => onChange(v ? { ...header, coatedWeightMg: v } : (({ coatedWeightMg: _, ...h }) => h)(header))} />
         </label>
+        <label>Die bore area (mm², tooling record)<Decimal label="Die bore area" placeholder="not given" value={header.dieAreaMm2}
+          onChange={(v) => onChange(v ? { ...header, dieAreaMm2: v } : (({ dieAreaMm2: _, ...h }) => h)(header))} /></label>
         <div className="calc-note">{core?.ok ? <>Theoretical core batch weight: <b>{core.shown}</b></> : <span className="muted">The core batch weight shows once the batch size and core weight are set.</span>}</div>
       </div>
+      <OtherStrengths header={header} onChange={onChange} />
     </div>
+  );
+}
+
+/** Other strengths compressed from the same blend: each checked for its API per tablet against its label claim. */
+function OtherStrengths({ header, onChange }: { header: Header; onChange: (h: Header) => void }) {
+  const list = header.otherStrengths ?? [];
+  const put = (next: typeof list) => onChange(next.length ? { ...header, otherStrengths: next } : (({ otherStrengths: _, ...h }) => h)(header));
+  const set = (n: number, k: 'name' | 'labelClaim' | 'coreWeightMg', v: string) => put(list.map((x, i) => (i === n ? { ...x, [k]: v } : x)));
+  return (
+    <fieldset className="checklist">
+      <legend>Other strengths from the same blend</legend>
+      {list.map((x, n) => (
+        <div className="form-grid" key={n}>
+          <label>Strength<input aria-label={`Strength ${n + 1}`} value={x.name} onChange={(e) => set(n, 'name', e.target.value)} /></label>
+          <label>Label claim<input aria-label={`Label claim ${n + 1}`} placeholder="e.g. 50 mg" value={x.labelClaim} onChange={(e) => set(n, 'labelClaim', e.target.value)} /></label>
+          <label>Core weight (mg)<Decimal label={`Core weight ${n + 1}`} value={x.coreWeightMg} onChange={(v) => set(n, 'coreWeightMg', v)} /></label>
+          <button type="button" className="link" onClick={() => put(list.filter((_, i) => i !== n))}>Remove</button>
+        </div>
+      ))}
+      <button type="button" className="link" onClick={() => put([...list, { name: '', labelClaim: '', coreWeightMg: '' }])}>Add a strength</button>
+    </fieldset>
   );
 }
 
