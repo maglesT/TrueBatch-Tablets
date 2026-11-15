@@ -21,6 +21,8 @@ and size), not the Batchwright way.
 ## Engine
 - About 40 calculation and check templates, each a small pure function. No formula language.
 - Step blocks are **data**: a description of their fields, templates, signatures and limits. One engine runs all blocks.
+  The library holds the standard tablet steps, from sifting to the reconciliation of tablets (`shared/blocks/`). A text
+  setting may have a fixed list the author picks from.
 - A fixed, short list of units.
 - A master version is stored as one JSON document.
 - The designer is forms and ordered lists.

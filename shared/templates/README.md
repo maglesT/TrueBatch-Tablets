@@ -125,7 +125,8 @@ Error-proofing at master-building time (owner decision of 15 November 2026), not
 | ⛔ | Molecules per salt unit ignored: a hemi-salt at 1 molecule per unit with a MW at least twice the other form's | T11, on the formula line |
 | ⛔ | Negative filler: a compensating filler that cannot take the adjustments even at the nominal certificate values (salt factor, overage) | T10, on the filler |
 | ⛔ | IU, CFU or activity units turned into a mass | T18, on the formula line |
-| ⛔ | Negative water or solvent (T17); weight-variation content uniformity on coated tablets other than film-coated (T14) | the templates; no block of the library uses T14 or T17 yet |
+| ⛔ | Negative water or solvent, or target solids out of range (T17): a calculation that needs no recorded value is worked out from the step's settings | the binder solution or coating suspension step |
+| ⛔ | Weight-variation content uniformity on coated tablets other than film-coated (T14): the block's coating list has only uncoated and film-coated, and T14 refuses any other in the batch | the uniformity by weight variation step |
 | ⚠️ | (a) Label basis: an API with a salt factor or a salt name: is the strength stated as the formula form or the other form, for this master's market? | formula line |
 | ⚠️ | (b) A herbal or extract line: raw-herb equivalent or extract weight? | formula line |
 | ⚠️ | (c) A ratio or % in a step instruction that involves the API: as weighed, as base or as anhydrous? | step |
