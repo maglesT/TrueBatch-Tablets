@@ -143,7 +143,7 @@ function LimitEdit({ label, value, kind, unit, onChange, missing }: { label: str
   };
   return (
     <span className={missing ? 'limit missing' : 'limit'}>
-      <Decimal label={`${label}: lowest`} placeholder="lowest" value={l.low} onChange={(low) => put({ low })} width={5} /> to{' '}
+      within <Decimal label={`${label}: lowest`} placeholder="lowest" value={l.low} onChange={(low) => put({ low })} width={5} /> to{' '}
       <Decimal label={`${label}: highest`} placeholder="highest" value={l.high} onChange={(high) => put({ high })} width={5} />{' '}
       <select aria-label={`${label}: unit`} value={l.unit} onChange={(e) => put({ unit: e.target.value })}>
         {unitsOf(kind).map((u) => <option key={u.symbol} value={u.symbol}>{unitLabel(u.symbol)}</option>)}

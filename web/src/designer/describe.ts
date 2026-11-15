@@ -37,7 +37,7 @@ export function stepText(doc: MasterDoc, t: Step, j: number): string {
   const slots = slotsOf(b);
   const loose = b.settings.filter((s) => !slots.has(s.name) && t.settings[s.name] !== undefined).map((s) => `${s.label}: ${settingText(doc, t.settings[s.name])}.`);
   const calcs = b.calcs.map((c) => sentenceText(doc, b, t.settings, sentence(b, c)));
-  const flow = t.flow.kind === 'repeat-until' ? `Repeated until ${(b.calcs.find((c) => c.name === (t.flow.kind === 'repeat-until' && t.flow.stop) || c.name === b.stop)?.label ?? 'its check').toLowerCase()} passes, at most ${t.flow.maxRounds ?? '?'} rounds${t.everyMinutes ? `, a round every ${t.everyMinutes} minutes` : ''}.`
+  const flow = t.flow.kind === 'repeat-until' ? `Repeated until the check "${b.calcs.find((c) => c.name === ((t.flow.kind === 'repeat-until' && t.flow.stop) || b.stop))?.label ?? '(not chosen)'}" passes, at most ${t.flow.maxRounds ?? '?'} rounds${t.everyMinutes ? `, a round every ${t.everyMinutes} minutes` : ''}.`
     : t.flow.kind === 'optional-with-reason' ? 'Optional: it may be skipped with a reason.' : t.flow.kind === 'qa-hold' ? 'QA hold: QA releases it before the next step.' : '';
   return [`${j + 1}. ${b.name} (${t.key}): ${t.instruction ?? b.instruction}`, ...loose, ...calcs,
     `Signed by the operator${t.checker ? ' and checked by a second person' : ''}${t.waitForCheck ? '; the next step waits for the check' : ''}.`,

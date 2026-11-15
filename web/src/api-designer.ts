@@ -25,7 +25,7 @@ export interface ReviewData {
 }
 
 export const STATE_LABEL: Record<MasterState, string> = { draft: 'Draft', in_review: 'In review', approved: 'Approved', effective: 'Effective', retired: 'Retired' };
-export const STATE_CHIP: Record<MasterState, string> = { draft: 'chip', in_review: 'chip chip-info', approved: 'chip chip-warn', effective: 'chip chip-ok', retired: 'chip muted' };
+export const STATE_CHIP: Record<MasterState, string> = { draft: 'chip chip-draft', in_review: 'chip chip-info', approved: 'chip chip-warn', effective: 'chip chip-ok', retired: 'chip chip-draft muted' };
 
 export const listMasters = () => api<MasterRow[]>('GET', '/api/masters');
 export const getVersion = (id: number) => api<Version>('GET', `/api/master-versions/${id}`);

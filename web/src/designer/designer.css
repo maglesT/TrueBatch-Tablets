@@ -62,7 +62,7 @@ fieldset.plain { border: 0; padding: 0; margin: 0; min-width: 0; }
 .calc-note { font-size: 0.9rem; align-self: center; }
 .picker { display: grid; gap: 6px; }
 input.dec { text-align: right; font-variant-numeric: tabular-nums; padding: 7px 9px; }
-.order { display: inline-flex; gap: 2px; flex: none; }
+.order { display: inline-flex; gap: 2px; flex: none; margin: 0 0 6px auto; align-self: center; }
 .order button { min-height: 30px; min-width: 30px; padding: 2px 6px; font-size: 0.85rem; border-radius: 6px; }
 .chipset { display: grid; gap: 5px; }
 .chipset-label { color: var(--muted); font-size: 0.9rem; font-weight: 500; }
@@ -93,11 +93,11 @@ input.dec { text-align: right; font-variant-numeric: tabular-nums; padding: 7px 
 .process { display: grid; grid-template-columns: minmax(190px, 0.8fr) minmax(220px, 1fr) minmax(320px, 1.6fr); gap: 14px; align-items: start; }
 .process .col { margin-bottom: 0; align-content: start; }
 .olist { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
-.olist li { display: flex; gap: 6px; align-items: center; justify-content: space-between; padding: 0 8px 0 0; border-radius: 9px; border: 1px solid var(--line); background: #fff; }
+.olist li { display: flex; flex-wrap: wrap; gap: 0 6px; align-items: center; justify-content: space-between; padding: 0 8px 0 0; border-radius: 9px; border: 1px solid var(--line); background: #fff; }
 .olist li:hover { background: #fdfaf8; }
 .olist li.on { background: var(--brand-soft); border-color: #f6c7ab; box-shadow: inset 3px 0 0 var(--brand); }
 .olist li:focus-visible, .stage-pick:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }
-.ol-main { display: grid; min-width: 0; flex: 1; padding: 8px 0 8px 10px; cursor: pointer; border-radius: 9px; }
+.ol-main { display: grid; min-width: 0; flex: 1 1 110px; padding: 8px 0 8px 10px; cursor: pointer; border-radius: 9px; }
 .ol-main:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
 .ol-main b { font-size: 0.92rem; font-weight: 600; overflow-wrap: anywhere; }
 .ol-main small { color: var(--muted); font-size: 0.78rem; }
@@ -156,3 +156,21 @@ input.dec { text-align: right; font-variant-numeric: tabular-nums; padding: 7px 
 @media (max-width: 760px) { .review-bar { grid-template-columns: 1fr; } .review-actions { justify-items: start; } }
 .olist li:not(.on) .order { display: none; }
 .designer-page input[type='radio'], .overlay input[type='radio'] { accent-color: var(--brand); width: 18px; height: 18px; }
+
+/* Inputs fit their grid cells; sentence inputs stay small */
+.form-grid > label > select, .form-grid > label > input, .ex-values input, .step-settings textarea { width: 100%; min-width: 0; }
+.form-grid > label, .ex-values label { min-width: 0; }
+.ex-values label { overflow-wrap: anywhere; }
+.card > *, .step-settings > * { min-width: 0; }
+.slot input.dec, .limit input.dec, .quantity input.dec { padding: 3px 7px; min-height: 0; }
+.slot select { max-width: 22em; }
+.formula-table select { width: auto; max-width: 11em; padding: 6px 8px; }
+.formula-table input.dec { width: 5.5em !important; }
+.formula-table th { padding: 10px; }
+.step-settings > select, .d-section > select { max-width: 100%; }
+.formula-table select[aria-label^='Role'] { max-width: 8.5em; }
+.formula-table select[aria-label^='Place'] { max-width: 10em; }
+.formula-table td .link { font-size: 0.85rem; text-align: left; min-height: 0; padding: 2px 0; }
+.formula-table td, .formula-table th { padding-left: 8px; padding-right: 8px; }
+.chip-draft { background: #efe9e4; color: var(--brand-grey); }
+td.small { overflow-wrap: anywhere; min-width: 16em; }
