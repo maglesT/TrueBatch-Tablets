@@ -5,7 +5,7 @@ export const friability: Block = {
   id: 'friability', version: 1, name: 'Friability', checker: false,
   instruction: 'Dedust and weigh the tablets, run the friability tester for 100 turns, dedust and weigh them again. Check that no tablet is broken, cracked or split.',
   fields: [
-    { name: 'machine', label: 'Friability tester', kind: 'machine' },
+    { name: 'machine', label: 'Friability tester', kind: 'machine', types: ['friab'] },
     { name: 'before', label: 'Weight before', kind: 'number', unit: 'g' },
     { name: 'after', label: 'Weight after', kind: 'number', unit: 'g' },
     { name: 'intact', label: 'No tablet broken, cracked or split', kind: 'yes-no' },

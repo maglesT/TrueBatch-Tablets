@@ -6,7 +6,7 @@ export const uniformityByWeight: Block = {
   id: 'uniformity-by-weight', version: 1, name: 'Uniformity by weight variation', checker: true,
   instruction: 'Weigh 10 tablets one by one and record each weight. Record the assay of the batch from the QC report.',
   fields: [
-    { name: 'balance', label: 'Balance', kind: 'machine' },
+    { name: 'balance', label: 'Balance', kind: 'machine', types: ['balance'] },
     { name: 'weights', label: 'Weights of 10 tablets', kind: 'number', unit: 'mg', count: 10 },
     { name: 'assay', label: 'Assay (% of label claim, QC report)', kind: 'number', unit: '%' },
   ],

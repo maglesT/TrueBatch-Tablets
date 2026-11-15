@@ -189,7 +189,7 @@ describe('the packing blocks', () => {
     expect(gap).toMatchObject({ shown: expect.stringContaining('unaccounted 1250 m − 1249.00 m = 1.00 m') });
     // TB-18 mechanism: a reconciliation out of limits blocks release until a deviation note with its number.
     const all = [...events, ev('started', recon.key, { min: 3 }), ev('value', recon.key, { min: 4, payload: { values: {}, results: { reconciliation: gap } as never } })];
-    expect(batchView(d, all, [], at(10)).yieldOut).toEqual([`The yield of step reconcile-foil (${recon.key}) is out of limits: a deviation note with its reference is needed`]);
+    expect(batchView(d, all, [], at(10)).yieldOut).toEqual([expect.stringMatching(/^The yield of Reconciliation and line clearance › .+ is out of limits: a deviation note with its reference is needed$/)]);
   });
 
   it('TB-P6 finished goods: the tablets in packs and samples, returned and rejected by weight, the yield in packs and the accountability of the tablets issued', () => {

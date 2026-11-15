@@ -7,7 +7,7 @@ export const compress: Block = {
   periodic: { maxMinutes: 30 },
   instruction: 'Take 20 tablets and record their weights, then the hardness and thickness of 5 tablets.',
   fields: [
-    { name: 'machine', label: 'Tablet press', kind: 'machine' },
+    { name: 'machine', label: 'Tablet press', kind: 'machine', types: ['press'] },
     { name: 'weights', label: 'Weights of 20 tablets', kind: 'number', unit: 'mg', count: 20 },
     { name: 'hardness', label: 'Hardness of 5 tablets', kind: 'number', unit: 'N', count: 5 },
     { name: 'thickness', label: 'Thickness of 5 tablets', kind: 'number', unit: 'mm', count: 5 },

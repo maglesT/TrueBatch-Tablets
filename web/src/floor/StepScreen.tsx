@@ -9,6 +9,9 @@ import { Alerts } from './BatchScreen.js';
 import { FieldInput } from './Fields.js';
 import { ReasonDialog } from './ReasonDialog.js';
 import { CERTIFICATE, fieldLabel, handEntered, LINK_OF } from '../../../shared/engine/links.js';
+import { notYetText } from '../../../shared/engine/batch.js';
+import { plantText } from '../../../shared/plant-time.js';
+import { machineRefusal, roomRefusal } from '../../../shared/engine/picks.js';
 import { materialLines } from '../../../shared/master/schema.js';
 
 type Dialog = { kind: 'done' | 'repeat' | 'check' | 'na' | 'send-back' | 'note' } | { kind: 'na-sign'; reason: string } | { kind: 'correct'; field: BlockField };
@@ -40,7 +43,7 @@ export function StepScreen({ me, d, blocks, row, now, reload }: { me: Me; d: Bat
   const [dialog, setDialog] = useState<Dialog | null>(null);
   const [notice, setNotice] = useState<{ tone: string; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
-  const [picks, setPicks] = useState<Record<'machine' | 'room', PickItem[]>>({ machine: [], room: [] });
+  const [md, setMd] = useState<Record<'machine' | 'room', PickItem[]>>({ machine: [], room: [] });
   const last = row.events.at(-1)?.id ?? 0;
   // The block's fields and the label questions of what was entered by hand (a link absent or down).
   const fields = [...block.fields, ...row.handFields];
@@ -57,14 +60,13 @@ export function StepScreen({ me, d, blocks, row, now, reload }: { me: Me; d: Bat
     return () => { live = false; };
   }, [base, last]);
   useEffect(() => {
-    const allowed = (types: string[], t?: string | null) => !types.length || types.includes(t ?? '');
-    if (block.fields.some((f) => f.kind === 'machine')) {
-      void api<PickItem[]>('GET', '/api/master/equipment').then((all) => setPicks((p) => ({ ...p, machine: all.filter((i) => i.active && allowed(stage.machineTypes, i.type)) })), () => {});
-    }
-    if (block.fields.some((f) => f.kind === 'room')) {
-      void api<PickItem[]>('GET', '/api/master/rooms').then((all) => setPicks((p) => ({ ...p, room: all.filter((i) => i.active && allowed(stage.roomTypes, i.area)) })), () => {});
-    }
-  }, [block, stage]);
+    if (!block.fields.some((f) => f.kind === 'machine' || f.kind === 'room')) return;
+    void api<PickItem[]>('GET', '/api/master/rooms').then((room) => setMd((p) => ({ ...p, room })), () => {});
+    if (block.fields.some((f) => f.kind === 'machine')) void api<PickItem[]>('GET', '/api/master/equipment').then((machine) => setMd((p) => ({ ...p, machine })), () => {});
+  }, [block]);
+  // What each machine or room field offers: as the server accepts it (shared/engine/picks.ts).
+  const picksFor = (f: BlockField) => f.kind === 'room' ? md.room.filter((r) => r.active && !roomRefusal(stage, r))
+    : f.kind === 'machine' ? md.machine.filter((m) => m.active && !machineRefusal(stage, f, m, md.room)) : [];
 
   const post = (action: string, body: object = {}, key = row.id) => api('POST', `/api/batches/${d.batch.id}/steps/${key}/${action}`, body);
   const run = async (fn: () => Promise<unknown>) => {
@@ -132,7 +134,7 @@ export function StepScreen({ me, d, blocks, row, now, reload }: { me: Me; d: Bat
     if (!pulled && (can('record') || (v === undefined && row.state === 'open') || (f.count && v !== undefined))) {
       return (
         <div key={f.name}>
-          <FieldInput f={f} unit={unit} saved={v} picks={picks[f.kind as 'machine'] ?? []} options={f.kind === 'lot' ? lots.map((l) => l.lotNumber) : []}
+          <FieldInput f={f} unit={unit} saved={v} picks={picksFor(f)} options={f.kind === 'lot' ? lots.map((l) => l.lotNumber) : []}
             disabled={!can('record')} out={outOf(f)} onSave={can('record') ? (raw) => record(f.name, raw) : undefined} />
           {src && <p className="muted small">{sourceWords(src)}</p>}
           {!can('record') && can('correct') && <button className="big" onClick={() => setDialog({ kind: 'correct', field: f })}>Correct {f.label.toLowerCase()}</button>}
@@ -210,7 +212,7 @@ export function StepScreen({ me, d, blocks, row, now, reload }: { me: Me; d: Bat
           <section className="dash-panel" aria-label="Results">
             <div className="panel-head"><h2>Results</h2><span className="muted">worked out by the server</span></div>
             {resultRows.length === 0 ? <p className="muted">The results appear here as soon as the values are saved.</p> : (
-              <div className="results">{resultRows.map((x) => <ResultCard key={x.n} label={x.label} r={x.r} big={block.gmp === 'yield'} stop={x.n === stop} />)}</div>
+              <div className="results">{resultRows.map((x) => <ResultCard key={x.n} label={x.label} r={x.r} big={block.gmp === 'yield'} stop={x.n === row.notYet} />)}</div>
             )}
           </section>
           {repeatUntil && rounds.length > 0 && (
@@ -278,7 +280,7 @@ export function StepScreen({ me, d, blocks, row, now, reload }: { me: Me; d: Bat
         <SignDialog meaning="performed" what={`${title} · batch ${d.batch.batchNo}: not applicable. Reason: “${dialog.reason}”`} onCancel={() => setDialog(null)} onSign={signed('not-applicable', { reason: dialog.reason })} />
       )}
       {dialog?.kind === 'correct' && (
-        <Correct f={dialog.field} unit={unitOf(dialog.field, st)} saved={row.values[dialog.field.name]} picks={picks[dialog.field.kind as 'machine'] ?? []}
+        <Correct f={dialog.field} unit={unitOf(dialog.field, st)} saved={row.values[dialog.field.name]} picks={picksFor(dialog.field)}
           onCancel={() => setDialog(null)} onSave={async (raw, reason) => { await post('correct', { values: { [dialog.field.name]: raw }, reason }); setDialog(null); await reload(); }} />
       )}
     </>
@@ -289,14 +291,15 @@ function ResultCard({ label, r, big, stop }: { label: string; r: Stored; big?: b
   if (!r.ok) return <div className="result warn"><div className="rh"><span>{label}</span></div><div className="shown">{r.message}</div></div>;
   const t = tone(r);
   const h = headline(r);
-  // The stop check of a repeat-until step is not a failure until the rounds run out.
+  // The stop check of a repeat-until round is not a failure until the rounds run out (the server says which: notYet).
   const cls = stop && t === 'bad' ? '' : t ?? '';
+  const shown = (x: string) => plantText(stop ? notYetText(x) : x);
   const word = t === 'ok' ? 'Within limits' : t === 'bad' ? (stop ? 'Not yet: repeat' : 'Out of limits') : t === 'warn' ? 'Alert' : null;
   return (
     <div className={`result ${cls}${big ? ' big' : ''}`}>
       <div className="rh"><span>{label}</span>{word && <span className={`chip ${cls === 'ok' ? 'chip-ok' : cls === 'bad' ? 'chip-bad' : 'chip-warn'}`}>{word}</span>}</div>
       {h && <div className="rv">{h}</div>}
-      <div className="shown">{r.shown}{r.check && r.check.shown !== r.shown ? <><br />{r.check.shown}</> : null}</div>
+      <div className="shown">{shown(r.shown)}{r.check && r.check.shown !== r.shown ? <><br />{shown(r.check.shown)}</> : null}</div>
     </div>
   );
 }
@@ -307,7 +310,7 @@ function Summary({ row, block }: { row: StepRow; block: Block }) {
       {block.fields.filter((f) => row.values[f.name] !== undefined).map((f) => <div key={f.name} style={{ display: 'contents' }}><dt>{f.label}</dt><dd>{valueText(row.values[f.name])}</dd></div>)}
       {block.calcs.filter((c) => row.results[c.name]?.ok).map((c) => {
         const r = row.results[c.name]!;
-        return <div key={c.name} style={{ display: 'contents' }}><dt>{c.label}</dt><dd>{headline(r) ?? ''} {tone(r) === 'bad' ? '(out of limits)' : tone(r) === 'ok' ? '(within limits)' : ''}</dd></div>;
+        return <div key={c.name} style={{ display: 'contents' }}><dt>{c.label}</dt><dd>{headline(r) ?? ''} {c.name === row.notYet ? '(not yet: the rounds go on)' : tone(r) === 'bad' ? '(out of limits)' : tone(r) === 'ok' ? '(within limits)' : ''}</dd></div>;
       })}
     </dl>
   );
@@ -317,7 +320,7 @@ function Summary({ row, block }: { row: StepRow; block: Block }) {
 function Replaced({ h, field, names, label }: { h: History | null; field: string; names: Map<number | null, string | null>; label?: string }) {
   const list = h?.replaced.filter((r) => r.field === field) ?? [];
   return <>{list.map((r, i) => (
-    <p key={i} className="was">{label && `${label}: `}<s>{valueText(r.was)}</s> → {valueText(r.now)} · corrected by {names.get(r.person) ?? '—'}, {plainClock(r.at)}: “{r.reason}”</p>
+    <p key={i} className="corrected">{label && `${label}: `}<s>{valueText(r.was)}</s> → {valueText(r.now)} · corrected by {names.get(r.person) ?? '—'}, {plainClock(r.at)}: “{r.reason}”</p>
   ))}</>;
 }
 

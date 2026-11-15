@@ -10,7 +10,8 @@ import { StepScreen } from './StepScreen.js';
 import './floor.css';
 
 // One batch on the floor: its header, the stages as a progress bar and the alerts, then the overview, one step, or
-// production approval. Reloaded every 20 s (a background poll), and after every action.
+// production approval. Read again on every move between them (what others did shows at once) and after every action;
+// a background poll every 20 s is the fallback.
 export function BatchScreen({ me, id, step, approve }: { me: Me; id: number; step?: string; approve?: boolean }) {
   const [d, setD] = useState<BatchDetail | null>(null);
   const [error, setError] = useState('');
@@ -18,9 +19,9 @@ export function BatchScreen({ me, id, step, approve }: { me: Me; id: number; ste
   const reload = useCallback(async (background = false) => {
     try { setD(await api<BatchDetail>('GET', `/api/batches/${id}`, undefined, background)); setError(''); } catch (e) { setError(plainError(e)); }
   }, [id]);
+  useEffect(() => setD(null), [id]);
+  useEffect(() => { void reload(); }, [reload, step, approve]);
   useEffect(() => {
-    setD(null);
-    void reload();
     const t = setInterval(() => void reload(true), 20_000);
     return () => clearInterval(t);
   }, [reload]);
@@ -158,18 +159,13 @@ function Approval({ d, blocks, reload }: { d: BatchDetail; blocks: Block[]; relo
   const [signing, setSigning] = useState(false);
   const [notice, setNotice] = useState('');
   const doc = d.master.doc;
-  const named = (t: string) => t.replace(/Step \S+ \((\d+)\.(\d+)\.(\d+)\.(\d+)\)/g, (_, a, sub, b, r) => {
-    const st = doc.stages[Number(a)]?.steps[Number(b)];
-    const stage = doc.stages[Number(a)]!;
-    return st ? `${stage.name}: ${stepTitle(doc, blocks, st)}${stage.kind === 'sub-batch' ? ` (sub-batch ${sub})` : ''}${st.flow.kind === 'repeat-until' ? ` round ${r}` : ''}` : t;
-  });
   // The stage yield (from the stage-yield step), as signed.
   const stageYield = (i: number) => d.steps.filter((x) => x.key.stage === i && x.results.yield?.ok).map((x) => {
     const r = x.results.yield!;
     return ` · yield ${headline(r)}${tone(r) === 'bad' ? ' (out of limits)' : tone(r) === 'ok' ? ' (within limits)' : ''}${doc.stages[i]!.kind === 'sub-batch' ? ` in sub-batch ${x.key.sub}` : ''}`;
   }).join('');
   const can = d.batch.actions.includes('production-approve');
-  const problems = [...d.batch.open, ...d.batch.late].map((t) => words(named(t)));
+  const problems = [...d.batch.open, ...d.batch.late].map(words);
   const sign = async ({ proof }: { proof: string }) => {
     try {
       await api('POST', `/api/batches/${d.batch.id}/production-approve`, { proof, contentHash: d.batch.contentHash });

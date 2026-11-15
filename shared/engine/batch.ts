@@ -3,7 +3,7 @@
  * the event log is the single source of truth.
  */
 import { findBlock } from '../blocks/index.js';
-import type { MasterDoc, Step } from '../master/schema.js';
+import { materialLines, type MasterDoc, type Step } from '../master/schema.js';
 import { keyId, stepState, type EventKind, type State, type StepEvent, type StepKey } from './state.js';
 import { c1WithinLimits } from '../templates/index.js';
 import { currentValues, evaluate, failed, headerValue, inputChanges, type Current } from './values.js';
@@ -24,6 +24,24 @@ export interface StepView extends Current {
   inputChanged: StepEvent[];
   // F4 by rule: the master's rule left this step out (it is not applicable without an operator's choice).
   leftOut?: string;
+  // The stop check of a repeat-until round that may still be repeated has not passed: "not yet", not out of limits.
+  notYet?: string;
+}
+
+/** A step as people name it: the master's name for it, or the block's name and the formula line or the thing checked. */
+export function stepTitle(doc: MasterDoc, st: Step): string {
+  if (st.name) return st.name;
+  const line = Object.values(st.settings).find((v): v is { formula: string } => typeof v === 'object' && 'formula' in v);
+  const what = line ? materialLines(doc).find((l) => l.key === line.formula)?.name : typeof st.settings.what === 'string' ? st.settings.what : undefined;
+  return [findBlock(st.block)?.name ?? st.key, what].filter(Boolean).join(': ');
+}
+/** Where a step instance is, in words: "Granulation › Dry to an LOD limit (round 2)". */
+export function stepLabel(doc: MasterDoc, k: StepKey): string {
+  const s = doc.stages[k.stage];
+  const st = s?.steps[k.step];
+  if (!s || !st) return `step ${keyId(k)}`;
+  const extra = [s.kind === 'sub-batch' ? `sub-batch ${k.sub}` : '', st.flow.kind === 'repeat-until' ? `round ${k.round}` : ''].filter(Boolean).join(', ');
+  return `${s.name} › ${stepTitle(doc, st)}${extra ? ` (${extra})` : ''}`;
 }
 
 /** F4 by a rule of the master on a header value (e.g. the bag premix only for a batch of at most 50 kg); null when the step is in. */
@@ -59,6 +77,14 @@ const plus = (t: Date, minutes: number) => new Date(t.getTime() + minutes * MINU
 
 const stopName = (st: Step) => (st.flow.kind === 'repeat-until' ? st.flow.stop ?? findBlock(st.block)?.stop : undefined);
 const maxRounds = (st: Step) => (st.flow.kind === 'repeat-until' ? st.flow.maxRounds ?? 1 : 1);
+const notYetOf = (st: Step, round: number, results: Current['results']) => {
+  const stop = stopName(st);
+  return stop && round < maxRounds(st) && failed(results[stop]) ? stop : undefined;
+};
+/** The results out of limits: a real limit failure, never a round that is "not yet" (TB-14). */
+export const outOfLimits = (v: StepView) => Object.entries(v.results).filter(([n, r]) => n !== v.notYet && failed(r));
+/** A "not yet" worked line in plain words: the stop check is not reached yet and the rounds go on. */
+export const notYetText = (shown: string) => shown.replace(/:\s*OUT OF LIMITS(?: \([^)]*\))?/g, ': not reached yet, the rounds go on').replace(/:\s*FAIL\b/g, ': not yet, the rounds go on');
 function stopPassed(v: StepView, st: Step): boolean {
   const r = v.results[stopName(st) ?? ''];
   return r?.ok === true && r.check?.pass === true;
@@ -68,8 +94,8 @@ const finished = (v: StepView, wait: boolean) =>
   v.state === 'done' || v.state === 'checked' || v.state === 'not_applicable' || (v.state === 'done_awaiting_check' && !wait);
 
 /** Why what comes after a step (its last round) cannot open yet; null when it can. */
-function after(st: Step, last: StepView, wait: boolean): string | null {
-  const label = `step ${st.key}`;
+function after(doc: MasterDoc, st: Step, last: StepView, wait: boolean): string | null {
+  const label = `“${stepTitle(doc, st)}”`;
   if (!finished(last, wait)) return `Waits for ${label}${last.state === 'done_awaiting_check' ? ' to be checked' : ''}`;
   if (last.state === 'not_applicable') return null;
   if (st.flow.kind === 'qa-hold' && !last.events.some((e) => e.kind === 'qa_released_hold')) return `Waits for QA to release the hold on ${label}`;
@@ -141,8 +167,9 @@ export function openSteps(doc: MasterDoc, events: readonly StepEvent[], now: Dat
             c.results = evaluate(doc, events, key, c.values);
             if (state === 'done' || state === 'done_awaiting_check' || state === 'checked') [state, needsResign] = ['in_progress', true];
           }
+          const notYet = notYetOf(st, round, c.results);
           last = { key, id: keyId(key), stageKey: s.key, stepKey: st.key, state: state === 'waiting' && gate === null ? 'open' : state, needsResign,
-            ...(state === 'waiting' && gate !== null ? { blocked: gate } : {}), events: evs, ...c, inputChanged, ...(leftOut ? { leftOut } : {}) };
+            ...(state === 'waiting' && gate !== null ? { blocked: gate } : {}), events: evs, ...c, inputChanged, ...(leftOut ? { leftOut } : {}), ...(notYet ? { notYet } : {}) };
           steps.push(last);
           // A round that has events is always shown (an earlier round may be back in progress after a correction).
           if (!byKey.has(keyId({ ...key, round: round + 1 })) && (st.flow.kind !== 'repeat-until' || !finished(last, st.waitForCheck) || stopPassed(last, st) || round >= maxRounds(st))) break;
@@ -150,8 +177,8 @@ export function openSteps(doc: MasterDoc, events: readonly StepEvent[], now: Dat
         }
         // A periodic check that runs alongside (packing): what follows opens once its first round is done.
         const first = findBlock(st.block)?.periodic?.alongside ? steps.find((x) => x.id === keyId({ stage: si, sub, step: ti, round: 1 })) : undefined;
-        gate = first ? (finished(first, st.waitForCheck) ? null : `Waits for the first check of step ${st.key}`) : after(st, last!, st.waitForCheck);
-        if (after(st, last!, true) !== null) closed = false;
+        gate = first ? (finished(first, st.waitForCheck) ? null : `Waits for the first check of “${stepTitle(doc, st)}”`) : after(doc, st, last!, st.waitForCheck);
+        if (after(doc, st, last!, true) !== null) closed = false;
       });
     }
     stages.push({ index: si, key: s.key, name: s.name, open: why.length === 0, ...(why[0] ? { blocked: why[0] } : {}), closed });
@@ -189,7 +216,7 @@ export function timers(doc: MasterDoc, events: readonly StepEvent[], now: Date):
     if (!started) continue;
     if (st.minMinutes && v.state === 'in_progress' && !v.events.some((e) => e.kind === 'done')) {
       const at = plus(started, st.minMinutes);
-      out.push({ id: `min:${v.id}`, kind: 'minimum', key: v.key, label: `Minimum time of step ${st.key} (${st.minMinutes} min)`, from: started, at, state: now >= at ? 'due' : 'running' });
+      out.push({ id: `min:${v.id}`, kind: 'minimum', key: v.key, label: `Minimum time of “${stepTitle(doc, st)}” (${st.minMinutes} min)`, from: started, at, state: now >= at ? 'due' : 'running' });
     }
     if (st.everyMinutes) {
       const key = { ...v.key, round: v.key.round + 1 };
@@ -201,7 +228,7 @@ export function timers(doc: MasterDoc, events: readonly StepEvent[], now: Date):
       const later = st.everyMinutesLater && firstStart && started >= plus(firstStart, st.everyMinutesLater.afterMinutes);
       const every = later ? st.everyMinutesLater!.everyMinutes : st.everyMinutes;
       const at = plus(started, every);
-      const t = { id: `every:${keyId(key)}`, kind: 'periodic' as const, key, label: `Check ${key.round} of step ${st.key} (every ${every} min)`, from: started, at };
+      const t = { id: `every:${keyId(key)}`, kind: 'periodic' as const, key, label: `Check ${key.round} of “${stepTitle(doc, st)}” (every ${every} min)`, from: started, at };
       if (nextStart) { if (nextStart > at) out.push({ ...t, state: 'late' }); }
       else if (!stopPassed(v, st) && v.key.round < maxRounds(st)) out.push({ ...t, state: phase(started, at, now) });
     }

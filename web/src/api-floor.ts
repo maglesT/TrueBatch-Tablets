@@ -6,12 +6,14 @@ import type { MasterDoc, Step } from '../../shared/master/schema.js';
 import type { Action, EventKind, Payload, State, StepKey } from '../../shared/engine/state.js';
 import type { Stored, Value } from '../../shared/engine/values.js';
 import { PROVIDER_NAME, type Source } from '../../shared/engine/links.js';
+import { stepTitle as sharedStepTitle } from '../../shared/engine/batch.js';
+import { plantText } from '../../shared/plant-time.js';
 
 export type { Block, BlockField, MasterDoc, Step, Action, State, StepKey, Stored, Value, Source };
 
 export interface FloorEvent extends StepKey { id: number; kind: EventKind; payload: Payload; person: number | null; personName: string | null; at: string }
 export interface StepRow {
-  key: StepKey; id: string; stageKey: string; stepKey: string; state: State; needsResign: boolean; blocked?: string;
+  key: StepKey; id: string; stageKey: string; stepKey: string; state: State; needsResign: boolean; blocked?: string; notYet?: string;
   values: Record<string, Value>; results: Record<string, Stored>; inputChanged: FloorEvent[]; events: FloorEvent[];
   contentHash: string; actions: Action[]; problems: string[];
   // Where values came from (a link, or by hand) and the label questions of what was entered by hand.
@@ -32,12 +34,12 @@ export interface WorkItem {
   id: number; batchNo: string; productCode: string; productName: string; status: string; issuedAt: string; stagesClosed: number; stageCount: number;
   current: { step: string; stage: string; title: string; state: State } | null; badges: WorkBadge[];
 }
-export interface PickItem { itemId: string; code: string; name: string; active: boolean; type?: string | null; area?: string | null }
+export interface PickItem { itemId: string; code: string; name: string; active: boolean; type?: string | null; area?: string | null; room?: string | null }
 
 /** Where a value came from, in plain words. */
 export const sourceWords = (s: Source | undefined) => (!s ? '' : s.from === 'hand'
   ? `Typed by hand: ${PROVIDER_NAME[s.link]} ${s.state === 'down' ? 'link is down' : 'is not linked'}. A second person checks it.`
-  : `From ${PROVIDER_NAME[s.from]}: ${s.shown}`);
+  : `From ${PROVIDER_NAME[s.from]}: ${plantText(s.shown)}`);
 
 /** A pick list read through a link (pull, don't type): empty when the link is absent or down, and then the value is typed. */
 export function useLinked<T>(url: string | null, list: string): T[] {
@@ -88,12 +90,8 @@ export const stepOf = (doc: MasterDoc, k: StepKey) => doc.stages[k.stage]!.steps
 export const blockOf = (all: Block[], st: Step) => all.find((b) => b.id === st.block.id && b.version === st.block.version);
 export const keyOf = (k: StepKey) => `${k.stage}.${k.sub}.${k.step}.${k.round}`;
 
-/** A step as people name it (as the My work list does on the server): the block, and the formula line or the thing checked. */
-export function stepTitle(doc: MasterDoc, all: Block[], st: Step): string {
-  const line = Object.values(st.settings).find((v): v is { formula: string } => typeof v === 'object' && 'formula' in v);
-  const what = line ? doc.formula.find((l) => l.key === line.formula)?.name : typeof st.settings.what === 'string' ? st.settings.what : undefined;
-  return [blockOf(all, st)?.name ?? st.key, what].filter(Boolean).join(': ');
-}
+/** A step as people name it, as the server does (shared/engine/batch.ts). */
+export const stepTitle = (doc: MasterDoc, _all: Block[], st: Step) => sharedStepTitle(doc, st);
 /** The unit a number field is recorded in: written in the block, or a setting of the master step ("$unit"). */
 export function unitOf(f: BlockField, st: Step): string {
   if (!f.unit?.startsWith('$')) return f.unit ?? '';
@@ -116,13 +114,12 @@ export const STATUS_CHIP: Record<string, string> = {
 };
 
 const isItem = (v: Value): v is { itemId: string; code: string; name: string; version: number } => typeof v === 'object' && !Array.isArray(v) && 'itemId' in v;
-const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
 export function valueText(v: Value | undefined): string {
   if (v === undefined) return '—';
   if (Array.isArray(v)) return v.map((x) => x.value).join(', ') + (v[0]?.unit ? ` ${v[0].unit}` : '');
   if (isItem(v)) return `${v.code} · ${v.name}`;
   if (typeof v === 'object') return `${v.value}${v.unit ? ` ${v.unit}` : ''}`;
-  return ISO.test(v) ? plainClock(v) : v;
+  return plantText(v);
 }
 /** What an input holds for a recorded value. */
 export function rawOf(v: Value | undefined): string | string[] {
@@ -176,7 +173,7 @@ export function tone(r: Stored | undefined): 'ok' | 'bad' | 'warn' | null {
 }
 
 /** A server message in plain words: times in plant time, each sentence ended. */
-export const words = (t: string) => t.replace(/\d{4}-\d{2}-\d{2}T[\d:.]+Z/g, (iso) => plainClock(iso)).replace(/([^.])$/, '$1.');
+export const words = (t: string) => plantText(t).replace(/([^.])$/, '$1.');
 
 /** Plain words for a refused action. */
 export function plainError(e: unknown): string {

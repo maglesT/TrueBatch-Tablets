@@ -36,6 +36,8 @@ const flowSchema = z.discriminatedUnion('kind', [
 export const stepSchema = z.object({
   key: keySchema,
   block: z.object({ id: z.string(), version: z.number().int().min(1) }).strict(),
+  // The name people read (e.g. "Punch and die check — after compression"); without it, the block's name and material.
+  name: text(120).optional(),
   instruction: text(4000).optional(),
   settings: z.record(settingValueSchema).default({}),
   // The performer always signs; a second person checks when true.

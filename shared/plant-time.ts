@@ -1,0 +1,18 @@
+// Times as people read them: plant time (IST), never raw UTC or ISO text (owner, 15 Nov 2026). The record keeps the
+// exact instant; only what is shown is turned into plant time: worked lines, values read through a link, messages.
+export const PLANT_TZ = 'Asia/Kolkata';
+// "2026-11-15T18:23:50Z", "2026-11-15T18:23:50.123+05:30", "2026-11-15 17:38:16.254+00" (PostgreSQL text).
+const STAMP = /\b\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(?::\d{2})?(?:\.\d+)?(?:Z|[+-]\d{2}(?::?\d{2})?)(?![\d:])/g;
+
+/** One instant in plant time: "15 Nov 2026, 23:43 IST", or "15 Nov 2026, 23:43:19 IST" with seconds. */
+export function plantClock(t: string | Date, seconds = false): string {
+  const s = new Date(t).toLocaleString('en-GB', { timeZone: PLANT_TZ, day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+    ...(seconds ? { second: '2-digit' } : {}), hourCycle: 'h23' });
+  return `${s} IST`;
+}
+
+/** Every time stamp in a text in plant time (with seconds when the stamp has them). */
+export const plantText = (text: string) => text.replace(STAMP, (m) => {
+  const d = new Date(m.replace(' ', 'T').replace(/([+-]\d{2})$/, '$1:00'));
+  return Number.isNaN(d.getTime()) ? m : plantClock(d, /T?\d{2}:\d{2}:\d{2}/.test(m.slice(10)));
+});

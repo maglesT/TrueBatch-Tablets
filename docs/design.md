@@ -13,6 +13,8 @@ and size), not the Batchwright way.
   data. Normal platform sign-in (OIDC through core, one person per browser).
 - Optional links: MMS (lots, status, assay, LOD), Logbook (equipment and room status), Deviations, QMS (change
   control numbers). Every link has a hand-entry fallback with a second-person check.
+- Sessions as the Logbook's: 15 minutes idle (background polls never count); a tap or a key on the screen counts as
+  use (at most one renewal a minute); the session ends with core's sign-on (8 hours).
 
 ## Links
 Owner decisions of 15 November 2026. Built as the Logbook's link clients: one client (`server/links.ts`) reads each
@@ -27,7 +29,8 @@ answering) or **ok**.
   (closed or rejected there counts as closed) and QA cannot close it by hand. By hand: a QA person other than the one
   who typed the number closes it.
 - **QMS** (`change_v1`, planned): the change control at approval must exist and be QA-approved, in a step of
-  `CHANGE_STEPS`. By hand: another person makes the version effective.
+  `CHANGE_STEPS`, and its products must name the master's product (code or name, without case); one that names no
+  product is taken with a warning to QA. By hand: another person makes the version effective.
 - **Logbook** (`equipment_status_v1`, planned): a machine or room must be fit for use and not in use by another batch;
   the Logbook's reasons are shown word for word; a status older than 5 minutes counts as down. Line clearance takes
   clean, cleaned on and cleaned by from it. By hand: the status-label questions, each answered yes.
@@ -38,7 +41,10 @@ answering) or **ok**.
   names and columns, so the Logbook and Deviations read TrueBatch as they read Batchwright, and `deviation_note_v1`
   for Deviations to file notes later. `batch_fact_v1` has one more column at its end (`0007`): `manufactured_on`, the
   date of manufacture, the plant-time date the batch's first processing step started (null before), which TrueBatch
-  Tablets Packing reads; readers of Batchwright's columns select them by name and are not affected.
+  Tablets Packing reads; readers of Batchwright's columns select them by name and are not affected. `0008` adds
+  `product_name` and `master_version` at the end (family_code is the master version's number) and publishes
+  `material_use_v1`: per signed weighing step its lot, material and net quantity (status dispensed, or corrected with
+  the corrected quantity); MMS reduces the lot's stock by reading it (owner decision), nothing is sent.
 
 ## Rules and where they are enforced
 - 22 TrueBatch GMP rules (EU GMP Part I and Annex 11, 21 CFR 211 and Part 11, Revised Schedule M), listed in

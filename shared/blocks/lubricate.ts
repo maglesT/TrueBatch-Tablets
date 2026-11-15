@@ -7,10 +7,10 @@ export const lubricate: Block = {
   instruction: 'Weigh the lubricant for the actual granule weight shown. Record the gross and tare weights, add it to the blender and mix for the time shown.',
   fields: [
     { name: 'lot', label: 'Lubricant lot', kind: 'lot' },
-    { name: 'balance', label: 'Balance', kind: 'machine' },
+    { name: 'balance', label: 'Balance', kind: 'machine', types: ['balance'] },
     { name: 'gross', label: 'Gross weight', kind: 'number', unit: 'kg' },
     { name: 'tare', label: 'Tare weight', kind: 'number', unit: 'kg' },
-    { name: 'machine', label: 'Blender', kind: 'machine' },
+    { name: 'machine', label: 'Blender', kind: 'machine', types: ['blend', 'bin'] },
     { name: 'mixStart', label: 'Start of mixing', kind: 'timer' },
     { name: 'mixEnd', label: 'End of mixing', kind: 'timer' },
   ],

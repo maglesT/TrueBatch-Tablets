@@ -38,6 +38,8 @@ export async function pullItem(app: FastifyInstance, block: Block, f: BlockField
   return out;
 }
 
+// An MMS lot status in plain words.
+const LOT_WORDS: Record<string, string> = { quarantine: 'in quarantine', quarantined: 'in quarantine', under_test: 'under test', on_hold: 'on hold' };
 const plantDay = (now: Date, tz: string) => now.toLocaleDateString('en-CA', { timeZone: tz });
 
 /** TB-12: a lot MMS has, of this step's material, released and in date; its certificate numbers come with it (TB-13). */
@@ -50,7 +52,7 @@ export async function pullLot(app: FastifyInstance, doc: MasterDoc, st: Step, bl
   const today = plantDay(now, tz);
   const problems: string[] = [];
   if (line && l.materialMasterId !== line.materialItemId) problems.push(`Lot ${lot} is ${l.materialCode ?? 'another material'} in MMS, not ${line.code} ${line.name}.`);
-  if (!LOT_USABLE.includes(l.status)) problems.push(`Lot ${lot} is ${l.status} in MMS: only a released lot may be used.`);
+  if (!LOT_USABLE.includes(l.status)) problems.push(`Lot ${lot} is ${LOT_WORDS[l.status] ?? l.status.replaceAll('_', ' ')} in MMS: only a released lot may be used.`);
   if (l.expiryDate && l.expiryDate < today) problems.push(`Lot ${lot} expired on ${l.expiryDate}.`);
   if (l.retestDate && l.retestDate < today) problems.push(`Lot ${lot} is past its retest date ${l.retestDate}.`);
   const source: Source = { from: 'mms', asOf: l.dataAsOf, shown: `MMS lot ${lot}: ${l.status}, expiry ${l.expiryDate ?? '—'}, retest ${l.retestDate ?? '—'}, QC report ${l.qcReportRef ?? '—'}` };

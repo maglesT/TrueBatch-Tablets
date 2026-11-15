@@ -3,6 +3,7 @@
 import { BLOCKS, blocksFor, findBlock, type Block } from '../../../shared/blocks/index.js';
 import { product } from '../product.js';
 import { refsIn } from '../../../shared/blocks/format.js';
+import { stepTitle as title } from '../../../shared/engine/batch.js';
 import { Dec, findUnit, type Kind } from '../../../shared/templates/index.js';
 import type { Problem } from '../../../shared/master/checks.js';
 import type { HEADER_VALUES, MasterDoc, SettingValue, Stage, Step } from '../../../shared/master/schema.js';
@@ -85,7 +86,7 @@ export function earlierRefs(doc: MasterDoc, si: number, ti: number): RefOption[]
       if (i === si && j >= ti) return;
       const b = findBlock(t.block);
       if (!b) return;
-      const where = `${s.name} › ${stepTitle(t, j)}`;
+      const where = `${s.name} › ${stepTitle(doc, t, j)}`;
       for (const f of b.fields) if (f.kind === 'number' && !f.count) out.push({ ref: `${s.key}/${t.key}/${f.name}`, label: `${where} › ${f.label} (recorded)`, kind: kindOf(b, f.name, t.settings) });
       for (const c of b.calcs) if (!CHECKS.test(c.template)) out.push({ ref: `${s.key}/${t.key}/${c.name}`, label: `${where} › ${c.label} (worked out)`, kind: kindOf(b, c.name, t.settings) });
     });
@@ -101,14 +102,13 @@ export const HEADER_LABEL: Record<(typeof HEADER_VALUES)[number], { label: strin
   coatedBatch: { label: 'the theoretical coated batch weight', kind: 'mass' },
 };
 
-export function stepTitle(t: Step, j?: number): string {
-  const b = findBlock(t.block);
-  return `${j === undefined ? '' : `${j + 1}. `}${b?.name ?? t.block.id}${t.key !== t.block.id ? ` (${t.key})` : ''}`;
-}
+export const stepTitle = (doc: MasterDoc, t: Step, j?: number) => `${j === undefined ? '' : `${j + 1}. `}${title(doc, t)}`;
 
-/** A new step from a block, with its default instruction and signatures. */
+// Settings a new step starts with (the author may change them): the usual dispensing tolerance.
+const DEFAULT_SETTINGS: Record<string, Step['settings']> = { weigh: { tolerance: '0.5' }, lubricate: { tolerance: '0.5' } };
+/** A new step from a block, with its default instruction, signatures and settings. */
 export function stepFrom(block: Block, taken: string[]): Step {
-  return { key: newKey(block.id, taken), block: { id: block.id, version: block.version }, settings: {}, checker: block.checker,
+  return { key: newKey(block.id, taken), block: { id: block.id, version: block.version }, settings: { ...DEFAULT_SETTINGS[block.id] }, checker: block.checker,
     waitForCheck: false, critical: false, flow: block.stop ? { kind: 'repeat-until', maxRounds: 10 } : block.qaHold ? { kind: 'qa-hold' } : { kind: 'none' },
     ...(block.periodic ? { everyMinutes: block.periodic.maxMinutes } : {}) };
 }
@@ -165,7 +165,7 @@ export function placeLabel(doc: MasterDoc, path: string): string {
   const s = p.stage === undefined ? undefined : doc.stages[p.stage];
   if (!s) return 'Process';
   const t = p.step === undefined ? undefined : s.steps[p.step];
-  return t ? `${s.name} › ${stepTitle(t, p.step)}` : s.name;
+  return t ? `${s.name} › ${stepTitle(doc, t, p.step)}` : s.name;
 }
 
 /** The author's answer to a calculation warning, kept in the master document with the warning as answered. */

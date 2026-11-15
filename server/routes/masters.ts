@@ -9,7 +9,7 @@ import { BLOCKS } from '../../shared/blocks/index.js';
 import { blocking, masterChecks } from '../../shared/master/checks.js';
 import { masterSchema, type MasterDoc, type MasterState } from '../../shared/master/schema.js';
 import { isHand, type Source } from '../../shared/engine/links.js';
-import { CHANGE_STEPS, approvedChange } from '../links.js';
+import { CHANGE_STEPS, approvedChange, namesProduct } from '../links.js';
 
 // Master versions: the model, the table, the draft routes, and the review and approval workflow (TB-02). A version
 // leaves draft only through that workflow (or, in tests, the database owner).
@@ -205,13 +205,16 @@ export function reviewRefusal(action: ReviewAction, l: Loaded, user: SessionUser
  * TB-02: while QMS answers, the change control must be one of its change controls, approved by QA (CHANGE_STEPS);
  * its title and approval are kept with the approval (PL-07). Otherwise the number is typed by hand.
  */
-async function changeControlSource(app: FastifyInstance, number: string): Promise<Source> {
+async function changeControlSource(app: FastifyInstance, number: string, product?: MasterDoc['header']): Promise<Source> {
   const r = await app.links.qms.change(number);
   if (r.state !== 'ok') return { from: 'hand', link: 'qms', state: r.state };
   const c = r.value;
   if (!c) throw new ReviewError(409, 'unknown_change_control', [`${number} is not a change control in QMS.`]);
-  if (!approvedChange(c)) throw new ReviewError(409, 'change_not_approved', [`${number} is ${c.status} in QMS${c.qaApprovedAt ? '' : ', not approved by QA'}: only a QA-approved change control (${CHANGE_STEPS.join(', ')}) can carry a new version.`]);
-  return { from: 'qms', asOf: c.qaApprovedAt, shown: `${c.number}: ${c.title ?? ''} (${c.status}, QA approved ${c.qaApprovedAt})${c.products ? `; products: ${c.products}` : ''}` };
+  // The change control must name the master's product; one that names no product is taken, with a warning for QA.
+  const names = product ? namesProduct(c, product) : 'yes';
+  if (names === 'no') throw new ReviewError(409, 'other_product', [`${number} is for ${c.products} in QMS, not for ${product!.productCode} ${product!.productName}: pick the change control of this product.`]);
+  if (!approvedChange(c)) throw new ReviewError(409, 'change_not_approved', [`${number} is at the step “${c.status.replaceAll('_', ' ')}” in QMS${c.qaApprovedAt ? '' : ' and not approved by QA'}: only a QA-approved change control (${CHANGE_STEPS.join(', ')}) can carry a new version.`]);
+  return { from: 'qms', asOf: c.qaApprovedAt, shown: `${c.number}: ${c.title ?? ''} (${c.status}, QA approved ${c.qaApprovedAt})${c.products ? `; products: ${c.products}` : `; QMS names no product: QA checked that it covers ${product?.productCode ?? 'this product'}`}` };
 }
 
 class ReviewError extends Error {
@@ -249,9 +252,13 @@ function reviewRoutes(app: FastifyInstance, sql: Sql) {
   });
 
   // QA-approved change controls in QMS, for the approval's pick list (pull, don't type).
-  app.get('/api/change-controls', reviewer, async () => {
+  // Only those that name the version's product (or name no product: offered with a warning).
+  app.get<{ Querystring: { version?: string } }>('/api/change-controls', reviewer, async (req) => {
+    const id = parseId(String(req.query.version ?? ''));
+    const v = id === null ? undefined : await masterVersion(sql, id);
     const r = await app.links.qms.approved();
-    return { link: r.state, changes: r.state === 'ok' ? r.value : [] };
+    const changes = r.state === 'ok' ? r.value.map((c) => ({ ...c, names: v ? namesProduct(c, v.doc.header) : 'yes' })).filter((c) => c.names !== 'no') : [];
+    return { link: r.state, changes };
   });
 
   app.post<{ Params: { id: string } }>('/api/master-versions/:id/comments', reviewer, async (req, reply) => {
@@ -279,7 +286,7 @@ function reviewRoutes(app: FastifyInstance, sql: Sql) {
       const user = req.user!;
       try {
         const signer = rule.meaning ? await authenticateSigner(sql, app.proofKey, user, { proof: b.proof! }, { objectType: 'master_version', objectId: id, meaning: rule.meaning }) : null;
-        const source = b.changeControl ? await changeControlSource(app, b.changeControl) : null;
+        const source = b.changeControl ? await changeControlSource(app, b.changeControl, (await masterVersion(sql, id))?.doc.header) : null;
         return await sql.begin(async (tx) => {
           await tx`select pg_advisory_xact_lock(${-id}::bigint)`;
           // 1. read

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import type { MasterData } from '../api-designer.js';
 import { findBlock } from '../../../shared/blocks/index.js';
+import { stepTitle } from '../../../shared/engine/batch.js';
 import type { MasterDoc, Stage, Step } from '../../../shared/master/schema.js';
 import { move, newStage, searchBlocks, stepFrom, type Place } from './model.js';
 import { StepSettings } from './StepSettings.js';
@@ -36,7 +37,8 @@ export function Process({ doc, onChange, md, place, onPlace, editable }: {
   const roles = [...new Set(doc.stages.map((s) => s.role).filter(Boolean)
     .concat(['Production operator', 'Granulation operator', 'Compression operator', 'Coating operator', 'Packing operator', 'Packing supervisor', 'Warehouse officer']))];
   const machineTypes = [...new Set(md.equipment.filter((e) => e.active && e.type).map((e) => e.type!))].sort();
-  const areas = [...new Set(md.rooms.filter((r) => r.active && r.area).map((r) => r.area!))].sort();
+  // Rooms are allowed by their area, or one by one by their code (not every room of an area in every block).
+  const areas = [...[...new Set(md.rooms.filter((r) => r.active && r.area).map((r) => r.area!))].sort(), ...md.rooms.filter((r) => r.active).map((r) => r.code).sort()];
 
   return (
     <div className="process">
@@ -65,8 +67,8 @@ export function Process({ doc, onChange, md, place, onPlace, editable }: {
                 const b = findBlock(t.block);
                 return (
                   <li key={t.key} className={j === ti ? 'on' : ''}>
-                    <span className="ol-main" {...pickable(() => select(si, j))} aria-current={j === ti}><b>{j + 1}. {b?.name ?? t.block.id}</b><small>{t.key}{t.checker ? ' · checked' : ''}{t.critical ? ' · critical' : ''}{t.flow.kind !== 'none' ? ` · ${t.flow.kind.replaceAll('-', ' ')}` : ''}</small></span>
-                    {editable && <Order index={j} count={stage.steps.length} what={`step ${t.key}`} onMove={(by) => { setSteps(move(stage.steps, j, by)); select(si, j + by); }}
+                    <span className="ol-main" {...pickable(() => select(si, j))} aria-current={j === ti}><b>{j + 1}. {b ? stepTitle(doc, t) : t.block.id}</b><small>{[t.checker && 'checked', t.critical && 'critical', t.flow.kind !== 'none' && t.flow.kind.replaceAll('-', ' ')].filter(Boolean).join(' · ')}</small></span>
+                    {editable && <Order index={j} count={stage.steps.length} what={stepTitle(doc, t)} onMove={(by) => { setSteps(move(stage.steps, j, by)); select(si, j + by); }}
                       onRemove={() => { setSteps(stage.steps.filter((_, k) => k !== j)); select(si); }} />}
                   </li>
                 );
@@ -92,7 +94,7 @@ export function Process({ doc, onChange, md, place, onPlace, editable }: {
 
       <div className="card col settings-col">
         {stage && ti !== undefined ? (
-          <StepSettings doc={doc} si={si} ti={ti} onChange={(t) => setSteps(stage.steps.map((x, k) => (k === ti ? t : x)))} />
+          <StepSettings key={`${si}/${stage.steps[ti]!.key}`} doc={doc} si={si} ti={ti} onChange={(t) => setSteps(stage.steps.map((x, k) => (k === ti ? t : x)))} />
         ) : stage ? (
           <StageForm doc={doc} si={si} stage={stage} onChange={putStage} roles={roles} machineTypes={machineTypes} areas={areas} />
         ) : null}
@@ -117,7 +119,7 @@ function StageForm({ doc, si, stage, onChange, roles, machineTypes, areas }: {
         <datalist id="roles">{roles.map((r) => <option key={r} value={r} />)}</datalist>
       </div>
       <ChipSet label="Allowed machine types" values={stage.machineTypes} options={machineTypes} onChange={(machineTypes) => onChange({ ...stage, machineTypes })} empty="Any machine type" />
-      <ChipSet label="Allowed rooms (area)" values={stage.roomTypes} options={areas} onChange={(roomTypes) => onChange({ ...stage, roomTypes })} empty="Any room" />
+      <ChipSet label="Allowed rooms (an area, or a room)" values={stage.roomTypes} options={areas} onChange={(roomTypes) => onChange({ ...stage, roomTypes })} empty="Any room" />
       <fieldset className="checklist">
         <legend>Intermediate produced</legend>
         <label className="check"><input type="checkbox" checked={!!stage.produces} onChange={(e) => { const { produces: _, ...rest } = stage; onChange(e.target.checked ? { ...rest, produces: { name: '', holdHours: 24 } } : rest); }} />This stage produces an intermediate</label>

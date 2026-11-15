@@ -31,6 +31,18 @@ export function App() {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+  // Real use of the screen (a tap, a key, e.g. typing 20 tablet weights before saving them) keeps the session alive as a
+  // saved entry does, at most one call a minute; the 15-minute idle rule stays for an unattended screen (polls never
+  // count), and the session still ends when core's sign-on does (8 hours). An idle-ended session shows Sign in at once.
+  useEffect(() => {
+    let last = Date.now();
+    const used = () => { if (Date.now() - last > 60_000) { last = Date.now(); void refresh(); } };
+    window.addEventListener('pointerdown', used);
+    window.addEventListener('keydown', used);
+    return () => { window.removeEventListener('pointerdown', used); window.removeEventListener('keydown', used); };
+  }, [refresh]);
+  // A batch opened from another page (a batch just issued from the master records) shows on the floor screens.
+  useEffect(() => { if (route.batch) setPage('home'); }, [route.batch]);
 
   if (me === undefined) return <main className="page">Loading…</main>;
   if (me === null) return <Login />;
@@ -51,7 +63,7 @@ export function App() {
           {['qc.approve', 'qa.release'].some((c) => can(me, c)) && (
             <button className={release ? 'tab on' : 'tab'} onClick={() => { setPage('home'); go('#/release'); }}>To review</button>
           )}
-          {['master.author', 'master.check', 'master.approve', 'view'].some((c) => can(me, c)) && (
+          {['master.author', 'master.check', 'master.approve', 'batch.issue', 'view'].some((c) => can(me, c)) && (
             <button className={page === 'masters' && !release ? 'tab on' : 'tab'} onClick={() => { setPage('masters'); go('#/'); }}>{product.packing ? 'Packing masters' : 'Master records'}</button>
           )}
         </nav>

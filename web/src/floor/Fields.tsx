@@ -72,7 +72,7 @@ export function FieldInput({ f, unit, saved, picks = [], options = [], disabled,
       </div>
     );
   } else if (f.kind === 'machine' || f.kind === 'room') {
-    input = picks.length === 0 ? <p className="muted">No {f.kind} of the types this stage allows is active in master data.</p> : (
+    input = picks.length === 0 ? <p className="muted">No {f.kind === 'room' ? 'room this stage allows' : `${f.label.toLowerCase()} of the types and rooms this stage allows`} is active in master data.</p> : (
       <div className="picks" role="group" aria-label={f.label}>
         {picks.map((p) => (
           <button key={p.itemId} type="button" className={raw === p.itemId ? 'on' : ''} aria-pressed={raw === p.itemId} disabled={disabled} onClick={() => tap(p.itemId)}>

@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
-  batchRefusal, batchView, evaluate, review,
+  batchRefusal, batchView, evaluate, notYetText, review,
   type BatchAction, type BatchEvent, type BatchEventKind, type StepEvent,
 } from '../shared/engine/index.js';
-import { at, ev, small } from './engine-fixture.js';
+import { at, ev, fail, pass, reading, small } from './engine-fixture.js';
 
 // The batch status and its signatures (TB-20, TB-21), computed from step events and batch events.
 
@@ -45,9 +45,9 @@ describe('batch signatures', () => {
   const refused = (a: BatchAction, who: Who, events: StepEvent[], batch: BatchEvent[] = [], note?: number) =>
     batchRefusal(a, view(events, batch), people[who], note);
   it.each<[string, BatchAction, Who, StepEvent[], BatchEvent[], string | null]>([
-    ['TB-20 production approval while a check is open', 'production-approve', 'supervisor', started, [], 'Step t0 (0.1.0.1) is done awaiting check'],
+    ['TB-20 production approval while a check is open', 'production-approve', 'supervisor', started, [], 'Stage 0 › Check a value against limits: pH is waiting for its check'],
     ['TB-20 production approval of a step that needs signing again', 'production-approve', 'supervisor',
-      [...complete, ev('corrected', '0.1.0.1', { min: 6, payload: { values: {}, reason: 'x' } })], [], 'Step t0 (0.1.0.1) needs signing again'],
+      [...complete, ev('corrected', '0.1.0.1', { min: 6, payload: { values: {}, reason: 'x' } })], [], 'Stage 0 › Check a value against limits: pH needs signing again'],
     ['TB-20 production approval without batch.supervise', 'production-approve', 'operator', complete, [], 'You do not have the permission for this action.'],
     ['TB-20 production approval of a complete record', 'production-approve', 'supervisor', complete, [], null],
     ['TB-20 production approval twice', 'production-approve', 'supervisor', complete, approved.slice(0, 1), 'Not possible while the batch is production approved.'],
@@ -57,8 +57,8 @@ describe('batch signatures', () => {
     ['TB-21 release before QC approval', 'release', 'qa', complete, approved.slice(0, 1), 'Not possible while the batch is production approved.'],
     ['TB-21 release without qa.release', 'release', 'qc', complete, approved, 'You do not have the permission for this action.'],
     ['TB-21 release after QC approval', 'release', 'qa', complete, approved, null],
-    ['TB-21 release while a linked deviation is open', 'release', 'qa', [...complete, deviation], approved, 'Deviation DEV-26-001 (step 0.1.0.1) is open'],
-    ['TB-21 rejection while a linked deviation is open', 'reject', 'qa', [...complete, deviation], approved, 'Deviation DEV-26-001 (step 0.1.0.1) is open'],
+    ['TB-21 release while a linked deviation is open', 'release', 'qa', [...complete, deviation], approved, 'Deviation DEV-26-001 (Stage 0 › Check a value against limits: pH) is open'],
+    ['TB-21 rejection while a linked deviation is open', 'reject', 'qa', [...complete, deviation], approved, 'Deviation DEV-26-001 (Stage 0 › Check a value against limits: pH) is open'],
     ['TB-21 release once the deviation is closed', 'release', 'qa', [...complete, deviation], [...approved, close], null],
     ['TB-21 release after rejection', 'release', 'qa', complete, [...approved, be('rejected')], 'Not possible while the batch is rejected.'],
   ])('%s → %s', (_what, action, who, events, batch, want) => {
@@ -83,7 +83,7 @@ describe('batch signatures', () => {
     const events = [...r(1, 0, false), ...r(2, 40, true)];
     const v = view(events, [], d);
     expect(v.status).toBe('manufacturing complete');
-    expect(batchRefusal('production-approve', v, people.supervisor)?.problems).toEqual(['Check 2 of step t0 (every 30 min) ran over: a deviation note is needed']);
+    expect(batchRefusal('production-approve', v, people.supervisor)?.problems).toEqual(['Check 2 of “Check a value against limits: pH” (every 30 min) ran over: a deviation note is needed']);
     const noted = view([...events, ev('note', '0.1.0.2', { min: 45, payload: { text: 'Press stopped for a jam' } })], [], d);
     expect(batchRefusal('production-approve', noted, people.supervisor)).toBeNull();
   });
@@ -94,10 +94,10 @@ describe('batch signatures', () => {
     const results = evaluate(d, [], { stage: 0, sub: 1, step: 0, round: 1 }, values);
     expect(results.yield).toMatchObject({ value: '90', check: { pass: false } });
     const events = [ev('started', '0.1.0.1'), ev('value', '0.1.0.1', { payload: { values, results } }), ev('note', '0.1.0.1', { payload: { text: 'Spillage' } }), ev('done', '0.1.0.1')];
-    expect(batchRefusal('release', view(events, approved, d), people.qa)?.problems).toEqual(['The yield of step t0 (0.1.0.1) is out of limits: a deviation note with its reference is needed']);
+    expect(batchRefusal('release', view(events, approved, d), people.qa)?.problems).toEqual(['The yield of Stage 0 › Stage yield is out of limits: a deviation note with its reference is needed']);
     expect(batchRefusal('reject', view(events, approved, d), people.qa)).toBeNull();
     const dev = ev('note', '0.1.0.1', { payload: { text: 'Spillage at discharge', reference: 'DEV-26-007' } });
-    expect(batchRefusal('release', view([...events, dev], approved, d), people.qa)?.problems).toEqual(['Deviation DEV-26-007 (step 0.1.0.1) is open']);
+    expect(batchRefusal('release', view([...events, dev], approved, d), people.qa)?.problems).toEqual(['Deviation DEV-26-007 (Stage 0 › Stage yield) is open']);
     const closed = [...approved, be('deviation_closed', { note: dev.id, reason: 'Root cause found; yield accepted' })];
     expect(batchRefusal('release', view([...events, dev], closed, d), people.qa)).toBeNull();
   });
@@ -119,5 +119,17 @@ describe('the review list for QA', () => {
     expect(r.deviations).toMatchObject([{ reference: 'DEV-26-001', open: false, closed: { payload: { reason: 'Investigation closed' } } }]);
     expect(r.notApplicable).toMatchObject([{ step: 1, payload: { reason: 'Not needed' } }]);
     expect(r.late).toEqual([]);
+  });
+
+  it('TB-14 a repeat-until round whose stop check is "not yet" is not out of limits; the last allowed round failing is', () => {
+    const d = small([{ steps: [{ flow: { kind: 'repeat-until', maxRounds: 3, stop: 'readingCheck' } }] }]);
+    const round = (r: number, ok: boolean) => [ev('started', `0.1.0.${r}`), reading(`0.1.0.${r}`, { readingCheck: ok ? pass : fail }), ev('done', `0.1.0.${r}`)];
+    const dried = [...round(1, false), ...round(2, true)];
+    expect(review(d, dried, [], at(1000)).outOfLimits).toEqual([]);
+    expect(batchView(d, dried, [], at(1000)).open).toEqual([]);
+    const never = [...round(1, false), ...round(2, false), ...round(3, false)];
+    expect(review(d, never, [], at(1000)).outOfLimits.map((o) => o.step)).toEqual(['0.1.0.3']);
+    expect(notYetText('2.150 % rounded to 1 decimal = 2.2 %; limit 2.5 to 3.5 %: OUT OF LIMITS (below the lower limit)')).toBe('2.150 % rounded to 1 decimal = 2.2 %; limit 2.5 to 3.5 %: not reached yet, the rounds go on');
+    expect(notYetText('Compression finished: no: FAIL')).toBe('Compression finished: no: not yet, the rounds go on');
   });
 });

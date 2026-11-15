@@ -3,6 +3,7 @@
 // critical, the flow, and "More options" for the rare settings.
 import { useEffect, useState } from 'react';
 import { findBlock, type Block } from '../../../shared/blocks/index.js';
+import { stepTitle } from '../../../shared/engine/batch.js';
 import type { Stored, Value } from '../../../shared/engine/index.js';
 import type { Kind } from '../../../shared/templates/index.js';
 import { HEADER_VALUES, materialLines, type Limit, type MasterDoc, type SettingValue, type Step } from '../../../shared/master/schema.js';
@@ -30,10 +31,15 @@ export function StepSettings({ doc, si, ti, onChange }: { doc: MasterDoc; si: nu
   };
   const slots = slotsOf(block);
   const loose = block.settings.filter((s) => !slots.has(s.name));
+  // A setting used in two sentences is one input: the first sentence holds it, later ones name it.
+  const seen = new Set<string>();
+  const first = (p: Part) => typeof p !== 'object' || !('setting' in p) || (!seen.has(p.setting) && !!seen.add(p.setting));
   const slot = (name: string) => <Slot doc={doc} si={si} ti={ti} block={block} settings={step.settings} name={name} onChange={(v) => setting(name, v)} />;
   return (
     <div className="step-settings">
       <h2>{block.name}</h2>
+      <label>Name of the step (as people read it)<input value={step.name ?? ''} placeholder={stepTitle(doc, { ...step, name: undefined })}
+        onChange={(e) => { const { name: _, ...rest } = step; onChange(e.target.value ? { ...rest, name: e.target.value } : rest); }} /></label>
       <label>Instruction to the operator
         <textarea value={step.instruction ?? block.instruction} onChange={(e) => onChange({ ...step, instruction: e.target.value === block.instruction ? undefined : e.target.value })} />
       </label>
@@ -54,7 +60,7 @@ export function StepSettings({ doc, si, ti, onChange }: { doc: MasterDoc; si: nu
       {block.calcs.length > 0 && (
         <div className="d-section">
           <h3>Calculations and checks</h3>
-          {block.calcs.map((c) => <p key={c.name} className="sentence">{sentence(block, c).map((p, i) => <PartView key={i} block={block} part={p} slot={slot} />)}</p>)}
+          {block.calcs.map((c) => <p key={c.name} className="sentence">{sentence(block, c).map((p, i) => <PartView key={i} block={block} part={p} slot={slot} first={first(p)} />)}</p>)}
         </div>
       )}
 
@@ -113,10 +119,10 @@ export function StepSettings({ doc, si, ti, onChange }: { doc: MasterDoc; si: nu
   );
 }
 
-function PartView({ block, part, slot }: { block: Block; part: Part; slot: (name: string) => JSX.Element }) {
+function PartView({ block, part, slot, first }: { block: Block; part: Part; slot: (name: string) => JSX.Element; first: boolean }) {
   if (typeof part === 'string') return <>{part}</>;
-  const label = (n: string) => [...block.fields, ...block.calcs].find((x) => x.name === n)?.label.toLowerCase() ?? n;
-  if ('setting' in part) return <span className="slot">{slot(part.setting)}</span>;
+  const label = (n: string) => [...block.fields, ...block.calcs, ...block.settings].find((x) => x.name === n)?.label.toLowerCase() ?? n;
+  if ('setting' in part) return first ? <span className="slot">{slot(part.setting)}</span> : <span className="tok">the {label(part.setting)} (above)</span>;
   if ('field' in part) return <span className="tok field">the {label(part.field)}</span>;
   if ('calc' in part) return <span className="tok calc">the {label(part.calc)}</span>;
   return <span className="tok calc">the previous round's {label(part.prev)}</span>;

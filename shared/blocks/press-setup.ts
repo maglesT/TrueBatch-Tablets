@@ -6,7 +6,7 @@ export const pressSetup: Block = {
   id: 'press-setup', version: 1, name: 'Tablet press set-up', checker: true,
   instruction: 'Fit the tooling shown and record its set no. Read the punch face area from the tooling record. Set the press and record the main compression force and the turret speed.',
   fields: [
-    { name: 'machine', label: 'Tablet press', kind: 'machine' },
+    { name: 'machine', label: 'Tablet press', kind: 'machine', types: ['press'] },
     { name: 'tooling', label: 'Tooling set no.', kind: 'text' },
     { name: 'rightTooling', label: 'Tooling as shown', kind: 'yes-no' },
     { name: 'punchFaceArea', label: 'Punch face area (tooling record)', kind: 'number', unit: 'mm²' },

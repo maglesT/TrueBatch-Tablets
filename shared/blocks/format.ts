@@ -27,6 +27,8 @@ export const fieldSchema = z.object({
   // choice: the fixed list.
   options: z.array(z.string().min(1)).optional(),
   optional: z.boolean().optional(),
+  // machine: words of master data's type it takes (any of them, without case), e.g. ["balance"]; none: any type.
+  types: z.array(z.string().regex(/^[a-z][a-z ]*$/)).optional(),
 }).strict();
 
 export const SETTING_KINDS = ['quantity', 'limit', 'number', 'text', 'material'] as const;

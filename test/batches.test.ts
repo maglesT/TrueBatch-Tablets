@@ -5,6 +5,8 @@ import { recordLate } from '../server/late.js';
 import { loadBatch, recordInput } from '../server/routes/batches.js';
 import { call, freshApp, handLabels, login, proofFor, seedUser, type TestApp } from './helpers.js';
 import { small, tablet } from './engine-fixture.js';
+import { findBlock } from '../shared/blocks/index.js';
+import { machineRefusal, roomRefusal } from '../shared/engine/picks.js';
 
 // Master versions (draft, locked once out of draft), issuing a batch from an effective version (TB-03), walking a
 // stage through the step routes, refused actions (TB-08), insert-only step events and the timer job (TB-17).
@@ -200,6 +202,18 @@ describe('walking a stage', () => {
     expect((await act('asha', id, '1.1.0.1', 'record', { values: { balance: 'eq-prs' } })).json()).toMatchObject({ error: 'invalid_values' });
   });
 
+  it('TB-11 a machine field takes only the type it asks for, in a room the stage allows; a room only of the stage\'s areas or rooms', () => {
+    const stage = { ...tablet().stages[1]!, machineTypes: ['Balance', 'Vessel'], roomTypes: ['Granulation', 'DSP-01'] };
+    const balance = findBlock({ id: 'weigh', version: 1 })!.fields.find((f) => f.name === 'balance')!;
+    const rooms = [{ code: 'GRN-01', area: 'Granulation' }, { code: 'DSP-01', area: 'Dispensing' }, { code: 'QCL-02', area: 'QC laboratory' }, { code: 'BL-GRN', area: 'Beta-lactam' }];
+    const m = (code: string, type: string, room: string | null) => machineRefusal(stage, balance, { code, type, room }, rooms);
+    expect([m('BAL-01', 'Balance', 'DSP-01'), m('BAL-02', 'balance', null)]).toEqual([null, null]);
+    expect(m('SPV-01', 'Vessel', 'GRN-01')).toBe('SPV-01 is not a balance (master data: Vessel)');
+    expect(m('BAL-06', 'Balance', 'QCL-02')).toBe('BAL-06 stands in QCL-02, not in a room this stage allows (Granulation, DSP-01)');
+    expect(m('PRS-01', 'Tablet press', 'GRN-01')).toBe('PRS-01 is not one of the machine types this stage allows (Balance, Vessel)');
+    expect(rooms.map((r) => roomRefusal(stage, r))).toEqual([null, null, 'QCL-02 is not one of the rooms this stage allows (Granulation, DSP-01)', 'BL-GRN is not one of the rooms this stage allows (Granulation, DSP-01)']);
+  });
+
   it('TB-04 each entry is saved at once, with the person and the server time', async () => {
     const [e] = await t.owner<{ person: string; fresh: boolean }[]>`
       select u.username as person, now() - e.at < interval '1 minute' as fresh from step_events e join users u on u.id = e.person_id
@@ -308,14 +322,14 @@ describe('production approval, QC approval and QA release', () => {
   });
 
   it('TB-20 production cannot sign while anything in the record is open', async () => {
-    expect((await batchSign('sam', 'production-approve')).json()).toMatchObject({ error: 'not_ready', problems: ['Step t0 (0.1.0.1) is open', 'Step t1 (0.1.1.1) is waiting', 'Stage Stage 0 is not closed'] });
+    expect((await batchSign('sam', 'production-approve')).json()).toMatchObject({ error: 'not_ready', problems: ['Stage 0 › Check a value against limits: pH is not started', 'Stage 0 › Stage yield is not started', 'Stage Stage 0 is not closed'] });
     await act('asha', id, '0.1.0.1', 'start');
     await act('asha', id, '0.1.0.1', 'record', { values: { reading: '6.0' } });
     expect((await sign('asha', id, '0.1.0.1', 'done')).statusCode).toBe(200);
     await act('asha', id, '0.1.1.1', 'start');
     await act('asha', id, '0.1.1.1', 'record', { values: { output: '0.099', samples: '0.000', rejects: '0.001' } });
     expect((await sign('asha', id, '0.1.1.1', 'done')).statusCode).toBe(200);
-    expect((await batchSign('sam', 'production-approve')).json()).toMatchObject({ problems: ['Step t1 (0.1.1.1) is done awaiting check', 'Stage Stage 0 is not closed'] });
+    expect((await batchSign('sam', 'production-approve')).json()).toMatchObject({ problems: ['Stage 0 › Stage yield is waiting for its check', 'Stage Stage 0 is not closed'] });
     expect((await sign('ravi', id, '0.1.1.1', 'check')).statusCode).toBe(200);
     expect((await full()).batch).toMatchObject({ status: 'manufacturing complete', open: [] });
   });
@@ -346,7 +360,7 @@ describe('production approval, QC approval and QA release', () => {
     expect((await batchSign('quinn', 'qc-approve', { reportNo: 'QC-26-0042' })).statusCode).toBe(200);
     expect([await toReview('quinn'), await toReview('meera')]).toMatchObject([[], [{ waiting: 'QA', openDeviations: 1 }]]);
     expect((await batchSign('meera', 'reject', {})).statusCode).toBe(400);
-    expect((await batchSign('meera', 'release')).json()).toMatchObject({ error: 'not_ready', problems: ['Deviation DEV-26-010 (step 0.1.0.1) is open'] });
+    expect((await batchSign('meera', 'release')).json()).toMatchObject({ error: 'not_ready', problems: ['Deviation DEV-26-010 (Stage 0 › Check a value against limits: pH) is open'] });
     expect((await batchAct('quinn', 'close-deviation', { note, reason: 'x' })).statusCode).toBe(403);
     expect((await batchAct('meera', 'close-deviation', { note, reason: 'Meter recalibrated; results confirmed by a second meter' })).statusCode).toBe(200);
     expect((await batchAct('meera', 'close-deviation', { note, reason: 'again' })).statusCode).toBe(409);

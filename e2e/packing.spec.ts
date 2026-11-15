@@ -18,7 +18,7 @@ async function person(browser: Browser, username: string) {
   return { ctx, page, proof };
 }
 async function sign(page: Page) {
-  await page.getByRole('dialog').getByRole('button', { name: 'Sign', exact: true }).click();
+  await page.getByRole('dialog').last().getByRole('button', { name: 'Sign', exact: true }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
 }
 const masters = async (page: Page) => page.getByRole('button', { name: 'Packing masters' }).click();
@@ -88,14 +88,24 @@ test('TB-P2 packing journey: packing master from the skeleton, approved; a packi
     await p.ctx.close();
   }
 
-  // The packing batch, issued from the released bulk batch TB260001 on line BL-01 (no Logbook link: the line's labels).
+  // The packing batch, issued on the packing masters screen from the released bulk batch TB260001 (picked from TrueBatch
+  // Tablets) on line BL-01; no Logbook link, so the line's status labels are asked for.
   const iss = await person(browser, 'piss');
-  const rows = await (await iss.page.request.get('/api/masters')).json() as { id: number; state: string }[];
-  const mv = rows.find((r) => r.state === 'effective')!.id;
-  const labels = { 'line.clean': 'yes', 'line.calibrated': 'yes', 'line.inService': 'yes', 'line.qualified': 'yes' };
-  const issued = await iss.page.request.post('/api/batches', { data: { masterVersionId: mv, proof: await iss.proof('issued'), values: { line: 'ln-1', bulk: 'TB260001', tablets: '100000', ...labels } } });
-  expect(issued.ok(), await issued.text()).toBe(true);
-  const batch = await issued.json() as { id: number; batchNo: string };
+  await masters(iss.page);
+  await iss.page.getByRole('row', { name: /Effective/ }).getByRole('button', { name: 'Issue a batch' }).click();
+  const issue = iss.page.getByRole('dialog', { name: 'Issue a batch' });
+  await issue.getByRole('group', { name: 'Packing line' }).getByRole('button', { name: /BL-01/ }).click();
+  await expect(issue.locator('datalist option[value="TB260001"]')).toHaveCount(1);
+  await issue.getByLabel('Bulk batch no.').fill('TB260001');
+  await issue.getByLabel('Bulk tablets issued').fill('100000');
+  await issue.getByRole('button', { name: 'Next: sign' }).click();
+  await iss.page.getByRole('dialog').last().getByRole('button', { name: 'Sign', exact: true }).click();
+  await expect(issue.getByRole('alert')).toContainText('the status label says clean, within its clean hold is not recorded');
+  for (const g of await issue.getByRole('group', { name: /^Packing line: / }).all()) await g.getByRole('button', { name: 'Yes' }).click();
+  await issue.getByRole('button', { name: 'Next: sign' }).click();
+  await sign(iss.page);
+  await iss.page.waitForURL(/#\/batch\/\d+$/);
+  const batch = { id: Number(/#\/batch\/(\d+)$/.exec(iss.page.url())![1]), batchNo: (await iss.page.locator('.bno').textContent())! };
   await iss.ctx.close();
 
   // The operator receives the bulk on the floor screen: the bulk batch and its date of manufacture come from TrueBatch Tablets.
@@ -103,7 +113,7 @@ test('TB-P2 packing journey: packing master from the skeleton, approved; a packi
   const chk = await person(browser, 'pchk');
   await op.page.getByRole('button', { name: new RegExp(`${batch.batchNo} · Examplol 100 mg tablets, 10 x 10 blister`) }).click();
   await expect(op.page.getByRole('navigation', { name: 'Stages' })).toContainText('Issue to the line');
-  await op.page.getByRole('button', { name: /Bulk tablets issued to the line/ }).click();
+  await op.page.getByRole('button', { name: /^1 Bulk tablets issued to the line/ }).click();
   await expect(op.page.locator('main')).toContainText('TB260001');
   await expect(op.page.locator('main')).toContainText('From TrueBatch Tablets: TrueBatch Tablets batch TB260001: RELEASED, PRD-001, manufactured 2026-11-03');
   await op.page.getByRole('group', { name: 'Containers closed and intact, labels show this bulk batch and RELEASED' }).getByRole('button', { name: 'Yes' }).click();
@@ -128,6 +138,7 @@ test('TB-P2 packing journey: packing master from the skeleton, approved; a packi
   await post(chk, '0.1.0.1', 'check', { proof: await chk.proof('verified'), contentHash: (await detail(chk.page)).steps[0]!.contentHash });
   const lot = (n: string) => ({ lot: n, 'lot.released': 'yes', 'lot.expiry': '2099-12-31' });
   const yes = (...n: string[]) => Object.fromEntries(n.map((x) => [x, 'yes']));
+  const labels = { 'line.clean': 'yes', 'line.calibrated': 'yes', 'line.inService': 'yes', 'line.qualified': 'yes' };
   const line = { line: 'ln-1', ...labels };
   await run('0.1.1.1', { ...lot('FOIL-1'), issued: '1250', matches: 'yes' });
   await run('0.1.2.1', { ...lot('CTN-1'), issued: '1000', matches: 'yes' });

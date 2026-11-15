@@ -104,6 +104,12 @@ describe('TrueBatch Tablets Packing: its own product on the platform', () => {
 
 describe('a packing batch from a released bulk batch', () => {
   let first = 0;
+  it('TB-P2 the issue screen offers the RELEASED bulk batches of the pack\'s bulk product, read from TrueBatch Tablets', async () => {
+    const r = (await as('issuer', 'GET', '/api/bulk-batches?product=PRD-001')).json() as { link: string; batches: { batchNo: string }[] };
+    expect([r.link, ...r.batches.map((b) => b.batchNo)]).toEqual(['ok', 'TB260005', 'TB260004', 'TB260001']);
+    expect((await as('op1', 'GET', '/api/bulk-batches?product=PRD-001')).statusCode).toBe(403);
+  });
+
   it('TB-P2 a packing batch is issued from a RELEASED bulk batch of TrueBatch Tablets: line, bulk and tablets recorded, the date of manufacture pulled (the date its first step started, not its issue date)', async () => {
     const res = await issue({ line: 'ln-1', bulk: 'TB260001', tablets: '100000' });
     expect(res.statusCode, res.body).toBe(200);

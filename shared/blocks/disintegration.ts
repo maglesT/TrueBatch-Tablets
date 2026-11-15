@@ -6,7 +6,7 @@ export const disintegration: Block = {
   id: 'disintegration', version: 1, name: 'Disintegration', checker: false,
   instruction: 'Put one tablet in each tube and start the apparatus. Record the time at which each tablet has disintegrated. If one or two have not by the time limit, test 12 more tablets.',
   fields: [
-    { name: 'machine', label: 'Disintegration tester', kind: 'machine' },
+    { name: 'machine', label: 'Disintegration tester', kind: 'machine', types: ['disintegra'] },
     { name: 'temperature', label: 'Medium temperature', kind: 'number', unit: '°C' },
     { name: 'times', label: 'Times of 6 tablets', kind: 'number', unit: 'min', count: 6 },
     { name: 'moreTimes', label: 'Times of 12 more tablets', kind: 'number', unit: 'min', count: 12, optional: true },

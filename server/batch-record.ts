@@ -3,10 +3,11 @@
 // is struck through and kept with the reason, the person and the time.
 import type { Content, TDocumentDefinitions } from 'pdfmake/interfaces.js';
 import { findBlock, type Block } from '../shared/blocks/index.js';
-import { materialLines, type MasterDoc, type Step } from '../shared/master/schema.js';
-import { batchView, deviations, fieldLabel, handFields, lateItems, lineQuantity, openSteps, PROVIDER_NAME, type DeviationStatus, type EventKind, type Source, type Stored, type StepView, type Value } from '../shared/engine/index.js';
+import type { Step } from '../shared/master/schema.js';
+import { batchView, deviations, fieldLabel, handFields, lateItems, lineQuantity, notYetText, openSteps, PROVIDER_NAME, deviationStatusWords, stepTitle, type DeviationStatus, type EventKind, type Source, type Stored, type StepView, type Value } from '../shared/engine/index.js';
 import type { LoadedBatch } from './routes/batches.js';
 import { pageFrame, plant, runs } from './pdf.js';
+import { plantText } from '../shared/plant-time.js';
 
 // A signature of the batch; `step` is the step instance of a step signature.
 export interface Signature { objectType: string; objectId: number; printedName: string; meaning: string; signedAt: Date; step: string | null }
@@ -27,13 +28,12 @@ const STATE: Record<string, string> = {
 
 const RED = '#b3261e';
 const isItem = (v: Value): v is { itemId: string; code: string; name: string; version: number } => typeof v === 'object' && !Array.isArray(v) && 'itemId' in v;
-const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
 export function valueText(v: Value | undefined): string {
   if (v === undefined) return '—';
   if (Array.isArray(v)) return v.map((x) => x.value).join(', ') + (v[0]?.unit ? ` ${v[0].unit}` : '');
   if (isItem(v)) return `${v.code} · ${v.name} (v${v.version})`;
   if (typeof v === 'object') return `${v.value}${v.unit ? ` ${v.unit}` : ''}`;
-  return ISO.test(v) ? plant(v) : v;
+  return plantText(v);
 }
 /** The value at the end of a worked line ("… = 10.152 kg"). */
 const endOf = (r: Stored) => (r.ok ? (/=\s*([^=;]+)$/.exec(r.shown)?.[1]?.trim() ?? `${r.value} ${r.unit}`) : '');
@@ -57,7 +57,7 @@ export function batchRecordDoc(r: RecordInput, by: string, printedAt = new Date(
   const stepName = (v: StepView) => {
     const s = doc.stages[v.key.stage]!;
     const st = stepOf(v);
-    return `${v.key.stage + 1}.${v.key.step + 1} ${title(doc, st)}${s.kind === 'sub-batch' ? ` · sub-batch ${v.key.sub}` : ''}${st.flow.kind === 'repeat-until' ? ` · round ${v.key.round}` : ''}`;
+    return `${v.key.stage + 1}.${v.key.step + 1} ${stepTitle(doc, st)}${s.kind === 'sub-batch' ? ` · sub-batch ${v.key.sub}` : ''}${st.flow.kind === 'repeat-until' ? ` · round ${v.key.round}` : ''}`;
   };
   const byId = new Map(steps.map((v) => [v.id, v]));
   const stepLabel = (id: string) => { const v = byId.get(id); return v ? `${doc.stages[v.key.stage]!.name} · ${stepName(v)}` : id; };
@@ -136,7 +136,7 @@ export function batchRecordDoc(r: RecordInput, by: string, printedAt = new Date(
     const d = devs.find((x) => x.note === e.id);
     const closed = d?.closed && batchEvents.find((b) => b.id === d.closed!.id);
     return [small(e.payload.reference ?? '—'), small(stepLabel(`${e.stage}.${e.sub}.${e.step}.${e.round}`)), small(e.payload.text ?? ''), small(`${who(e.person)}, ${plant(e.at)}`),
-      small(!d ? 'note (no deviation number)' : d.status ? `${d.open ? 'OPEN: ' : ''}${d.status} in the Deviations system${d.closedAt ? `, ${plant(d.closedAt)}` : ''}` : d.open ? 'OPEN' : `closed by ${closed?.personName ?? ''}, ${plant(closed?.at)}: ${closed?.payload.reason ?? ''}`, d?.open ? { color: RED } : {})];
+      small(!d ? 'note (no deviation number)' : d.status ? `${d.open ? 'OPEN: ' : ''}${deviationStatusWords(d.status)} in the Deviations system${d.closedAt ? `, ${plant(d.closedAt)}` : ''}` : d.open ? 'OPEN' : `closed by ${closed?.personName ?? ''}, ${plant(closed?.at)}: ${closed?.payload.reason ?? ''}`, d?.open ? { color: RED } : {})];
   })));
 
   // Every signature of the batch with its meaning.
@@ -158,12 +158,6 @@ export function batchRecordDoc(r: RecordInput, by: string, printedAt = new Date(
   return pageFrame(`${doc.pack ? 'TrueBatch Tablets Packing' : 'TrueBatch Tablets'} · ${record} ${r.batch.batchNo} · ${h.productCode} ${h.productName}`, by, content, printedAt);
 }
 
-function title(doc: MasterDoc, st: Step): string {
-  const line = Object.values(st.settings).find((v): v is { formula: string } => typeof v === 'object' && 'formula' in v);
-  const what = line ? materialLines(doc).find((l) => l.key === line.formula)?.name : typeof st.settings.what === 'string' ? st.settings.what : undefined;
-  return [findBlock(st.block)?.name ?? st.key, what].filter(Boolean).join(': ');
-}
-
 /** The recorded values; a corrected value shows the original struck through, the reason, the person and the time. */
 function valueLines(block: Block, v: StepView, who: (id: number | null) => string): Content[] {
   // Label answers typed while a link was off stay in the record when the link gives the value again.
@@ -181,7 +175,7 @@ function valueLines(block: Block, v: StepView, who: (id: number | null) => strin
 }
 
 // Where a value came from: pulled through a link (as read), or typed by hand while the link was off or down.
-const sourceText = (s: Source | undefined) => (!s ? '' : s.from === 'hand' ? ` (BY HAND: ${PROVIDER_NAME[s.link]} ${s.state === 'down' ? 'link down' : 'not linked'})` : ` (${s.shown})`);
+const sourceText = (s: Source | undefined) => (!s ? '' : s.from === 'hand' ? ` (BY HAND: ${PROVIDER_NAME[s.link]} ${s.state === 'down' ? 'link down' : 'not linked'})` : ` (${plantText(s.shown)})`);
 
 /** The worked calculation lines, with the limits and pass or fail. */
 function resultLines(block: Block, st: Step, v: StepView, who: (id: number | null) => string): Content[] {
@@ -189,10 +183,13 @@ function resultLines(block: Block, st: Step, v: StepView, who: (id: number | nul
   const out: Content[] = Object.entries(v.results).flatMap(([name, r]) => {
     if (!r.ok) return [small(`${label(name)}: ${r.message}`, { color: RED })];
     const checks = checksOf(r);
+    // A round whose stop check is not reached yet is not out of limits: the rounds go on.
+    const notYet = name === v.notYet;
+    const text = (t: string) => plantText(notYet ? notYetText(t) : t);
     return [
-      small(`${label(name)}: ${r.shown}`),
-      ...checks.filter(([, c]) => c.shown !== r.shown).map(([, c]) => small(c.shown, { margin: [8, 0, 0, 0] })),
-      ...checks.map(([, c]) => small(c.pass ? 'PASS' : 'FAIL: out of limits', { bold: true, color: c.pass ? '#1b6e3a' : RED, margin: [8, 0, 0, 2] })),
+      small(`${label(name)}: ${text(r.shown)}`),
+      ...checks.filter(([, c]) => c.shown !== r.shown).map(([, c]) => small(text(c.shown), { margin: [8, 0, 0, 0] })),
+      ...checks.map(([, c]) => small(c.pass ? 'PASS' : notYet ? 'NOT YET: the rounds go on' : 'FAIL: out of limits', { bold: true, color: c.pass ? '#1b6e3a' : notYet ? '#666666' : RED, margin: [8, 0, 0, 2] })),
     ];
   });
   if (v.inputChanged.length) out.push(small(`Worked out again: an input was corrected later (${v.inputChanged.map((e) => `${who(e.person)}, ${plant(e.at)}`).join('; ')})`, { color: RED }));

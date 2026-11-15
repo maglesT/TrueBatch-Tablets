@@ -12,6 +12,15 @@ test('PL-01: sign in through core, see My work with the TrueBatch header, and lo
   await logOut(page);
 });
 
+test('PL-01: a tap or a key on the screen renews the idle session, at most once a minute', async ({ page }) => {
+  await page.clock.install();
+  await logIn(page, 'op1');
+  await page.clock.fastForward(61_000);
+  const renewal = page.waitForRequest((r) => r.url().endsWith('/api/me'));
+  await page.keyboard.press('Tab');
+  expect((await renewal).headers()['x-background-poll']).toBeUndefined();
+});
+
 test('PL-01: a person without a TrueBatch permission is refused at sign-in', async ({ page }) => {
   await page.goto('/login?login_hint=norole');
   await expect(page.getByRole('heading', { name: 'No access' })).toBeVisible();

@@ -6,7 +6,7 @@ export const dryMix: Block = {
   id: 'dry-mix', version: 1, name: 'Dry mix for a time', checker: false,
   instruction: 'Load the materials, record the start, mix at the speed shown, and record the end when the time is up.',
   fields: [
-    { name: 'machine', label: 'Mixer or blender', kind: 'machine' },
+    { name: 'machine', label: 'Mixer or blender', kind: 'machine', types: ['mix', 'blend', 'granulat', 'rmg'] },
     { name: 'speed', label: 'Speed', kind: 'number', unit: 'rpm' },
     { name: 'mixStart', label: 'Start of mixing', kind: 'timer' },
     { name: 'mixEnd', label: 'End of mixing', kind: 'timer' },

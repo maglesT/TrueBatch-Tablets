@@ -11,14 +11,16 @@ calculation templates (`shared/templates/`), the step blocks (`shared/blocks/`),
 (`shared/master/`) and the batch engine (`shared/engine/`, routes in `server/routes/`). The engine also works out the
 batch status (production approval, QC approval, QA release or rejection, `shared/engine/release.ts`), marks a step
 "input changed" when a value it used was corrected later, and gives QA the review list (`GET /api/batches/:id/review`).
-Screens: the master designer with review and QA approval (`web/src/designer/`), the shop floor (`web/src/floor/`) and
+Screens: the master designer with review and QA approval (`web/src/designer/`), issuing a batch from an effective
+master (`web/src/floor/IssueDialog.tsx`), the shop floor (`web/src/floor/`) and
 the QC and QA release screens with the audit-trail review (`web/src/release/`). The batch record PDF
 (`GET /api/batches/:id/pdf`, `server/batch-record.ts`) is made with pdfmake and embedded Noto fonts, as the Logbook
 makes its copies. Line clearance is a standard block; the process skeletons start every stage with it. The links to
 Deviations, QMS, Logbook and MMS (`server/links.ts`, `docs/design.md` "Links") are optional: with a link the value is
 pulled and cannot be typed over; without it, or while it is down, it is typed by hand with a second-person check and
-listed for QA. TrueBatch publishes `report.batch_fact_v1` (with `manufactured_on` at its end, 0007),
-`equipment_use_v1` and `deviation_note_v1` (`db/migrations/0006_report_views.sql`).
+listed for QA. TrueBatch publishes `report.batch_fact_v1` (with `manufactured_on` at its end, 0007, and the product
+name and master version, 0008), `equipment_use_v1`, `deviation_note_v1` (`db/migrations/0006_report_views.sql`) and
+`material_use_v1`, the quantities dispensed, which MMS reads to reduce lot stock (0008).
 
 ## TrueBatch Tablets Packing
 The packing batch record is a separate product on the platform, built from this repository on the same engine and

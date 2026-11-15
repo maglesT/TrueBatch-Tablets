@@ -4,6 +4,7 @@ import type { Sql, Tx } from '../db.js';
 import { audit } from '../audit.js';
 import { parseId, requirePermission, type SessionUser } from '../auth.js';
 import { usableItem } from '../master.js';
+import { machineRefusal, roomRefusal } from '../../shared/engine/picks.js';
 import { handProblem, mfgDateProblem, pullBulk, pullItem, pullLot, pulledWords } from '../pull.js';
 import { SignError, authenticateSigner, contentHash, sign, signBody } from '../signatures.js';
 import { masterVersion } from './masters.js';
@@ -11,9 +12,9 @@ import { batchRecordDoc, type RecordInput, type Signature } from '../batch-recor
 import { render, sendPdf } from '../pdf.js';
 import { findBlock } from '../../shared/blocks/index.js';
 import { blocking, masterChecks } from '../../shared/master/checks.js';
-import { materialLines, type MasterDoc, type Step } from '../../shared/master/schema.js';
+import type { MasterDoc } from '../../shared/master/schema.js';
 import {
-  ACTIONS, BATCH_ACTIONS, CERTIFICATE, LINK_OF, batchRefusal, handFields, isHand, batchView, doneProblems, evaluate, lateItems, openSteps, parseKey, readValue, refusal, review, timers,
+  ACTIONS, BATCH_ACTIONS, CERTIFICATE, LINK_OF, batchRefusal, stepLabel, stepTitle, handFields, isHand, batchView, doneProblems, evaluate, lateItems, openSteps, parseKey, readValue, refusal, review, timers,
   type Action, type BatchAction, type BatchEvent, type DeviationStatus, type LinkState, type Source, type StepEvent, type StepKey, type StepView, type Value,
 } from '../../shared/engine/index.js';
 
@@ -103,10 +104,11 @@ async function readValues(app: FastifyInstance, doc: MasterDoc, key: StepKey, ra
     if (!f || !LINK_OF[f.kind]) continue;
     let pulled;
     if (f.kind === 'machine' || f.kind === 'room') {
-      const item = f.kind === 'machine' ? usableItem(await app.master.equipment(), String(x), 'machine') : usableItem(await app.master.rooms(), String(x), 'room');
+      const rooms = await app.master.rooms();
+      const item = f.kind === 'machine' ? usableItem(await app.master.equipment(), String(x), 'machine') : usableItem(rooms, String(x), 'room');
       const type = 'type' in item ? item.type : item.area;
-      const allowed = f.kind === 'machine' ? stage.machineTypes : stage.roomTypes;
-      if (allowed.length && !allowed.includes(type ?? '')) { problems.push(`${item.code} is not one of the ${f.kind} types this stage allows (${allowed.join(', ')})`); continue; }
+      const no = 'type' in item ? machineRefusal(stage, f, item, rooms) : roomRefusal(stage, item);
+      if (no) { problems.push(no); continue; }
       out[name] = { itemId: item.itemId, code: item.code, name: item.name, version: item.version, type, room: 'room' in item ? item.room : item.code };
       pulled = await pullItem(app, block, f, item, batchNo);
     } else {
@@ -175,13 +177,6 @@ const NAMES = Object.keys(ACTIONS) as Action[];
 const BATCH_NAMES = Object.keys(BATCH_ACTIONS) as BatchAction[];
 const flowOf = (doc: MasterDoc, k: StepKey) => doc.stages[k.stage]!.steps[k.step]!.flow.kind;
 const context = (doc: MasterDoc, v: StepView, user: SessionUser) => ({ state: v.state, events: v.events, flow: flowOf(doc, v.key), user });
-// A step as people name it: the block, and the formula line or the thing checked.
-function stepTitle(doc: MasterDoc, st: Step): string {
-  const line = Object.values(st.settings).find((v): v is { formula: string } => typeof v === 'object' && 'formula' in v);
-  const what = line ? materialLines(doc).find((l) => l.key === line.formula)?.name : typeof st.settings.what === 'string' ? st.settings.what : undefined;
-  return [findBlock(st.block)?.name ?? st.key, what].filter(Boolean).join(': ');
-}
-
 const FIRST: StepKey = { stage: 0, sub: 1, step: 0, round: 1 };
 /**
  * Packing (TB-P2, TB-P7): a master whose first step is recorded at issue (the line, the released bulk batch, the
@@ -392,6 +387,12 @@ export function batchRoutes(app: FastifyInstance, sql: Sql) {
     return { link: r.state, lots: r.state === 'ok' ? r.value : [] };
   });
 
+  // Packing: the bulk batches TrueBatch Tablets has released of a product, for the issue's pick list (pull, don't type).
+  app.get<{ Querystring: { product?: string } }>('/api/bulk-batches', { preHandler: requirePermission('truebatch.batch.issue') }, async (req) => {
+    const r = await app.links.truebatch.released(String(req.query.product ?? ''));
+    return { link: r.state, batches: r.state === 'ok' ? r.value.map((b) => ({ batchNo: b.batchNo, mfgDate: b.mfgDate })) : [] };
+  });
+
   // TB-22: the batch record as a PDF: a complete copy with its values, calculations, changes, notes and signatures.
   app.get<{ Params: { id: string } }>('/api/batches/:id/pdf', anyUser, async (req, reply) => {
     const id = parseId(req.params.id);
@@ -476,6 +477,8 @@ export function batchRoutes(app: FastifyInstance, sql: Sql) {
           if (action === 'done' && v.inputChanged.length) payload = { results: evaluate(l.doc, l.events, key, v.values, uses), uses };
           if (b.reason) payload.reason = b.reason;
           if (b.text) payload.text = b.text;
+          // Where the note was written, in words, for the deviation filed from it (deviation_note_v1.step).
+          if (action === 'note') payload.where = stepLabel(l.doc, key);
           if (b.reference) {
             // The reference must be a deviation of the Deviations system while it answers; else typed, and QA closes it by hand.
             const r = await app.links.deviations.byNumbers([b.reference]);
