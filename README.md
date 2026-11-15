@@ -11,7 +11,9 @@ calculation templates (`shared/templates/`), the step blocks (`shared/blocks/`),
 (`shared/master/`) and the batch engine (`shared/engine/`, routes in `server/routes/`). The engine also works out the
 batch status (production approval, QC approval, QA release or rejection, `shared/engine/release.ts`), marks a step
 "input changed" when a value it used was corrected later, and gives QA the review list (`GET /api/batches/:id/review`).
-No designer or floor screens yet.
+Screens: the master designer with review and QA approval (`web/src/designer/`) and the shop floor (`web/src/floor/`).
+Still to come: QC/QA release screens, the batch record PDF, line clearance, and the links to MMS, Logbook,
+Deviations and QMS.
 
 ## Develop
 Needs Node 22 and PostgreSQL 16.
