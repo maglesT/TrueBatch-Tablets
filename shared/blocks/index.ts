@@ -8,10 +8,13 @@ import { coat } from './coat.js';
 import { coatingSuspension } from './coating-suspension.js';
 import { compress } from './compress.js';
 import { compressionRelease } from './compression-release.js';
+import { contentUniformity } from './content-uniformity.js';
 import { densityFlow } from './density-flow.js';
+import { disintegration } from './disintegration.js';
 import { dryConstant } from './dry-constant.js';
 import { dryMix } from './dry-mix.js';
 import { dry } from './dry.js';
+import { friability } from './friability.js';
 import { granulate } from './granulate.js';
 import { lineClearance } from './line-clearance.js';
 import { lubricate } from './lubricate.js';
@@ -24,6 +27,7 @@ import { sift } from './sift.js';
 import { stageYield } from './stage-yield.js';
 import { subBatchCombine } from './sub-batch-combine.js';
 import { tabletReconciliation } from './tablet-reconciliation.js';
+import { uniformityByWeight } from './uniformity-by-weight.js';
 import { weigh } from './weigh.js';
 
 export type { Block, BlockField, BlockSetting } from './format.js';
@@ -32,7 +36,8 @@ export type { Block, BlockField, BlockSetting } from './format.js';
 export const BLOCKS: readonly Block[] = [
   weigh, charge, sift, binderSolution, coatingSuspension, dryMix, mix, granulate, dry, dryConstant, sieve, lubricate,
   subBatchCombine, blendUniformity, densityFlow, sieveAnalysis, punchDieCheck, pressSetup, compressionRelease,
-  compress, coat, check, stageYield, tabletReconciliation, lineClearance,
+  compress, friability, disintegration, uniformityByWeight, contentUniformity, coat, check, stageYield,
+  tabletReconciliation, lineClearance,
 ];
 
 export function findBlock(ref: { id: string; version: number }): Block | undefined {
