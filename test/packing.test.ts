@@ -151,6 +151,24 @@ describe('the packing blocks', () => {
     expect(c8PrintedData({ what: 'MRP', kind: 'money', printed: '125', expected: '125.00' })).toMatchObject({ check: { pass: true } });
   });
 
+  it('TB-P9 the coding check reads the common Indian print styles, and still compares the values exactly with the batch record', () => {
+    const d = packing();
+    const c = where(d, 'coding-check');
+    const check = (field: string, printed: string, name: string) => {
+      const values = { printedBatch: 'TB260001', printedMfg: '11/2026', printedExpiry: '10/2028', printedMrp: 'Rs. 125.00', legible: 'yes', packingDone: 'no', [field]: printed };
+      return (results(d, [issued(d)], c.key, values)[name] as { check?: { pass: boolean } }).check?.pass;
+    };
+    for (const p of ['M.R.P. Rs. 125.00 (Incl. of all taxes)', 'MRP Rs.125.00 incl. of all taxes', 'm.r.p.  rs 125.00 (incl. of all taxes)']) expect([p, check('printedMrp', p, 'mrpCheck')]).toEqual([p, true]);
+    for (const p of ['MFG.DT. 11/2026', 'MFD. 11/2026', 'Mfg. Date 11/2026', 'mfg.dt.11/2026']) expect([p, check('printedMfg', p, 'mfgCheck')]).toEqual([p, true]);
+    for (const p of ['EXP.DT. 10/2028', 'EXP. 10/2028', 'Use before 10/2028', 'exp.dt.10/2028']) expect([p, check('printedExpiry', p, 'expiryCheck')]).toEqual([p, true]);
+    for (const p of ['B.No. TB260001', 'Batch No.: TB260001']) expect([p, check('printedBatch', p, 'batchCheck')]).toEqual([p, true]);
+    // The label is read; the value must still be the batch record's.
+    for (const [field, p, name] of [['printedMrp', 'M.R.P. Rs. 152.00 (Incl. of all taxes)', 'mrpCheck'], ['printedMfg', 'MFG.DT. 10/2026', 'mfgCheck'], ['printedMfg', 'Mfg. Date 11/2025', 'mfgCheck'],
+      ['printedExpiry', 'EXP.DT. 11/2028', 'expiryCheck'], ['printedExpiry', 'Use before 10/2029', 'expiryCheck'], ['printedBatch', 'B.No. TB260007', 'batchCheck']] as const) {
+      expect([p, check(field, p, name)]).toEqual([p, false]);
+    }
+  });
+
   it('TB-P5 the checks alongside the line: the next check opens after the first round, and the stage closes only when every check has its end round', () => {
     const d = packing();
     const coding = where(d, 'coding-check');

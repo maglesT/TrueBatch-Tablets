@@ -41,9 +41,14 @@ export function t27Expiry(i: T27Input): Outcome<{ readonly expiry: string; reado
   });
 }
 
-/** A printed month: "10/2028", "10-28", "OCT 2028", "EXP. OCT.2028", "2028-10". */
+// The labels printed before a value, in the common Indian print styles, with any dots, colons and spaces: "MFG.DT.",
+// "MFD.", "Mfg. Date", "EXP.DT.", "EXP.", "Expiry date", "Use before"; "M.R.P. Rs."; "B.No.", "Batch No.".
+const DATE_LABEL = /^(M\W*F\W*[GD]|MANUFACTURED|EXP(IRY)?|USE\W*BEFORE|USE\W*BY)(\W*(DATE|DT))?\W*/;
+const BATCH_LABEL = /^(B\W*NO|BATCH\W*NO|BATCH)\W*/;
+
+/** A printed month: "10/2028", "10-28", "OCT 2028", "EXP. OCT.2028", "EXP.DT. 10/2028", "2028-10". */
 export function printedMonth(text: string): string | null {
-  const t = text.toUpperCase().replace(/^(EXP(IRY)?|MFG|MFD|MFG\.? ?DATE|USE BEFORE)[.:\s]*/, '').trim();
+  const t = text.toUpperCase().trim().replace(DATE_LABEL, '').trim();
   let m = /^(\d{4})[-/.](\d{1,2})$/.exec(t);
   if (m) return Number(m[2]) >= 1 && Number(m[2]) <= 12 ? `${m[1]}-${m[2]!.padStart(2, '0')}` : null;
   m = /^(\d{1,2}|[A-Z]{3})[A-Z]*[\s./-]*(\d{4}|\d{2})$/.exec(t);
@@ -52,7 +57,9 @@ export function printedMonth(text: string): string | null {
   if (month < 1 || month > 12) return null;
   return `${m[2]!.length === 2 ? `20${m[2]}` : m[2]}-${String(month).padStart(2, '0')}`;
 }
-const money = (t: string) => t.toUpperCase().replace(/MRP|RS\.?|INR|₹|INCL.*$|\/-|,|\s|:/g, '').replace(/\.$/, '');
+// "M.R.P. Rs. 125.00 (Incl. of all taxes)", "MRP Rs.125.00 incl. of all taxes", "MRP ₹ 125/-": the amount.
+const money = (t: string) => t.toUpperCase().replace(/\(?\s*INCL.*$/, '').replace(/^\W*M\W*R\W*P\W*/, '').replace(/RS\.?|INR|₹|\/-|,|\s|:/g, '').replace(/\.$/, '');
+const plain = (t: string) => t.toUpperCase().replace(/\s+/g, '');
 
 // ---------------------------------------------------------------- C8 Printed data against the batch data
 export type C8Input = { readonly what: string; readonly printed: string } & (
@@ -69,7 +76,8 @@ export function c8PrintedData(i: C8Input): Outcome {
     let expected: string;
     if (i.kind === 'text') {
       expected = i.expected.trim();
-      pass = printed.toUpperCase().replace(/\s+/g, '') === expected.toUpperCase().replace(/\s+/g, '');
+      // As printed, or after its label ("B.No. TB260001"); the number itself must be the same.
+      pass = [printed, printed.toUpperCase().replace(BATCH_LABEL, '')].some((p) => plain(p) === plain(expected));
     } else if (i.kind === 'money') {
       if (i.expected === undefined) {
         expected = 'no MRP';
