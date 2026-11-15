@@ -1,5 +1,6 @@
 // Rule-to-test traceability: reads the TrueBatch rules (TB-xx) from docs/rules.md and the rule IDs at the start of test
-// names in test/ and e2e/, and prints the rule-to-test list. With --check it fails when a rule has no test.
+// names in test/ and e2e/, and prints the rule-to-test list. With --check it fails when a rule has no test, unless
+// docs/rules.md marks the rule "later" (its feature is not built yet).
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -7,11 +8,11 @@ import { fileURLToPath } from 'node:url';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const register = readFileSync(path.join(root, 'docs/rules.md'), 'utf8');
 
-interface Rule { id: string; text: string }
+interface Rule { id: string; text: string; later: boolean }
 const rules: Rule[] = [];
 for (const line of register.split('\n')) {
-  const m = /^\| (TB-\d\d) \| (.+?) \|/.exec(line);
-  if (m) rules.push({ id: m[1]!, text: m[2]!.trim() });
+  const m = /^\| (TB-\d\d) \| (.+?) \|(?:.*\| (later\b.*?) \|)?/.exec(line);
+  if (m) rules.push({ id: m[1]!, text: m[2]!.trim(), later: m[3] !== undefined });
 }
 
 const tests = new Map<string, string[]>();
@@ -33,13 +34,13 @@ const covered = rules.filter((r) => tests.has(r.id));
 const lines = [
   '| Rule | Requirement | Tests |',
   '|------|-------------|-------|',
-  ...rules.map((r) => `| ${r.id} | ${short(r.text).replaceAll('|', '/')} | ${(tests.get(r.id) ?? ['**NONE**']).map((x) => x.replaceAll('|', '/')).join('<br>')} |`),
+  ...rules.map((r) => `| ${r.id} | ${short(r.text).replaceAll('|', '/')} | ${(tests.get(r.id) ?? [r.later ? '*later*' : '**NONE**']).map((x) => x.replaceAll('|', '/')).join('<br>')} |`),
   '',
-  `${rules.length} rules, ${covered.length} with tests; ${[...tests.values()].flat().length} rule-named tests (TB and platform PL).`,
+  `${rules.length} rules, ${covered.length} with tests, ${rules.filter((r) => r.later && !tests.has(r.id)).length} later; ${[...tests.values()].flat().length} rule-named tests (TB and platform PL).`,
 ];
 
 if (process.argv.includes('--check')) {
-  const missing = rules.filter((r) => !tests.has(r.id)).map((r) => r.id);
+  const missing = rules.filter((r) => !tests.has(r.id) && !r.later).map((r) => r.id);
   if (missing.length) console.error(`Rules without tests: ${missing.join(', ')}`);
   console.log(lines.at(-1));
   process.exit(missing.length ? 1 : 0);

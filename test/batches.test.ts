@@ -122,7 +122,7 @@ describe('walking a stage', () => {
     expect(b.steps.find((s) => s.id === '1.1.0.1')!.blocked).toBe('Waits for the preparation Binder solution to close');
   });
 
-  it('start → record (the templates compute) → done (signed performed) → checked by another person (signed verified)', async () => {
+  it('TB-07 start → record (the templates compute) → done (signed performed) → checked by another person (signed verified)', async () => {
     expect((await act('asha', id, '0.1.0.1', 'start')).statusCode).toBe(200);
     // 10.0 mg × 100 000 = 1.000 kg target; 1.350 − 0.350 = 1.000 kg net.
     const rec = await act('asha', id, '0.1.0.1', 'record', { values: { lot: 'PVP-2611', balance: 'eq-bal', gross: '1.350', tare: '0.350' } });
@@ -240,7 +240,7 @@ describe('walking a stage', () => {
     expect((await as('viewer', 'GET', `/api/batches/${id}/steps/9.1.0.1/events`)).statusCode).toBe(404);
   });
 
-  it('step events are insert-only: the app role cannot change or delete them, nor can the owner', async () => {
+  it('TB-06 step events are insert-only: the app role cannot change or delete them, nor can the owner', async () => {
     expect(await code(t.sql`update step_events set kind = 'checked'`)).toBe('42501');
     expect(await code(t.sql`delete from step_events`)).toBe('42501');
     expect(await code(t.owner`update step_events set payload = '{}'`)).toBe('42501');

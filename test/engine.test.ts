@@ -86,7 +86,7 @@ describe('the action table', () => {
 });
 
 describe('openSteps', () => {
-  it('normal: the next step opens when the previous is done; the next stage when the previous stage is closed', () => {
+  it('TB-09 normal: the next step opens when the previous is done; the next stage when the previous stage is closed', () => {
     const doc = small([{ steps: [{}, {}] }, {}]);
     expect(stateOf(doc, [], '0.1.0.1')).toBe('open');
     expect(stateOf(doc, [], '0.1.1.1')).toBe('waiting');
@@ -130,7 +130,7 @@ describe('openSteps', () => {
     expect(stateOf(doc, r2, '0.1.1.1')).toBe('open');
   });
 
-  it('repeat-until: after the most rounds without passing, the next step needs a deviation note', () => {
+  it('TB-09 repeat-until: after the most rounds without passing, the next step needs a deviation note', () => {
     const doc = small([{ steps: [{ flow: { kind: 'repeat-until', maxRounds: 2, stop: 'readingCheck' } }, {}] }]);
     const round = (r: number) => [ev('started', `0.1.0.${r}`), reading(`0.1.0.${r}`, { readingCheck: fail }), ev('done', `0.1.0.${r}`)];
     const both = [...round(1), ...round(2)];
@@ -165,7 +165,7 @@ describe('openSteps', () => {
 });
 
 describe('corrections', () => {
-  it('a correction replaces the value and the original is kept, with the reason', () => {
+  it('TB-06 a correction replaces the value and the original is kept, with the reason', () => {
     const events = [
       ev('started', '0.1.0.1'),
       ev('value', '0.1.0.1', { payload: { values: { reading: { value: '6.1', unit: '' } }, results: { readingCheck: pass as never } } }),
@@ -193,7 +193,7 @@ describe('done needs', () => {
   const doc = small([{ steps: [{ minMinutes: 10 }] }]);
   const view = (events: StepEvent[], now: Date) => doneProblems(doc, openSteps(doc, events, now).steps[0]!, now);
 
-  it('every required field, no refused calculation and no failing check without a deviation note after it', () => {
+  it('TB-14 every required field, no refused calculation and no failing check without a deviation note after it', () => {
     expect(view([ev('started', '0.1.0.1', { min: 0 })], at(20))).toEqual(['Reading is not recorded']);
     const refused = ev('value', '0.1.0.1', { min: 1, payload: { values: { reading: { value: '1', unit: '' } }, results: { readingCheck: { ok: false, message: 'bad limit' } } } });
     expect(view([ev('started', '0.1.0.1', { min: 0 }), refused], at(20))).toEqual(['bad limit']);
@@ -201,6 +201,17 @@ describe('done needs', () => {
     expect(view([ev('started', '0.1.0.1', { min: 0 }), out], at(20))).toEqual(['Out of limits: Within limits. Add a deviation note first.']);
     expect(view([ev('started', '0.1.0.1', { min: 0 }), ev('note', '0.1.0.1', { min: 1 }), out], at(20))).toHaveLength(1);
     expect(view([ev('started', '0.1.0.1', { min: 0 }), out, ev('note', '0.1.0.1', { min: 3 })], at(20))).toEqual([]);
+  });
+
+  it('TB-16 a screen not intact after use fails the integrity check: the step needs a deviation note', () => {
+    const sieve = small([{ steps: [{ block: { id: 'sieve', version: 1 }, settings: {} }] }]);
+    const values = { machine: 'MIL-01', screen: '1.0 mm', intactBefore: 'yes', intactAfter: 'no' };
+    const results = evaluate(sieve, [], { stage: 0, sub: 1, step: 0, round: 1 }, values);
+    expect(results.integrity).toMatchObject({ ok: true, check: { pass: false } });
+    const events = [ev('started', '0.1.0.1', { min: 0 }), ev('value', '0.1.0.1', { min: 1, payload: { values, results } })];
+    const v = (e: StepEvent[]) => doneProblems(sieve, openSteps(sieve, e, at(5)).steps[0]!, at(5));
+    expect(v(events)).toEqual(['Out of limits: Screen integrity. Add a deviation note first.']);
+    expect(v([...events, ev('note', '0.1.0.1', { min: 2, payload: { text: 'Screen torn; material re-sieved' } })])).toEqual([]);
   });
 
   it('a minimum time: a 10-minute mix cannot be done earlier', () => {
