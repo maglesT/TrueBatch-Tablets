@@ -7,9 +7,11 @@ import { findBlock, type BlockField } from '../blocks/index.js';
 import type { FormulaLine, MasterDoc, SettingValue } from '../master/schema.js';
 import { callTemplate } from './templates.js';
 import { keyId, type StepEvent, type StepKey } from './state.js';
+import type { Source } from './links.js';
 
-/** A recorded value: a number with its unit, a list of them, a text (yes/no, choice, lot, time) or a picked item. */
-export type Value = { value: string; unit: string } | { value: string; unit: string }[] | string | { itemId: string; code: string; name: string; version: number };
+/** A recorded value: a number with its unit, a list of them, a text (yes/no, choice, lot, time) or a picked item (with its type and room). */
+export type Value = { value: string; unit: string } | { value: string; unit: string }[] | string
+  | { itemId: string; code: string; name: string; version: number; type?: string | null; room?: string | null };
 
 /** A template's outcome as stored in the event payload: decimals as full-precision text, with the worked line. */
 export type Stored = ({ ok: true; value: string; unit: string; shown: string; check?: { pass: boolean; level: string; shown: string } } & Record<string, unknown>) | { ok: false; message: string };
@@ -32,6 +34,8 @@ export interface Current {
   replaced: { field: string; was: Value; now: Value; reason: string; person: number | null; at: Date }[];
   // The events of other steps (or rounds) the current results were worked out from.
   uses: number[];
+  // Where each current value came from, when a link gives it (links.ts).
+  source: Record<string, Source>;
 }
 
 /**
@@ -39,13 +43,15 @@ export interface Current {
  * "done" that carries results (signing again after an input changed) replaces the results.
  */
 export function currentValues(events: readonly StepEvent[]): Current {
-  const c: Current = { values: {}, results: {}, replaced: [], uses: [] };
+  const c: Current = { values: {}, results: {}, replaced: [], uses: [], source: {} };
   for (const e of events) {
     if (e.kind !== 'value' && e.kind !== 'corrected' && !e.payload.results) continue;
     for (const [k, v] of Object.entries(e.payload.values ?? {})) {
       const was = c.values[k];
       if (e.kind === 'corrected' && was !== undefined) c.replaced.push({ field: k, was, now: v, reason: e.payload.reason ?? '', person: e.person, at: e.at });
       c.values[k] = v;
+      // A value typed again replaces where it came from too.
+      if (e.payload.source?.[k]) c.source[k] = e.payload.source[k]; else delete c.source[k];
     }
     if (e.payload.results) { c.results = e.payload.results; c.uses = e.payload.uses ?? []; }
   }

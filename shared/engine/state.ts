@@ -4,6 +4,7 @@
  */
 import type { Permission } from '../../server/auth.js';
 import type { Stored, Value } from './values.js';
+import type { Source } from './links.js';
 
 export const EVENT_KINDS = ['started', 'value', 'done', 'checked', 'sent_back', 'corrected', 'not_applicable', 'late', 'qa_released_hold', 'note'] as const;
 export type EventKind = (typeof EVENT_KINDS)[number];
@@ -27,6 +28,8 @@ export interface Payload {
   reference?: string;
   // The events of other steps the results were worked out from (values.ts, inputChanges).
   uses?: number[];
+  // Where values (or the note's reference) came from: pulled through a link, or typed by hand (links.ts).
+  source?: Record<string, Source>;
   timer?: string;
   [k: string]: unknown;
 }
@@ -86,7 +89,7 @@ export const ACTIONS: Record<Action, ActionRule> = {
   correct: { event: 'corrected', from: ['in_progress', 'done_awaiting_check', 'done', 'checked'], permissions: OPERATE, reason: true },
   'not-applicable': { event: 'not_applicable', from: ['open', 'in_progress'], permissions: OPERATE, meaning: 'performed', reason: true },
   'release-hold': { event: 'qa_released_hold', from: ['done', 'checked'], permissions: ['truebatch.qa.release'], meaning: 'released' },
-  // A deviation note (the Deviations link comes later); anyone working on the batch, in any state.
+  // A deviation note; anyone working on the batch, in any state.
   note: { event: 'note', from: ALL, permissions: ['truebatch.batch.operate', 'truebatch.batch.check', 'truebatch.batch.supervise', 'truebatch.qa.release'] },
 };
 
