@@ -1,5 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import type { Content, TDocumentDefinitions } from 'pdfmake/interfaces.js';
+import { batchRecordDoc } from '../server/batch-record.js';
 import { recordLate } from '../server/late.js';
+import { loadBatch, recordInput } from '../server/routes/batches.js';
 import { call, freshApp, login, proofFor, seedUser, type TestApp } from './helpers.js';
 import { small, tablet } from './engine-fixture.js';
 
@@ -55,6 +58,23 @@ const stepOf = async (id: number, key: string, who = 'asha') => (await batch(id,
 const act = (who: string, id: number, key: string, action: string, body: object = {}) => as(who, 'POST', `/api/batches/${id}/steps/${key}/${action}`, body);
 const sign = async (who: string, id: number, key: string, action: string, extra: object = {}) =>
   act(who, id, key, action, { proof: proofFor(who), contentHash: (await stepOf(id, key, who)).contentHash, ...extra });
+
+// The text of a PDF document definition, in order: page header, content, and the footer of page 1 of 3 (TB-22).
+function pdfText(def: TDocumentDefinitions): string {
+  const walk = (c: unknown): string => {
+    if (typeof c === 'string') return c;
+    if (Array.isArray(c)) return c.map(walk).join('');
+    if (!c || typeof c !== 'object') return '';
+    const o = c as { text?: unknown; stack?: unknown[]; table?: { body: unknown[][] }; decoration?: string };
+    if (o.stack) return o.stack.map(walk).join('\n');
+    if (o.table) return o.table.body.map((r) => r.map((x) => walk(x).trim()).join(' | ')).join('\n');
+    const t = walk(o.text);
+    return o.decoration === 'lineThrough' ? `~${t}~` : t;
+  };
+  const footer = typeof def.footer === 'function' ? def.footer(1, 3, { width: 0, height: 0 } as never) : def.footer;
+  return [def.header, ...(def.content as Content[]), footer].map(walk).join('\n');
+}
+const recordText = async (id: number) => pdfText(batchRecordDoc(await recordInput(t.sql, (await loadBatch(t.sql, id))!), 'VIEWER'));
 
 describe('master versions', () => {
   it('a new master is version 1, a draft; the draft can be changed and checked', async () => {
@@ -232,6 +252,24 @@ describe('walking a stage', () => {
     expect([after.inputChanged, after.results.target.value]).toEqual([[], s.results.target.value]);
   });
 
+  it('TB-22 the batch record PDF shows the corrected value struck through with its reason, the worked lines, limits, notes and who did what', async () => {
+    const text = await recordText(id);
+    expect(text).toMatch(/^TrueBatch Tablets · Batch record TB\d{6} · PRD-001 Examplol 100 mg film-coated tablets/);
+    expect(text).toContain('Status | in production');
+    expect(text).toContain('Changed values | marked CHANGED');
+    expect(text).toContain('Tare weight: 0.849 kg  CHANGED');
+    expect(text).toMatch(/was ~0\.850 kg~ · reason: Tare misread · ASHA, \d+ \w+ 2026, \d\d:\d\d IST/);
+    expect(text).toContain('Net weight: 11.000 kg − 0.849 kg = 10.151 kg');
+    expect(text).toContain('limit ± 0.5 %: within limits');
+    expect(text).toContain('FAIL: out of limits');
+    expect(text).toContain('MAT-001 · Examplol | api · intragranular | 100.0 | 10.000 kg | Lot API-2611: 10.151 kg (target');
+    expect(text).toMatch(/Checked: RAVI, .* IST · signed "Verified \(second person\)"/);
+    expect(text).toMatch(/Sent back: RAVI, .* · reason: Tare looks wrong/);
+    expect(text).toMatch(/DEV-26-003 \| Granulation · 2\.2 Weigh a material: Lactose monohydrate \| Lactose 0\.9 % over the corrected target \| ASHA, .* \| OPEN/);
+    expect(text).toContain('This copy was made while the batch is in production: it is not a released record.');
+    expect(text).toMatch(/Generated .* IST by VIEWER · true copy of the electronic record · page 1 of 3$/);
+  });
+
   it('GET /api/batches/:id shows each step\'s last events only', async () => {
     const b = (await as('viewer', 'GET', `/api/batches/${id}`)).json() as { steps: { id: string; events: unknown[] }[] };
     const all = (await as('viewer', 'GET', `/api/batches/${id}/steps/1.1.0.1/events`)).json() as { events: unknown[] };
@@ -289,10 +327,19 @@ describe('production approval, QC approval and QA release', () => {
     note = (n.json() as { eventId: number }).eventId;
   });
 
+  const toReview = async (who: string) => ((await as(who, 'GET', '/api/batches/to-review')).json() as { id: number; waiting: string; openDeviations: number }[]).filter((b) => b.id === id);
+  it('TB-21 the To review list: QC sees the production-approved batch, QA only once QC has approved; others may not look', async () => {
+    expect(await toReview('quinn')).toMatchObject([{ waiting: 'QC', openDeviations: 1 }]);
+    expect(await toReview('meera')).toEqual([]);
+    expect((await as('asha', 'GET', '/api/batches/to-review')).statusCode).toBe(403);
+  });
+
   it('TB-21 QC approves with its report number; QA releases only once the linked deviations are closed', async () => {
     expect((await batchSign('quinn', 'qc-approve')).statusCode).toBe(400);
     expect((await batchSign('meera', 'release')).json()).toMatchObject({ problems: ['Not possible while the batch is production approved.'] });
     expect((await batchSign('quinn', 'qc-approve', { reportNo: 'QC-26-0042' })).statusCode).toBe(200);
+    expect([await toReview('quinn'), await toReview('meera')]).toMatchObject([[], [{ waiting: 'QA', openDeviations: 1 }]]);
+    expect((await batchSign('meera', 'reject', {})).statusCode).toBe(400);
     expect((await batchSign('meera', 'release')).json()).toMatchObject({ error: 'not_ready', problems: ['Deviation DEV-26-010 (step 0.1.0.1) is open'] });
     expect((await batchAct('quinn', 'close-deviation', { note, reason: 'x' })).statusCode).toBe(403);
     expect((await batchAct('meera', 'close-deviation', { note, reason: 'Meter recalibrated; results confirmed by a second meter' })).statusCode).toBe(200);
@@ -306,6 +353,23 @@ describe('production approval, QC approval and QA release', () => {
     expect(r.status).toBe('released');
     expect(r.deviations).toMatchObject([{ reference: 'DEV-26-010', open: false, closed: { personName: 'MEERA' } }]);
     expect(r.signatures.map((x) => `${x.meaning} ${x.printedName}`)).toEqual(['issued ISSUER', 'performed ASHA', 'performed ASHA', 'verified RAVI', 'production_approved SAM', 'qc_approved QUINN', 'released MEERA']);
+  });
+
+  it('TB-22 the batch record PDF is produced, with the QC report, the release decision and every signature with its meaning', async () => {
+    const res = await as('viewer', 'GET', `/api/batches/${id}/pdf`);
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['content-type']).toBe('application/pdf');
+    expect(res.headers['content-disposition']).toMatch(/^attachment; filename="batch-record-TB\d{6}\.pdf"$/);
+    expect(res.rawPayload.subarray(0, 5).toString()).toBe('%PDF-');
+    expect((await as('viewer', 'GET', '/api/batches/999999/pdf')).statusCode).toBe(404);
+    const text = await recordText(id);
+    expect(text).toContain('Status | released');
+    expect(text).toMatch(/QC approved: QUINN, .* IST · QC report QC-26-0042/);
+    expect(text).toMatch(/Released: MEERA, .* IST/);
+    expect(text).toMatch(/DEV-26-010 \| .* \| pH meter found out of calibration \| ASHA, .* \| closed by MEERA, .*: Meter recalibrated; results confirmed by a second meter/);
+    expect(text).toContain('Stage · yield 99.0 %');
+    for (const m of ['Issued | ISSUER', 'Performed | ASHA', 'Verified (second person) | RAVI', 'Production approved | SAM', 'QC approved | QUINN', 'Released | MEERA']) expect(text).toContain(m);
+    expect(text).not.toContain('not a released record');
   });
 
   it('TB-05 every step and batch action is in TrueBatch\'s own audit trail', async () => {

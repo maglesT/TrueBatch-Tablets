@@ -42,6 +42,15 @@ describe('master checks', () => {
     expect(after(change)).toEqual([want]);
   });
 
+  it('TB-10 a stage worked in a room without a line clearance step is an error; line clearance not first is a warning', () => {
+    expect(after((d) => { d.stages[2]!.roomTypes = ['Compression']; })).toEqual(['error TB-10 stages[2]: Stage Compression is worked in a room but has no line clearance step']);
+    const clearance = { key: 'line-clearance', block: { id: 'line-clearance', version: 1 }, checker: true, waitForCheck: false, critical: false, settings: {}, flow: { kind: 'none' as const } };
+    expect(after((d) => { d.stages[2]!.roomTypes = ['Compression']; d.stages[2]!.steps.unshift(clearance); })).toEqual([]);
+    expect(after((d) => { d.stages[2]!.steps.push(clearance); })).toEqual(['warning - stages[2].steps[2]: Line clearance is not the first step of Compression']);
+    expect(after((d) => { d.stages[2]!.steps.unshift({ ...clearance, checker: false }); }))
+      .toEqual(['error TB-08 stages[2].steps[0]: A line clearance step needs a second-person check']);
+  });
+
   it('TB-01 an intermediate without a hold time is an error', () => {
     expect(after((d) => { delete d.stages[1]!.produces!.holdHours; })).toEqual(['error TB-01 stages[1].produces: The intermediate dried granules has no hold time']);
   });

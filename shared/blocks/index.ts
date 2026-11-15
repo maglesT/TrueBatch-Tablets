@@ -7,13 +7,14 @@ import { compress } from './compress.js';
 import { dry } from './dry.js';
 import { dryConstant } from './dry-constant.js';
 import { granulate } from './granulate.js';
+import { lineClearance } from './line-clearance.js';
 import { mix } from './mix.js';
 import { sieve } from './sieve.js';
 import { stageYield } from './stage-yield.js';
 import { weigh } from './weigh.js';
 
 export type { Block, BlockField, BlockSetting } from './format.js';
-export const BLOCKS: readonly Block[] = [weigh, charge, mix, granulate, dry, dryConstant, sieve, check, compress, coat, stageYield];
+export const BLOCKS: readonly Block[] = [weigh, charge, mix, granulate, dry, dryConstant, sieve, check, compress, coat, stageYield, lineClearance];
 
 export function findBlock(ref: { id: string; version: number }): Block | undefined {
   return BLOCKS.find((b) => b.id === ref.id && b.version === ref.version);

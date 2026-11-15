@@ -37,11 +37,12 @@ test('TB-02 build a master from a skeleton, fix a master-check problem, then che
   await author.getByLabel('Role of Examplol').selectOption('api');
   await expect(author.locator('.total.ok')).toContainText('equals the theoretical core weight');
 
-  // The process: 2 stages; the mix step is removed, leaving 4 steps.
+  // The process: 2 stages, each starting with line clearance (TB-10); the mix step is removed, leaving 6 steps.
   await author.getByRole('button', { name: 'Process', exact: true }).click();
-  await author.getByRole('button', { name: /2\. Mix for a time/ }).click();
+  await expect(author.locator('.steps-col .olist li').first()).toContainText('Line clearance');
+  await author.getByRole('button', { name: /3\. Mix for a time/ }).click();
   await author.getByRole('button', { name: 'Remove step blend' }).click();
-  await expect(author.locator('.steps-col .olist li')).toHaveCount(2);
+  await expect(author.locator('.steps-col .olist li')).toHaveCount(3);
 
   // The master check shows what is missing; its link selects the step, and the template sentence takes the input.
   const check = author.getByRole('complementary', { name: 'Master check' });

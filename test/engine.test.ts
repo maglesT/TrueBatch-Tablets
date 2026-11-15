@@ -214,6 +214,22 @@ describe('done needs', () => {
     expect(v([...events, ev('note', '0.1.0.1', { min: 2, payload: { text: 'Screen torn; material re-sieved' } })])).toEqual([]);
   });
 
+  it('TB-10 line clearance: every answer yes is clear; a "no" needs a deviation note; the cleaning label is recorded', () => {
+    const lc = small([{ steps: [{ block: { id: 'line-clearance', version: 1 }, checker: true, settings: {} }] }]);
+    const key = { stage: 0, sub: 1, step: 0, round: 1 };
+    const label = { cleanedOn: '15 Nov 2026 06:40', cleanedBy: 'R. Operator' };
+    expect(evaluate(lc, [], key, { previousRemoved: 'yes', clean: 'yes', noOther: 'yes', ...label }).clearance)
+      .toMatchObject({ ok: true, check: { pass: true }, shown: 'Line clear: 3 of 3 as expected (yes): pass' });
+    const values = { room: 'BLN-01', previousRemoved: 'yes', clean: 'no', noOther: 'yes', ...label };
+    const results = evaluate(lc, [], key, values);
+    const events = [ev('started', '0.1.0.1', { min: 0 }), ev('value', '0.1.0.1', { min: 1, payload: { values, results } })];
+    const v = (e: StepEvent[]) => doneProblems(lc, openSteps(lc, e, at(5)).steps[0]!, at(5));
+    expect(v(events)).toEqual(['Out of limits: Line clear. Add a deviation note first.']);
+    const partial = [events[0]!, ev('value', '0.1.0.1', { min: 1, payload: { values: { previousRemoved: 'yes' }, results: {} } })];
+    expect(v(partial)).toEqual(['Room is not recorded', 'Area and equipment clean (status label) is not recorded', 'Cleaned on (date and time on the label) is not recorded',
+      'Cleaned by (name on the label) is not recorded', 'No materials or documents of other products is not recorded']);
+  });
+
   it('a minimum time: a 10-minute mix cannot be done earlier', () => {
     const events = [ev('started', '0.1.0.1', { min: 0 }), ev('value', '0.1.0.1', { min: 1, payload: { values: { reading: { value: '6', unit: '' } }, results: { readingCheck: pass as never } } })];
     expect(view(events, at(9))).toEqual([`The minimum time is 10 min: the step can be finished from ${at(10).toISOString()}`]);

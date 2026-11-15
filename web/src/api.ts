@@ -63,6 +63,7 @@ export const MEANING_LABEL: Record<string, string> = {
   production_approved: 'Production approved',
   qc_approved: 'QC approved',
   released: 'Released',
+  rejected: 'Rejected',
 };
 
 // PL-05: a signing proof from core's re-authentication. A small window opens /sign, core asks for the password again,

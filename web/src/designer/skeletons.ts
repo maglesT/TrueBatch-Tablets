@@ -1,6 +1,7 @@
 // Process skeletons a new master may start from: the usual stages and steps of a process, as data. Settings that
 // depend on the product (which material a step weighs, its limits) are left for the author; the master check lists
-// them. Tablet-weight limits start at ± 5 % of the header's core weight.
+// them. Tablet-weight limits start at ± 5 % of the header's core weight. Every stage is worked in a room, so each
+// starts with line clearance (TB-10).
 import { findBlock } from '../../../shared/blocks/index.js';
 import { Dec } from '../../../shared/templates/index.js';
 import type { MasterDoc, SettingValue, Stage, Step } from '../../../shared/master/schema.js';
@@ -54,7 +55,7 @@ export function skeletonStages(id: string, h: Header): Stage[] {
   return sk.stages.map((p) => ({
     key: p.key, name: p.name, kind: p.kind ?? 'normal', roomTypes: [], machineTypes: [], role: p.role, uses: p.uses ?? [],
     ...(p.produces ? { produces: { name: p.produces[0], holdHours: p.produces[1] } } : {}),
-    steps: p.steps.reduce<Step[]>((steps, sp) => {
+    steps: [{ block: 'line-clearance' }, ...p.steps].reduce<Step[]>((steps, sp) => {
       const block = findBlock({ id: sp.block, version: 1 })!;
       const settings = Object.fromEntries(Object.entries(sp.settings?.(h) ?? {}).filter(([, v]) => v !== ''));
       return [...steps, { ...stepFrom(block, steps.map((t) => t.key)), ...(sp.key ? { key: sp.key } : {}), settings, ...(sp.minMinutes ? { minMinutes: sp.minMinutes } : {}) }];

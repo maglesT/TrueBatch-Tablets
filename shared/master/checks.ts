@@ -48,6 +48,10 @@ export function masterChecks(doc: MasterDoc): Problem[] {
     if (s.produces && !s.produces.holdHours) error(`${path}.produces`, `The intermediate ${s.produces.name} has no hold time`, 'TB-01');
     if (s.kind !== 'preparation' && !s.steps.some((t) => findBlock(t.block)?.gmp === 'yield')) error(path, `Stage ${s.name} has no yield step`);
     if (s.kind === 'preparation' && !doc.stages.some((x) => x.uses.includes(s.key))) warn(path, `No stage uses the preparation ${s.name}`);
+    // TB-10: a stage worked in a room starts with line clearance.
+    const clearance = s.steps.findIndex((t) => findBlock(t.block)?.gmp === 'line-clearance');
+    if (s.roomTypes.length && clearance < 0) error(path, `Stage ${s.name} is worked in a room but has no line clearance step`, 'TB-10');
+    if (clearance > 0) warn(`${path}.steps[${clearance}]`, `Line clearance is not the first step of ${s.name}`);
     for (const u of s.uses) {
       const pi = doc.stages.findIndex((x) => x.key === u);
       if (pi < 0 || pi >= si) error(`${path}.uses`, `${u} is not an earlier stage`);
@@ -57,7 +61,7 @@ export function masterChecks(doc: MasterDoc): Problem[] {
       const p = `${path}.steps[${ti}]`;
       const block = findBlock(st.block);
       if (!block) return void error(`${p}.block`, `No block ${st.block.id} version ${st.block.version}`);
-      if (!st.checker && (block.gmp || st.critical)) error(p, `${block.gmp ? `A ${block.gmp} step` : 'A critical step'} needs a second-person check`, 'TB-08');
+      if (!st.checker && (block.gmp || st.critical)) error(p, `${block.gmp ? `A ${block.gmp.replace('line-clearance', 'line clearance')} step` : 'A critical step'} needs a second-person check`, 'TB-08');
       if (st.critical && st.flow.kind === 'optional-with-reason') error(`${p}.flow`, 'A critical step cannot be optional');
       if (st.waitForCheck && !st.checker) warn(p, 'The next step waits for a check this step does not have');
       for (const bs of block.settings) if (!bs.optional && st.settings[bs.name] === undefined) error(`${p}.settings.${bs.name}`, `${bs.label} is not set`);
