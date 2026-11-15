@@ -48,7 +48,8 @@ rules to the table above. Each safety rule refuses with a plain-English message.
     inside the potency.
   - **Molecules per salt formula unit (T11).** The salt factor uses the MW of the salt divided by the number of drug
     molecules per formula unit (2 for hemifumarates and for calcium salts with two anions), so a hemi-salt cannot
-    double the dose.
+    double the dose. A hemi-salt left at 1 molecule per unit with the MW of the whole formula unit (at least twice
+    the other form's) is refused.
   - **No negative filler (T10).** A compensating excipient that would go below zero is refused: the batch weight
     cannot be kept, and a deviation is needed.
   - **Potency units are never a mass.** IU, CFU and activity units never convert to a mass. They become a weight

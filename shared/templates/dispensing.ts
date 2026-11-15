@@ -131,10 +131,25 @@ export interface T11Extra {
   readonly form: { readonly name: string; readonly hydrateOrSolvate: boolean };
 }
 
+// A hemi-salt (hemifumarate, hemisulfate, hemitartrate …) has 2 drug molecules per formula unit; a hemihydrate or
+// hemipentahydrate is about water, not about the drug molecules.
+const HEMI_SALT = /hemi(?![a-z]*(hydrate|solvate))[a-z]/i;
+
 function molecules(f: Form): number {
   const n = f.moleculesPerUnit ?? 1;
   if (!Number.isInteger(n) || n < 1) refuse(`Molecules per formula unit for ${f.name} must be a whole number, 1 or more`);
   return n;
+}
+
+/**
+ * Molecules per salt unit ignored: a hemi-salt given with 1 molecule per unit and a molecular weight at least twice
+ * the other form's is the MW of the whole formula unit (2 drug molecules); the factor would double the dose.
+ * A MW per drug molecule (quetiapine hemifumarate 441.55 against quetiapine 383.51) is fine.
+ */
+function hemiIgnored(f: Form, n: number, mw: Dec, otherPerMolecule: Dec): void {
+  if (n === 1 && HEMI_SALT.test(f.name) && mw.div(otherPerMolecule).gte(2)) {
+    refuse(`${f.name} is a hemi-salt and its molecular weight ${f.mw} is that of the whole formula unit, which carries 2 drug molecules. Set 2 molecules per formula unit, or the dose would be doubled`);
+  }
 }
 
 /**
@@ -150,6 +165,8 @@ export function t11SaltFactor(i: T11Input): Outcome<T11Extra> {
     if (!mwFrom.isPositive() || mwFrom.isZero() || !mwTo.isPositive() || mwTo.isZero()) refuse('Molecular weights must be more than zero');
     const nFrom = molecules(i.from);
     const nTo = molecules(i.to);
+    hemiIgnored(i.to, nTo, mwTo, mwFrom.div(nFrom));
+    hemiIgnored(i.from, nFrom, mwFrom, mwTo.div(nTo));
     const factor = mwTo.div(nTo).div(mwFrom.div(nFrom));
     const u = outUnit(q, i.unit);
     const value = to(q, u).times(factor);
