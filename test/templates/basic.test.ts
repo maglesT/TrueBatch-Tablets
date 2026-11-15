@@ -189,6 +189,7 @@ describe('T5 % change', () => {
     [{ before: '25 °C', after: '30 °C', mode: 'gain' as const, base: 'start' as const }, /temperatures/],
     [{ before: '155 mg', after: '1 mL', mode: 'gain' as const, base: 'start' as const }, /cannot be converted/],
     [{ before: '155 mg', after: '175 mg', mode: 'gain' as const } as unknown as Parameters<typeof t5PercentChange>[0], /Say which weight/],
+    [{ before: '155 mg', after: '175 mg', mode: 'gain' as const, base: 'core' } as unknown as Parameters<typeof t5PercentChange>[0], /Say which weight/],
     [{ before: '155 mg', after: '175 mg', mode: 'gain' as const, base: { stage: 'core', weight: '0 mg' } }, /The core weight must be more than zero/],
   ])('T5: refuses %o', (i, msg) => {
     expect(refused(t5PercentChange(i))).toMatch(msg);

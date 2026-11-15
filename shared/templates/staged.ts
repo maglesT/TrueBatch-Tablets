@@ -23,17 +23,20 @@ import { Dec, fmt, parse, refuse, run, ZERO, type Outcome } from './core.js';
 import { roundHalfUp, writtenDecimals, type Check } from './rounding.js';
 import { t14ContentUniformity, type Coating } from './uniformity.js';
 
-export type C6Input =
-  | { readonly test: 'disintegration'; readonly maxTime: string; readonly stages: readonly (readonly string[])[] }
-  | { readonly test: 'content uniformity'; readonly coating: Coating; readonly target?: string; readonly stages: readonly (readonly string[])[] }
-  | { readonly test: 'dissolution IR' | 'dissolution DR buffer'; readonly Q: string; readonly stages: readonly (readonly string[])[] }
-  | { readonly test: 'dissolution DR acid'; readonly max?: string; readonly stages: readonly (readonly string[])[] }
+/** A unit's result: a plain value ("4.5", "> 15"), or a reading with its unit as a block records it. */
+type Item = string | { readonly value: string; readonly unit: string };
+type Stages<X> =
+  | { readonly test: 'disintegration'; readonly maxTime: string; readonly stages: readonly (readonly X[])[] }
+  | { readonly test: 'content uniformity'; readonly coating: Coating; readonly target?: string; readonly stages: readonly (readonly X[])[] }
+  | { readonly test: 'dissolution IR' | 'dissolution DR buffer'; readonly Q: string; readonly stages: readonly (readonly X[])[] }
+  | { readonly test: 'dissolution DR acid'; readonly max?: string; readonly stages: readonly (readonly X[])[] }
   | {
       readonly test: 'dissolution ER';
       readonly ranges: readonly { readonly time: string; readonly low?: string; readonly high?: string }[];
       /** One array per stage; each unit is one array of values, one per time point. */
       readonly stages: readonly (readonly (readonly string[])[])[];
     };
+export type C6Input = Stages<Item>;
 
 export type Decision = 'pass' | 'next stage' | 'fail';
 
@@ -92,7 +95,10 @@ function qRule(Qtext: string, stages: readonly (readonly string[])[], label: str
 }
 
 /** C6 Staged test. */
-export function c6StagedTest(i: C6Input): Outcome<C6Extra> {
+export function c6StagedTest(input: C6Input): Outcome<C6Extra> {
+  // A reading with its unit counts as its value: the units of the times and contents are the test's own (min, %).
+  const i = (input.test === 'dissolution ER' ? input
+    : { ...input, stages: input.stages.map((s) => s.map((x) => (typeof x === 'string' ? x : x.value))) }) as Stages<string>;
   const body = (): Outcome<C6Extra> => {
     switch (i.test) {
       case 'disintegration': {

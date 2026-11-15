@@ -167,7 +167,7 @@ export function t5PercentChange(i: T5Input): Outcome {
     const a = parse(i.after, 'The weight after');
     sameKind([a, b], '% change');
     if (b.unit.kind === 'temperature') refuse('A % change is not taken of temperatures');
-    if (i.base === undefined) refuse('Say which weight the change is expressed on: the starting weight, the final weight or a named earlier stage');
+    if (i.base === undefined || (typeof i.base === 'string' && i.base !== 'start' && i.base !== 'final')) refuse('Say which weight the change is expressed on: the starting weight, the final weight or a named earlier stage');
     const named = typeof i.base === 'object' ? i.base : undefined;
     const base = named !== undefined ? parse(named.weight, `The ${named.stage} weight`) : i.base === 'final' ? a : b;
     sameKind([b, base], '% change');
