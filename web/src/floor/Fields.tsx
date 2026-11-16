@@ -9,7 +9,7 @@ type Raw = string | string[];
  */
 export function FieldInput({ f, unit, saved, picks = [], note, options = [], disabled, out, onSave, onChange }: {
   f: BlockField; unit: string; saved?: Value; picks?: PickItem[]; disabled?: boolean;
-  // A machine: why some machines of master data are not offered (shared/engine/picks.ts, untypedNote).
+  // A machine or room: why some of master data are not offered (shared/engine/picks.ts: untypedNote, inLogbook).
   note?: string | null;
   // A lot: the lots a link offers, to pick from (typing stays possible when the link is absent or down).
   options?: string[];
@@ -75,7 +75,7 @@ export function FieldInput({ f, unit, saved, picks = [], note, options = [], dis
     );
   } else if (f.kind === 'machine' || f.kind === 'room') {
     input = <>
-      {picks.length === 0 ? <p className="muted">No {f.kind === 'room' ? 'room this stage allows' : `${f.label.toLowerCase()} of the types and rooms this stage allows`} is active in master data.</p> : (
+      {picks.length === 0 ? !note && <p className="muted">No {f.kind === 'room' ? 'room this stage allows' : `${f.label.toLowerCase()} of the types and rooms this stage allows`} is active in master data.</p> : (
         <div className="picks" role="group" aria-label={f.label}>
           {picks.map((p) => (
             <button key={p.itemId} type="button" className={raw === p.itemId ? 'on' : ''} aria-pressed={raw === p.itemId} disabled={disabled} onClick={() => tap(p.itemId)}>

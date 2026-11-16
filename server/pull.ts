@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import type { MasterEquipment, MasterRoom } from './master.js';
 import type { Block, BlockField } from '../shared/blocks/index.js';
 import { materialLines, type FormulaLine, type MasterDoc, type PackMaterial, type Step } from '../shared/master/schema.js';
-import { CERTIFICATE, PROVIDER_NAME, type Provider, type Source, type Value } from '../shared/engine/index.js';
+import { CERTIFICATE, PROVIDER_NAME, clauses, type Provider, type Source, type Value } from '../shared/engine/index.js';
 import { LOT_USABLE } from './links.js';
 import { plantDate } from '../shared/plant-time.js';
 
@@ -29,9 +29,9 @@ export async function pullItem(app: FastifyInstance, block: Block, f: BlockField
   if (!s) return refused(`${item.code} is not in the Logbook, so it cannot be used.`);
   // The line clearance after packing clears the line this batch has just used (it may already be dirty: a stage that
   // names no rooms does not keep the line in use, equipment_use_v1).
-  if (!s.fitForUse && block.id !== 'pack-clearance-after') return refused(`${item.code} is not fit for use (Logbook): ${s.blockers.join('; ') || stateWords(s.state)}.`);
+  if (!s.fitForUse && block.id !== 'pack-clearance-after') return refused(`${item.code} is not fit for use (Logbook): ${clauses(s.blockers) || stateWords(s.state)}.`);
   if (s.inUseBatch && s.inUseBatch !== batchNo) return refused(`${item.code} is in use by batch ${s.inUseBatch} (Logbook).`);
-  const source: Source = { from: 'logbook', asOf: s.checkedAt, shown: [`${item.code}: ${stateWords(s.state)}`, ...s.warnings].join('; ') };
+  const source: Source = { from: 'logbook', asOf: s.checkedAt, shown: clauses([`${item.code}: ${stateWords(s.state)}`, ...s.warnings]) };
   const out: Pulled = { source, values: {}, sources: {}, problems: [] };
   // The line clearance facts the Logbook has (the room, or a packing line): clean (it is fit for use), when and by whom it was cleaned.
   if ((f.kind === 'room' || f.kind === 'machine') && block.gmp === 'line-clearance') {

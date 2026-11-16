@@ -2,11 +2,11 @@ import { useEffect, useState } from 'react';
 import { api, ApiError } from '../api.js';
 import { SignDialog } from '../components/SignDialog.js';
 import { getVersion, type MasterRow, type Version } from '../api-designer.js';
-import { batchLink, go, plainError, type PickItem } from '../api-floor.js';
+import { batchLink, go, plainError, useLogbookItems, type PickItem } from '../api-floor.js';
 import { FieldInput } from './Fields.js';
 import { findBlock } from '../../../shared/blocks/index.js';
 import { handFields, type Source } from '../../../shared/engine/links.js';
-import { machineRefusal, untypedNote } from '../../../shared/engine/picks.js';
+import { inLogbook, machineRefusal, untypedNote } from '../../../shared/engine/picks.js';
 
 // TB-03: issue a batch from the effective master version, signed "issued". A packing master's first step is recorded
 // at issue: the line, the released bulk batch (picked from TrueBatch Tablets; typed from its labels without the link)
@@ -30,6 +30,9 @@ export function IssueDialog({ row, onCancel }: { row: MasterRow; onCancel: () =>
       .then(([all, rooms]) => { setMachines(all); setLines(all.filter((m) => m.active && atIssue.some((f) => f.kind === 'machine' && !machineRefusal(doc.stages[0]!, f, m, rooms)))); }, () => {});
   }, [doc]);
 
+  // While the Logbook is linked, only the lines it has (shared/engine/picks.ts).
+  const logbook = useLogbookItems(atIssue.some((f) => f.kind === 'machine'));
+  const offer = inLogbook(lines, logbook);
   if (!doc) return null;
   // The label questions of a value the server found typed by hand ("… is not recorded").
   const asked = handFields(block?.fields ?? [], Object.fromEntries((block?.fields ?? []).map((f) => [f.name, { from: 'hand', link: 'mms', state: 'absent' } as Source])))
@@ -53,7 +56,7 @@ export function IssueDialog({ row, onCancel }: { row: MasterRow; onCancel: () =>
         <h2>Issue a batch</h2>
         <p>{doc.header.productCode} · {doc.header.productName}, version {row.versionNo}: {Number(doc.header.batchSize).toLocaleString('en-IN')} tablets{doc.pack ? `, packed from ${doc.pack.bulkCode}` : ''}. The batch number is given by the server.</p>
         {fields.map((f) => (
-          <FieldInput key={f.name} f={f} unit={f.unit ?? ''} picks={f.kind === 'machine' ? lines : []} note={untypedNote(f, machines)} onChange={set(f.name)}
+          <FieldInput key={f.name} f={f} unit={f.unit ?? ''} picks={f.kind === 'machine' ? offer.offered : []} note={[untypedNote(f, machines), f.kind === 'machine' ? offer.note : null].filter(Boolean).join(' ') || null} onChange={set(f.name)}
             options={f.kind === 'bulk' ? (bulk?.batches ?? []).map((x) => x.batchNo) : []} />
         ))}
         {doc.pack && bulk && bulk.link !== 'ok' && <p className="notice warn">TrueBatch Tablets is not linked or not answering: type the bulk batch from its container labels; a second person checks it.</p>}

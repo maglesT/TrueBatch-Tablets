@@ -57,3 +57,9 @@ export function fieldLabel(fields: readonly BlockField[], name: string): string 
 }
 /** A step with a value entered by hand needs a second-person check, whatever the master says. */
 export const handEntered = (source: Record<string, Source>) => Object.values(source).some(isHand);
+
+/**
+ * Sentences of another product (a Logbook blocker: "Dirty: clean and verify before the next use.") put into one of
+ * ours: each without its own closing stop, joined by "; ". The sentence that wraps them ends with one full stop.
+ */
+export const clauses = (parts: readonly string[]) => parts.map((p) => p.trim().replace(/[\s.;]+$/, '')).filter(Boolean).join('; ');

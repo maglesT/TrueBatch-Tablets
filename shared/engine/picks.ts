@@ -48,3 +48,17 @@ export function untypedNote(f: BlockField, machines: readonly (PickMachine & { a
   const shown = codes.length > 6 ? `${codes.slice(0, 6).join(', ')} and ${codes.length - 6} more` : codes.join(', ');
   return `Not offered, because master data gives no type: ${shown}. Engineering sets the type (and the room) in master data.`;
 }
+
+/**
+ * While the Logbook link answers, a machine or room is used only if the Logbook has it (server/pull.ts refuses any
+ * other): the picker offers only those and names the ones it leaves out. `known`: the master-data ids the Logbook has;
+ * null while the link is absent or down (every item is offered, and its status labels are answered by hand).
+ */
+export function inLogbook<T extends { itemId: string; code: string }>(items: readonly T[], known: readonly string[] | null): { offered: T[]; note: string | null } {
+  if (!known) return { offered: [...items], note: null };
+  const offered = items.filter((i) => known.includes(i.itemId));
+  const codes = items.filter((i) => !known.includes(i.itemId)).map((i) => i.code);
+  if (!codes.length) return { offered, note: null };
+  const shown = codes.length > 6 ? `${codes.slice(0, 6).join(', ')} and ${codes.length - 6} more` : codes.join(', ');
+  return { offered, note: `Not offered, because the Logbook does not have ${codes.length === 1 ? 'it' : 'them'}: ${shown}. Only what the Logbook has can be used while it is linked.` };
+}

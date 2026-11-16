@@ -1,5 +1,8 @@
 import { expect, test, type Browser, type Page } from '@playwright/test';
-import { E2E_PACKING_PORT } from './config.js';
+import { connect } from '../server/db.js';
+import { PACKING_APP_ROLE } from '../packing/migrate.js';
+import { TEST_DATABASE_URL } from '../test/helpers.js';
+import { E2E_PACKING_PORT, E2E_PACKING_SCHEMA } from './config.js';
 import { logIn } from './helpers.js';
 
 // TrueBatch Tablets Packing in the browser: a packing master built in the designer from the packing skeleton (its
@@ -28,6 +31,8 @@ test('TB-P2 packing journey: packing master from the skeleton, approved; a packi
   const author = await person(browser, 'pauthor');
   await expect(author.page.locator('.brand')).toContainText('TrueBatch Tablets Packing');
   await masters(author.page);
+  // The product's own words: the page is headed as its tab.
+  await expect(author.page.getByRole('heading', { level: 1 })).toHaveText('Packing masters');
   await author.page.getByRole('button', { name: 'New master' }).click();
   await author.page.getByLabel('Pack product').fill('PK-001');
   await author.page.locator('.picker').first().getByRole('button', { name: /PK-001/ }).click();
@@ -89,11 +94,32 @@ test('TB-P2 packing journey: packing master from the skeleton, approved; a packi
   }
 
   // The packing batch, issued on the packing masters screen from the released bulk batch TB260001 (picked from TrueBatch
-  // Tablets) on line BL-01; no Logbook link, so the line's status labels are asked for.
+  // Tablets) on line BL-01.
   const iss = await person(browser, 'piss');
   await masters(iss.page);
-  await iss.page.getByRole('row', { name: /Effective/ }).getByRole('button', { name: 'Issue a batch' }).click();
   const issue = iss.page.getByRole('dialog', { name: 'Issue a batch' });
+  // While the Logbook answers, the line picker offers only the lines it has (BL-01, not BL-02) and says why; the
+  // Logbook's reason for refusing a dirty line reads as one sentence, with one full stop.
+  const lb = connect(TEST_DATABASE_URL);
+  await lb.unsafe(`grant select on ${E2E_PACKING_SCHEMA}_lb.equipment_status_v1 to ${PACKING_APP_ROLE}`);
+  try {
+    await iss.page.getByRole('row', { name: /Effective/ }).getByRole('button', { name: 'Issue a batch' }).click();
+    await expect(issue.getByText('Not offered, because the Logbook does not have it: BL-02.')).toBeVisible();
+    await expect(issue.getByRole('group', { name: 'Packing line' }).getByRole('button')).toHaveText([/BL-01/]);
+    await issue.getByRole('group', { name: 'Packing line' }).getByRole('button', { name: /BL-01/ }).click();
+    await issue.getByLabel('Bulk batch no.').fill('TB260001');
+    await issue.getByLabel('Bulk tablets issued').fill('100000');
+    await issue.getByRole('button', { name: 'Next: sign' }).click();
+    await iss.page.getByRole('dialog').last().getByRole('button', { name: 'Sign', exact: true }).click();
+    await expect(issue.getByRole('alert')).toHaveText('BL-01 is not fit for use (Logbook): Dirty: clean and verify before the next use.');
+    await issue.getByRole('button', { name: 'Cancel' }).click();
+  } finally {
+    await lb.unsafe(`revoke select on ${E2E_PACKING_SCHEMA}_lb.equipment_status_v1 from ${PACKING_APP_ROLE}`);
+    await lb.end();
+  }
+  // The Logbook link down: every line is offered again, and the line's status labels are asked for.
+  await iss.page.getByRole('row', { name: /Effective/ }).getByRole('button', { name: 'Issue a batch' }).click();
+  await expect(issue.getByRole('group', { name: 'Packing line' }).getByRole('button')).toHaveText([/BL-01/, /BL-02/]);
   await issue.getByRole('group', { name: 'Packing line' }).getByRole('button', { name: /BL-01/ }).click();
   await expect(issue.locator('datalist option[value="TB260001"]')).toHaveCount(1);
   await issue.getByLabel('Bulk batch no.').fill('TB260001');

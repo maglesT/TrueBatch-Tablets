@@ -54,6 +54,21 @@ export function useLinked<T>(url: string | null, list: string): T[] {
   return items;
 }
 
+/**
+ * The master-data ids of the machines and rooms the Logbook has, for their pick lists (shared/engine/picks.ts,
+ * inLogbook); null while the Logbook link is absent or down, or not read yet (then every item is offered).
+ */
+export function useLogbookItems(on: boolean): string[] | null {
+  const [items, setItems] = useState<string[] | null>(null);
+  useEffect(() => {
+    if (!on) return;
+    let live = true;
+    void api<{ link: string; items: string[] }>('GET', '/api/logbook/items').then((r) => live && setItems(r.link === 'ok' ? r.items : null), () => {});
+    return () => { live = false; };
+  }, [on]);
+  return items;
+}
+
 // ---- routes: #/ (My work), #/batch/12, #/batch/12/step/0.1.0.1, #/batch/12/approve, #/release (To review), #/release/12 ----
 export interface Route { batch?: number; step?: string; approve?: boolean; release?: number | 'list' }
 export function parseRoute(hash: string): Route {

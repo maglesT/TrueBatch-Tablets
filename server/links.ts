@@ -98,6 +98,8 @@ export const logbookClient = (l: Link) => ({
     return { code: r.code, state: r.state, fitForUse: r.fit_for_use, blockers: r.blockers ?? [], warnings: r.warnings ?? [], inUseBatch: r.in_use_batch,
       cleanedAt: r.cleaned_at, cleanedBy: r.cleaned_by, checkedAt: r.checked_at.toISOString() } satisfies EquipmentStatus;
   }),
+  // The master-data ids of every machine, instrument and room the Logbook has, for the pick lists (only these can be used).
+  known: () => l.read(async (q, v) => (await q<{ id: string }[]>`select distinct master_id::text as id from ${v('equipment_status_v1')} where master_id is not null`).map((r) => r.id)),
 });
 
 // ---- MMS: report.lot_v1 and report.lot_test_v1 (planned, with numbers for assay, water and LOD and their basis).

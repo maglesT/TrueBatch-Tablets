@@ -74,7 +74,7 @@ export function Designer({ me, versionId, onBack, onOpen }: { me: Me; versionId:
   const problems = useMemo(() => (parsed?.success ? masterChecks(parsed.data) : null), [parsed]);
   const go = (path: string) => { const p = placeOf(path); setPlace(p); setTab(p.tab); };
 
-  if (error) return <><button className="link dark" onClick={onBack}>← Master records</button><p className="notice">{error}</p></>;
+  if (error) return <><button className="link dark" onClick={onBack}>← {product.masters}</button><p className="notice">{error}</p></>;
   if (!v || !doc || !md) return <div className="skel skel-block tall" />;
   const others = rows.filter((r) => r.id !== v.id);
   const blocked = problems === null || problems.some(blocking);
@@ -82,7 +82,7 @@ export function Designer({ me, versionId, onBack, onOpen }: { me: Me; versionId:
   return (
     <div className="designer-page">
       <div className="d-top">
-        <button className="link dark" onClick={async () => { await flush(); onBack(); }}>← Master records</button>
+        <button className="link dark" onClick={async () => { await flush(); onBack(); }}>← {product.masters}</button>
         <div className="d-title">
           <h1>{doc.header.productCode} · {doc.header.productName}</h1>
           <span className="muted">Version {v.versionNo} · {Number(doc.header.batchSize || 0).toLocaleString('en-IN')} tablets</span>

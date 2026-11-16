@@ -32,7 +32,9 @@ answering) or **ok**.
   `CHANGE_STEPS`, and its products must name the master's product (code or name, without case); one that names no
   product is taken with a warning to QA. By hand: another person makes the version effective.
 - **Logbook** (`equipment_status_v1`, planned): a machine or room must be fit for use and not in use by another batch;
-  the Logbook's reasons are shown word for word; a status older than 5 minutes counts as down. Line clearance takes
+  the Logbook's reasons are shown word for word (each without its own closing stop inside our sentence); a status
+  older than 5 minutes counts as down. While the link answers, the machine and room pickers offer only what the
+  Logbook has and name the ones left out (`shared/engine/picks.ts`, `inLogbook`); absent or down, every one is offered. Line clearance takes
   clean, cleaned on and cleaned by from it. By hand: the status-label questions, each answered yes.
 - **MMS** (`lot_v1`, `lot_test_v1`, planned, with numbers): the lot must exist, be the line's material, released, in
   date and not past retest; assay, water, LOD and content come as numbers in %, the assay on the master's basis. By

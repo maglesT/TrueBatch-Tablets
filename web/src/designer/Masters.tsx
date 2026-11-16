@@ -6,6 +6,7 @@ import { listMasters, loadMasterData, newVersion, STATE_CHIP, STATE_LABEL, type 
 import { Designer } from './Designer.js';
 import { IssueDialog } from '../floor/IssueDialog.js';
 import { NewMaster } from './Header.js';
+import { product } from '../product.js';
 import './designer.css';
 
 export function Masters({ me }: { me: Me }) {
@@ -35,7 +36,7 @@ export function Masters({ me }: { me: Me }) {
     <>
       <div className="home-head">
         <div>
-          <h1>Master records</h1>
+          <h1>{product.masters}</h1>
           <p className="greeting">One row per version. A draft is written here, checked by a second person and approved by QA.</p>
         </div>
         {author && <button className="primary" onClick={() => setCreating({})} disabled={!md}>New master</button>}
@@ -43,7 +44,7 @@ export function Masters({ me }: { me: Me }) {
       {error && <p className="notice">{error}</p>}
       <input className="search" placeholder="Search by product code or name" aria-label="Search masters" value={q} onChange={(e) => setQ(e.target.value)} />
       {rows === null ? <div className="skel skel-block" /> : !rows.length ? (
-        <div className="card placeholder"><p>No master records yet.{author && ' Start with New master.'}</p></div>
+        <div className="card placeholder"><p>No {product.masters.toLowerCase()} yet.{author && ' Start with New master.'}</p></div>
       ) : (
         <div className="table-wrap">
           <table className="masters">

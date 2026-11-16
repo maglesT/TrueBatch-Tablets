@@ -5,6 +5,7 @@ import { findBlock } from '../shared/blocks/index.js';
 import { batchRefusal, batchView, fieldLabel, handFields, type BatchEvent } from '../shared/engine/index.js';
 import { call, freshApp, handLabels, login, proofFor, seedUser, TEST_DATABASE_URL, type TestApp } from './helpers.js';
 import { at, ev, small, tablet, placed } from './engine-fixture.js';
+import { inLogbook } from '../shared/engine/picks.js';
 
 // The links to Deviations, QMS, Logbook and MMS (owner 15 Nov 2026), each read through a fake provider schema in the
 // test database with TrueBatch's restricted login, as on the platform: absent (no URL), down (refused or not
@@ -45,7 +46,7 @@ beforeAll(async () => {
         ('CC-2026-0005', 'closure', 'New sifter screen', null, now());
       insert into ${S.lb}.equipment_status_v1 (master_id, code, kind, state, fit_for_use, blockers, warnings, in_use_batch, cleaned_at, cleaned_by, checked_at) values
         ('eq-str', 'STR-01', 'equipment', 'clean', true, '{}', '{"Use allowed under exception EXC-7"}', null, null, null, now()),
-        ('eq-str2', 'STR-02', 'equipment', 'dirty', false, '{"Dirty hold expired","Calibration overdue"}', '{}', null, null, null, now()),
+        ('eq-str2', 'STR-02', 'equipment', 'dirty', false, '{"Dirty: clean and verify before the next use.","Calibration overdue."}', '{}', null, null, null, now()),
         ('eq-str3', 'STR-03', 'equipment', 'in use', true, '{}', '{}', 'XB26001', null, null, now()),
         ('eq-str4', 'STR-04', 'equipment', 'clean', true, '{}', '{}', null, null, null, now() - interval '10 minutes'),
         ('eq-bal', 'BAL-01', 'instrument', 'clean', true, '{}', '{}', null, null, null, now()),
@@ -174,9 +175,27 @@ describe('TB-11 Logbook: equipment and rooms fit for use', () => {
     expect((await sign('asha', b.id, '0.1.0.1', 'done')).statusCode).toBe(200);
   });
 
+  it('TB-11 while the Logbook answers, the machine and room pickers offer only what it has and name the rest; absent or down, every one', async () => {
+    const read = async () => (await as('asha', 'GET', '/api/logbook/items')).json() as { link: string; items: string[] };
+    const r = await read();
+    expect(r.link).toBe('ok');
+    expect([...r.items].sort()).toEqual(['eq-bal', 'eq-rmg', 'eq-str', 'eq-str2', 'eq-str3', 'eq-str4', 'rm-1']);
+    const stirrers = t.master.equipment_.filter((m) => m.type === 'stirrer');
+    const picks = inLogbook(stirrers, r.items);
+    expect(picks.offered.map((m) => m.code)).toEqual(['STR-01', 'STR-02', 'STR-03', 'STR-04']);
+    expect(picks.note).toBe('Not offered, because the Logbook does not have it: STR-05. Only what the Logbook has can be used while it is linked.');
+    expect(inLogbook(t.master.rooms_, r.items).offered.map((x) => x.code)).toEqual(['GRN-01']);
+    await cut(S.lb);
+    try {
+      expect(await read()).toEqual({ link: 'down', items: [] });
+    } finally { await restore(S.lb); }
+    expect(inLogbook(stirrers, null)).toEqual({ offered: stirrers, note: null });
+    expect((await call(t.app, '', 'GET', '/api/logbook/items')).statusCode).toBe(401);
+  });
+
   it('TB-11 a machine the Logbook says is not fit for use is refused with the Logbook\'s reasons; one in use by another batch too', async () => {
     await act('asha', b.id, '0.1.1.1', 'start');
-    expect(await problems(record(b.id, '0.1.1.1', { machine: 'eq-str2' }))).toEqual(['STR-02 is not fit for use (Logbook): Dirty hold expired; Calibration overdue.']);
+    expect(await problems(record(b.id, '0.1.1.1', { machine: 'eq-str2' }))).toEqual(['STR-02 is not fit for use (Logbook): Dirty: clean and verify before the next use; Calibration overdue.']);
     expect(await problems(record(b.id, '0.1.1.1', { machine: 'eq-str3' }))).toEqual(['STR-03 is in use by batch XB26001 (Logbook).']);
     expect(await problems(record(b.id, '0.1.1.1', { machine: 'eq-str5' }))).toEqual(['STR-05 is not in the Logbook, so it cannot be used.']);
   });
@@ -288,6 +307,7 @@ describe('TB-12 MMS: only released, in-date lots of the material; certificate va
     expect((await stepOf(other.id, '0.1.0.1')).values.balance).toMatchObject({ code: 'BAL-01', type: 'balance' });
     expect(await uses('BAL-01')).toEqual([]);
   });
+
 });
 
 describe('TB-21 Deviations: the deviation number and its status come from the Deviations system', () => {

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { api, type Me } from '../api.js';
 import { SignDialog } from '../components/SignDialog.js';
 import {
-  blockOf, changed, go, headline, plainClock, plainError, rawOf, sourceWords, STATE_LABEL, stepLink, stepOf, stepTitle, timeLeft, tone, unitOf, useLinked, valueText, words,
+  blockOf, changed, go, headline, plainClock, plainError, rawOf, sourceWords, STATE_LABEL, stepLink, stepOf, stepTitle, timeLeft, tone, unitOf, useLinked, useLogbookItems, valueText, words,
   type BatchDetail, type Block, type BlockField, type FloorEvent, type History, type PickItem, type Step, type StepRow, type Stored,
 } from '../api-floor.js';
 import { Alerts } from './BatchScreen.js';
@@ -13,7 +13,7 @@ import { CERTIFICATE, fieldLabel, handEntered, LINK_OF } from '../../../shared/e
 import { notYetText } from '../../../shared/engine/batch.js';
 import { lineQuantity } from '../../../shared/engine/values.js';
 import { plantText } from '../../../shared/plant-time.js';
-import { dispensingRooms, machineRefusal, roomRefusal, untypedNote } from '../../../shared/engine/picks.js';
+import { dispensingRooms, inLogbook, machineRefusal, roomRefusal, untypedNote } from '../../../shared/engine/picks.js';
 import { materialLines } from '../../../shared/master/schema.js';
 
 type Dialog = { kind: 'done' | 'repeat' | 'check' | 'na' | 'send-back' | 'note' } | { kind: 'na-sign'; reason: string } | { kind: 'correct'; field: BlockField };
@@ -77,9 +77,13 @@ export function StepScreen({ me, d, blocks, row, now, reload }: { me: Me; d: Bat
     void api<PickItem[]>('GET', '/api/master/rooms').then((room) => setMd((p) => ({ ...p, room })), () => {});
     if (block.fields.some((f) => f.kind === 'machine')) void api<PickItem[]>('GET', '/api/master/equipment').then((machine) => setMd((p) => ({ ...p, machine })), () => {});
   }, [block]);
-  // What each machine or room field offers: as the server accepts it (shared/engine/picks.ts).
-  const picksFor = (f: BlockField) => f.kind === 'room' ? md.room.filter((r) => r.active && !roomRefusal(stage, r))
-    : f.kind === 'machine' ? md.machine.filter((m) => m.active && !machineRefusal(stage, f, m, md.room, dispensingRooms(doc, md.room))) : [];
+  // What each machine or room field offers: as the server accepts it (shared/engine/picks.ts), and while the Logbook
+  // is linked only what the Logbook has; the note says what is left out and why.
+  const logbook = useLogbookItems(block.fields.some((f) => f.kind === 'machine' || f.kind === 'room'));
+  const pickOf = (f: BlockField) => inLogbook(f.kind === 'room' ? md.room.filter((r) => r.active && !roomRefusal(stage, r))
+    : f.kind === 'machine' ? md.machine.filter((m) => m.active && !machineRefusal(stage, f, m, md.room, dispensingRooms(doc, md.room))) : [], logbook);
+  const picksFor = (f: BlockField) => pickOf(f).offered;
+  const noteFor = (f: BlockField) => [untypedNote(f, md.machine), pickOf(f).note].filter(Boolean).join(' ') || null;
 
   const post = (action: string, body: object = {}, key = row.id) => api('POST', `/api/batches/${d.batch.id}/steps/${key}/${action}`, body);
   const run = async (fn: () => Promise<unknown>) => {
@@ -147,7 +151,7 @@ export function StepScreen({ me, d, blocks, row, now, reload }: { me: Me; d: Bat
     if (!pulled && (can('record') || (v === undefined && row.state === 'open') || (f.count && v !== undefined))) {
       return (
         <div key={f.name}>
-          <FieldInput f={f} unit={unit} saved={v} picks={picksFor(f)} note={untypedNote(f, md.machine)} options={f.kind === 'lot' ? lots.map((l) => l.lotNumber) : []}
+          <FieldInput f={f} unit={unit} saved={v} picks={picksFor(f)} note={noteFor(f)} options={f.kind === 'lot' ? lots.map((l) => l.lotNumber) : []}
             disabled={!can('record')} out={outOf(f)} onSave={can('record') ? (raw) => record(f.name, raw) : undefined} />
           {src && <p className="muted small">{sourceWords(src)}</p>}
           {!can('record') && can('correct') && <button className="big" onClick={() => setDialog({ kind: 'correct', field: f })}>Correct {f.label.toLowerCase()}</button>}

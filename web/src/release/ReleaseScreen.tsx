@@ -142,7 +142,7 @@ export function ReleaseScreen({ me, id }: { me: Me; id: number }) {
           <li key={e.id} className="bad"><b>{name(idOf(e))}</b><span>DEMO: wait skipped by {e.personName} at {plainClock(e.at)}</span><small>{String(e.payload.label ?? '')}</small></li>))}</Group>}
         <Group title={`Signatures (${r.signatures.length})`} empty="No signatures.">{r.signatures.map((s, i) => (
           <li key={i} className="sig"><b>{MEANING_LABEL[s.meaning] ?? s.meaning}</b><span>{s.printedName}</span>
-            <small>{plainClock(s.signedAt)} · {s.step ? name(s.step) : s.objectType === 'batch' ? `Batch ${d.batch.batchNo} issued` : 'The batch record'}</small></li>))}</Group>
+            <small>{plainClock(s.signedAt)} · {s.step ? name(s.step) : s.objectType === 'batch' ? `Batch ${d.batch.batchNo} issued` : product.packing ? 'The packing record' : 'The batch record'}</small></li>))}</Group>
       </section>
 
       <section className="dash-panel" aria-label="Decision">

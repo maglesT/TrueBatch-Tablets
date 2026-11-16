@@ -427,6 +427,13 @@ export function batchRoutes(app: FastifyInstance, sql: Sql) {
     return { link: r.state, lots: r.state === 'ok' ? r.value : [] };
   });
 
+  // The machines and rooms the Logbook has (their master-data ids), for the pick lists: while the link answers, only
+  // these are offered (any other is refused, server/pull.ts); absent or down, every one is offered and typed by hand.
+  app.get('/api/logbook/items', anyUser, async () => {
+    const r = await app.links.logbook.known();
+    return { link: r.state, items: r.state === 'ok' ? r.value : [] };
+  });
+
   // Packing: the bulk batches TrueBatch Tablets has released of a product, for the issue's pick list (pull, don't type).
   app.get<{ Querystring: { product?: string } }>('/api/bulk-batches', { preHandler: requirePermission('truebatch.batch.issue') }, async (req) => {
     const r = await app.links.truebatch.released(String(req.query.product ?? ''));
