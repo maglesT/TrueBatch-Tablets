@@ -93,7 +93,7 @@ export function batchRecordDoc(r: RecordInput, by: string, printedAt = new Date(
   const naming = (v: StepView, key: string, block: string) => stepOf(v).block.id === block && Object.values(stepOf(v).settings).some((x) => typeof x === 'object' && 'formula' in x && x.formula === key);
   if (doc.pack) content.push(heading('Packing materials'), table([150, 70, 60, '*', '*'], ['Material', 'Kind', 'Per pack', 'Lots and quantities issued', 'Reconciliation'], doc.pack.materials.map((m) => [
     small(`${m.code} · ${m.name}`), small(`${m.kind}${m.printed ? ', printed' : ''}${m.coded ? ', coded' : ''}`), small(`${m.perPack} ${unitName(m.unit, r.units?.get(m.materialItemId))}`),
-    small(steps.filter((v) => naming(v, m.key, 'pack-material-issue')).map((v) => `Lot ${valueText(v.values.lot)}: ${valueText(v.values.issued, unitOf(v))} · ${stepName(v)}`).join('\n') || 'not issued yet'),
+    small(steps.filter((v) => naming(v, m.key, 'pack-material-issue')).map((v) => `${v.values.lot === undefined ? 'not issued' : `Lot ${valueText(v.values.lot)}: ${valueText(v.values.issued, unitOf(v))}`} · ${stepName(v)}`).join('\n') || 'not issued yet'),
     small(steps.filter((v) => naming(v, m.key, 'printed-reconciliation')).map((v) => (v.results.reconciliation?.ok ? v.results.reconciliation.shown : 'not reconciled yet')).join('\n') || (m.printed ? 'not reconciled yet' : '—')),
   ])));
 

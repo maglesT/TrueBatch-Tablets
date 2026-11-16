@@ -202,8 +202,11 @@ describe('a packing batch from a released bulk batch', () => {
     expect(used).toEqual([{ lot_number: 'FOIL-9', quantity: '950', unit: 'm' }, { lot_number: 'PVC-9', quantity: '800', unit: 'm' }]);
     const l = (await loadBatch(t.sql, id))!;
     expect(['FOIL-9', 'PVC-9'].map((lot) => usesOfLot(l.doc, openSteps(l.doc, l.events, l.now).steps, lot, returnsOf(l.batchEvents))[0]!.quantity.value)).toEqual(['950', '800']);
-    expect(JSON.stringify(batchRecordDoc(await recordInput(t.sql, l), 'QA1')))
-      .toMatch(/Terminated by QA1 at [^"]* IST: Blister line 2 down for repair · Back to stores unused: lot FOIL-9 \(PM-101 · Printed aluminium foil\) 300 m, lot PVC-9 \([^)]*\) 0 m; the rest counts as used/);
+    const record = JSON.stringify(batchRecordDoc(await recordInput(t.sql, l), 'QA1'));
+    expect(record).toMatch(/Terminated by QA1 at [^"]* IST: Blister line 2 down for repair · Back to stores unused: lot FOIL-9 \(PM-101 · Printed aluminium foil\) 300 m, lot PVC-9 \([^)]*\) 0 m; the rest counts as used/);
+    // The packing materials it stopped before issuing say so in plain words, not "Lot —: —".
+    for (const text of ['Lot FOIL-9: 1250 m · 1.2 Issue Printed aluminium foil (PM-101)', 'not issued · 1.4 Issue Carton (PM-103)', 'not issued · 1.5 Issue Leaflet (PM-104)']) expect(record).toContain(text);
+    expect(record).not.toContain('Lot —');
     expect((await issue({ line: 'ln-2', bulk: 'TB260004', tablets: '50000' })).statusCode).toBe(200);
   });
 
