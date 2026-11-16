@@ -336,6 +336,11 @@ test('TB-21 QA terminates a packing batch after materials were issued: the windo
   const stages = qa.page.getByRole('navigation', { name: 'Stages' });
   await expect(stages).toContainText('Terminated');
   await expect(stages.locator('small', { hasText: /^(Now|Open|Waiting)$/ })).toHaveCount(0);
+  // Its steps never read as still to come (owner, 16 Nov 2026): "Terminated, not started", no "Ready to start" or "Waits for".
+  const steplist = qa.page.locator('.steplist');
+  await expect(steplist).toContainText('Terminated, not started');
+  await expect(steplist.locator('.chip', { hasText: /^(Waiting|Ready to start|In progress|Waiting for check)$/ })).toHaveCount(0);
+  await expect(steplist).not.toContainText('Waits for');
   if (process.env.SHOTS) await qa.page.screenshot({ path: `${process.env.SHOTS}/packing-terminated-returns.png`, fullPage: true });
   await qa.ctx.close();
 });

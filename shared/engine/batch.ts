@@ -109,8 +109,13 @@ const notYetOf = (st: Step, round: number, results: Current['results']) => {
 };
 /** The results out of limits: a real limit failure, never a round that is "not yet" (TB-14). */
 export const outOfLimits = (v: StepView) => Object.entries(v.results).filter(([n, r]) => n !== v.notYet && failed(r));
-/** A "not yet" worked line in plain words: the stop check is not reached yet and the rounds go on. */
-export const notYetText = (shown: string) => shown.replace(/:\s*OUT OF LIMITS(?: \([^)]*\))?/g, ': not reached yet, the rounds go on').replace(/:\s*FAIL\b/g, ': not yet, the rounds go on');
+/** A "not yet" worked line in plain words: the stop check is not reached yet and the rounds go on (a terminated batch: they do not). */
+export const notYetText = (shown: string, terminated = false) => shown.replace(/:\s*OUT OF LIMITS(?: \([^)]*\))?/g, terminated ? ': not reached (terminated)' : ': not reached yet, the rounds go on')
+  .replace(/:\s*FAIL\b/g, terminated ? ': not reached (terminated)' : ': not yet, the rounds go on');
+/** A step a terminated batch left unfinished, in words that never say it is still to come (PDF and screens; owner 16 Nov 2026). */
+export const TERMINATED_STATE: Partial<Record<State, string>> = {
+  waiting: 'terminated, not started', open: 'terminated, not started', in_progress: 'terminated, not finished', done_awaiting_check: 'terminated, not checked',
+};
 function stopPassed(v: StepView, st: Step): boolean {
   const r = v.results[stopName(st) ?? ''];
   return r?.ok === true && r.check?.pass === true;

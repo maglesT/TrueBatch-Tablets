@@ -186,6 +186,9 @@ describe('a packing batch from a released bulk batch', () => {
     }
     const b = await get(id, 'qa1');
     expect(b.batch.actions).toEqual(['terminate']);
+    // In production the packing record says what is still to come.
+    const live = JSON.stringify(batchRecordDoc(await recordInput(t.sql, (await loadBatch(t.sql, id))!), 'QA1'));
+    for (const text of ['not reconciled yet', '"not started"']) expect(live).toContain(text);
     // The window asks, per lot issued, what went back to stores unused: up to what was issued, in the published unit.
     expect((b.batch as unknown as { issued: object[] }).issued).toEqual([{ lot: 'FOIL-9', material: 'PM-101 · Printed aluminium foil', value: '1250', unit: 'm' }, { lot: 'PVC-9', material: expect.stringMatching(/^PM-102 · /), value: '800', unit: 'm' }]);
     const terminate = (returns?: object[]) => as('qa1', 'POST', `/api/batches/${id}/terminate`, { proof: proofFor('qa1'), contentHash: b.batch.contentHash, reason: 'Blister line 2 down for repair', ...(returns ? { returns } : {}) });
@@ -207,6 +210,9 @@ describe('a packing batch from a released bulk batch', () => {
     // The packing materials it stopped before issuing say so in plain words, not "Lot —: —".
     for (const text of ['Lot FOIL-9: 1250 m · 1.2 Issue Printed aluminium foil (PM-101)', 'not issued · 1.4 Issue Carton (PM-103)', 'not issued · 1.5 Issue Leaflet (PM-104)']) expect(record).toContain(text);
     expect(record).not.toContain('Lot —');
+    // What it stopped before doing reads "terminated", never as still to come (owner, 16 Nov 2026).
+    for (const text of ['"not reconciled (terminated)"', '"terminated, not started"']) expect(record).toContain(text);
+    expect(record).not.toMatch(/\byet\b|"not started"|"in progress"/);
     expect((await issue({ line: 'ln-2', bulk: 'TB260004', tablets: '50000' })).statusCode).toBe(200);
   });
 

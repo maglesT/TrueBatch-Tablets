@@ -152,6 +152,14 @@ test('TB-21 QA terminates a batch still in production from the To review list: a
   await expect(stages).toContainText('Terminated');
   await expect(stages.locator('small', { hasText: /^(Now|Open|Waiting)$/ })).toHaveCount(0);
   await expect(qa.page.locator('.bh')).toContainText('Batch size');
+  // Its steps never read as still to come (owner, 16 Nov 2026): "Terminated, not started", no "Ready to start" or "Waits for".
+  const steplist = qa.page.locator('.steplist');
+  await expect(steplist).toContainText('Terminated, not started');
+  await expect(steplist.locator('.chip', { hasText: /^(Waiting|Ready to start|In progress|Waiting for check)$/ })).toHaveCount(0);
+  await expect(steplist).not.toContainText('Waits for');
   if (process.env.SHOTS) await qa.page.screenshot({ path: `${process.env.SHOTS}/batch-terminated.png`, fullPage: true });
+  await steplist.locator('.step-row').first().click();
+  await expect(qa.page.locator('.step-title .chip').first()).toHaveText('Terminated, not started');
+  await expect(qa.page.getByText('Not open yet')).toHaveCount(0);
   await qa.ctx.close();
 });
