@@ -112,10 +112,10 @@ function Overview({ d, blocks, now, reload }: { d: BatchDetail; blocks: Block[];
           })}
         </div>
       </section>
-      <section className="dash-panel" aria-label="Production approval">
+      {!d.batch.terminated && <section className="dash-panel" aria-label="Production approval">
         <div className="panel-head"><h2>Production approval</h2><span className="muted">when every stage is closed</span></div>
         <button className="big" onClick={() => go(`${batchLink(d.batch.id)}/approve`)}>{d.batch.status === 'manufacturing complete' ? 'Review and approve the record' : 'See what is still open'}</button>
-      </section>
+      </section>}
       {d.batch.actions.includes('terminate') && (
         <section className="dash-panel" aria-label="Terminate the batch">
           <div className="panel-head"><h2>Terminate the batch (QA)</h2><span className="muted">when the batch cannot be finished: it is rejected, its record kept</span></div>
