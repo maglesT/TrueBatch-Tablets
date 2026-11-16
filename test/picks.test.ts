@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { findBlock } from '../shared/blocks/index.js';
-import { machineRefusal, untypedNote } from '../shared/engine/picks.js';
+import { dispensingRooms, machineRefusal, untypedNote } from '../shared/engine/picks.js';
 import { SKELETON_LIST, packingStages, skeletonStages } from '../web/src/designer/skeletons.js';
 import { pack } from './packing-fixture.js';
 
@@ -46,19 +46,28 @@ describe('machine pickers on the demo master-data types', () => {
   });
 
   // The demo's rooms and balances (master data, 15 Nov 2026): IN-BAL-03/04 stand in RM-101 (Dispensing), IN-BAL-05 in
-  // RM-105 (Compression), IN-BAL-01/02/06 in RM-110 (QC), INQ-BAL-07 in RM-601 (Microbiology).
+  // RM-105 (Compression), IN-BAL-01/02/06 in RM-110 (QC), INQ-BAL-07 in RM-601 (Microbiology), and the liquids block's
+  // INL-BAL-01 in RM-301 (Liquid dispensing).
   const ROOMS = [{ code: 'RM-101', area: 'Dispensing' }, { code: 'RM-103', area: 'Granulation' }, { code: 'RM-105', area: 'Compression' },
-    { code: 'RM-107', area: 'Coating' }, { code: 'RM-108', area: 'Packing' }, { code: 'RM-110', area: 'QC' }, { code: 'RM-601', area: 'Microbiology' }];
-  const BALS = [['IN-BAL-03', 'RM-101'], ['IN-BAL-04', 'RM-101'], ['IN-BAL-05', 'RM-105'], ['IN-BAL-01', 'RM-110'], ['INQ-BAL-07', 'RM-601']].map(([code, room]) => ({ code: code!, type: 'Balance', room }));
+    { code: 'RM-107', area: 'Coating' }, { code: 'RM-108', area: 'Packing' }, { code: 'RM-110', area: 'QC' }, { code: 'RM-601', area: 'Microbiology' },
+    { code: 'RM-301', area: 'Liquid dispensing' }];
+  const BALS = [['IN-BAL-03', 'RM-101'], ['IN-BAL-04', 'RM-101'], ['IN-BAL-05', 'RM-105'], ['IN-BAL-01', 'RM-110'], ['INQ-BAL-07', 'RM-601'], ['INL-BAL-01', 'RM-301']]
+    .map(([code, room]) => ({ code: code!, type: 'Balance', room }));
   const field = (block: string, name: string) => findBlock({ id: block, version: 1 })!.fields.find((f) => f.name === name)!;
 
-  it('TB-11 a balance of the dispensing area is offered in any stage, with those of its own rooms; never a QC or laboratory balance', () => {
+  it('TB-11 a balance is offered in the master\'s dispensing rooms, with those of the stage\'s rooms; INL-BAL-01 of the liquids block is not; never a QC or laboratory balance', () => {
     const stage = { ...stages[0]!, roomTypes: ['Granulation', 'Coating'], machineTypes: ['Granulator', 'Coater'] };
-    const offered = (block: string, s = stage) => BALS.filter((b) => !machineRefusal(s, field(block, 'balance'), b, ROOMS)).map((b) => b.code);
+    const offered = (block: string, s = stage, dispensing = ['RM-101']) => BALS.filter((b) => !machineRefusal(s, field(block, 'balance'), b, ROOMS, dispensing)).map((b) => b.code);
     expect(offered('weigh')).toEqual(['IN-BAL-03', 'IN-BAL-04']);
     expect(offered('lubricate', { ...stage, roomTypes: ['Compression'] })).toEqual(['IN-BAL-03', 'IN-BAL-04', 'IN-BAL-05']);
-    expect(offered('weigh', { ...stage, roomTypes: [] })).toEqual(['IN-BAL-03', 'IN-BAL-04', 'IN-BAL-05']);
-    expect(machineRefusal(stage, field('weigh', 'balance'), BALS[3]!, ROOMS)).toBe('IN-BAL-01 stands in RM-110 (QC), a laboratory area: weigh with a balance of a dispensing area or of a room this stage allows');
+    expect(offered('weigh', stage, ['RM-301'])).toEqual(['INL-BAL-01']);
+    expect(offered('weigh', { ...stage, roomTypes: [] })).toEqual(['IN-BAL-03', 'IN-BAL-04', 'IN-BAL-05', 'INL-BAL-01']);
+    expect(machineRefusal(stage, field('weigh', 'balance'), BALS[5]!, ROOMS, ['RM-101'])).toBe('INL-BAL-01 stands in RM-301, neither in a dispensing room of the master nor in a room this stage allows (Granulation, Coating)');
+    expect(machineRefusal(stage, field('weigh', 'balance'), BALS[3]!, ROOMS, ['RM-101'])).toBe('IN-BAL-01 stands in RM-110 (QC), a laboratory area: weigh with a balance of a dispensing room of the master or of a room this stage allows');
+    // A version made before the setting: the rooms whose area is exactly "Dispensing".
+    const old = { header: { productItemId: 'p', productCode: 'P', productName: 'P', batchSize: '1', coreWeightMg: '1' } };
+    expect(dispensingRooms(old, ROOMS)).toEqual(['RM-101']);
+    expect(dispensingRooms({ header: { ...old.header, dispensingRooms: ['RM-102'] } }, ROOMS)).toEqual(['RM-102']);
   });
 
   it('TB-11 a packing line is offered only standing in a room the stage allows; one with no type is named in the note', () => {

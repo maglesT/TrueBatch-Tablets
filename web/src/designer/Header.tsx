@@ -2,18 +2,18 @@
 // what the master starts from: empty, a process skeleton, or a copy of another master (scaled to the batch size).
 import { useEffect, useState, type FormEvent } from 'react';
 import { ApiError } from '../api.js';
-import { createMaster, getVersion, STATE_LABEL, type MasterData, type MasterRow, type Product } from '../api-designer.js';
+import { createMaster, getVersion, STATE_LABEL, type MasterData, type MasterRow, type Product, type Room } from '../api-designer.js';
 import { masterSchema, type MasterDoc } from '../../../shared/master/schema.js';
 import { batchWeight } from './example.js';
 import { scaleDoc } from './model.js';
-import { packingStages, SKELETON_LIST, skeletonStages } from './skeletons.js';
+import { defaultDispensingRooms, packingStages, SKELETON_LIST, skeletonStages } from './skeletons.js';
 import { NEW_PACK, PackFields } from './Pack.js';
 import { product } from '../product.js';
-import { Decimal, Picker } from './ui.js';
+import { ChipSet, Decimal, Picker } from './ui.js';
 
 type Header = MasterDoc['header'];
 
-export function HeaderFields({ header, onChange, products }: { header: Header; onChange: (h: Header) => void; products: Product[] }) {
+export function HeaderFields({ header, onChange, products, rooms }: { header: Header; onChange: (h: Header) => void; products: Product[]; rooms: Room[] }) {
   const product = products.find((p) => p.itemId === header.productItemId);
   const [picking, setPicking] = useState(!header.productItemId);
   const set = (k: keyof Header, v: string) => onChange({ ...header, [k]: v });
@@ -46,6 +46,9 @@ export function HeaderFields({ header, onChange, products }: { header: Header; o
           onChange={(v) => onChange(v ? { ...header, dieAreaMm2: v } : (({ dieAreaMm2: _, ...h }) => h)(header))} /></label>
         <div className="calc-note">{core?.ok ? <>Theoretical core batch weight: <b>{core.shown}</b></> : <span className="muted">The core batch weight shows once the batch size and core weight are set.</span>}</div>
       </div>
+      {/* TB-11: a balance is offered in these rooms or in a room the stage allows. */}
+      <ChipSet label="Dispensing rooms (where the materials are weighed)" values={header.dispensingRooms ?? []} options={rooms.filter((r) => r.active).map((r) => r.code)}
+        onChange={(dispensingRooms) => onChange({ ...header, dispensingRooms })} empty="None chosen yet: choose the rooms of master data where the materials are weighed" />
       <OtherStrengths header={header} onChange={onChange} />
     </div>
   );
@@ -78,7 +81,9 @@ type Start = { kind: 'empty' } | { kind: 'skeleton'; id: string } | { kind: 'cop
 export function NewMaster({ md, masters, copyOf, onCreated, onCancel }: {
   md: MasterData; masters: MasterRow[]; copyOf?: MasterRow; onCreated: (id: number) => void; onCancel: () => void;
 }) {
-  const [header, setHeader] = useState<Header>(copyOf?.header ?? { productItemId: '', productCode: '', productName: '', batchSize: '', coreWeightMg: '' });
+  // A tablet master starts with the rooms of the Dispensing area as its dispensing rooms (a copy: those it names).
+  const [header, setHeader] = useState<Header>({ ...(product.packing ? {} : { dispensingRooms: defaultDispensingRooms(md.rooms) }),
+    ...(copyOf?.header ?? { productItemId: '', productCode: '', productName: '', batchSize: '', coreWeightMg: '' }) });
   const skeletons = product.packing ? [{ id: 'packing', name: 'Packing record', text: 'Issue to the line, packing with the checks alongside the line, reconciliation and line clearance after, for this pack.' }] : SKELETON_LIST;
   const [start, setStart] = useState<Start>(copyOf ? { kind: 'copy', versionId: copyOf.id } : { kind: 'skeleton', id: skeletons[0]!.id });
   // A packing master: the pack (TB-P1), copied with the master it is copied from.
@@ -120,7 +125,7 @@ export function NewMaster({ md, masters, copyOf, onCreated, onCancel }: {
       <form className="card dialog wide" onSubmit={submit}>
         <h2>{copyOf ? `Copy ${copyOf.header.productCode} version ${copyOf.versionNo}` : 'New master'}</h2>
         {pack ? <PackFields header={header} pack={pack} products={md.products} onChange={(h, p) => { setHeader(h); setPack(p); }} />
-          : <HeaderFields header={header} onChange={setHeader} products={md.products} />}
+          : <HeaderFields header={header} onChange={setHeader} products={md.products} rooms={md.rooms} />}
         <fieldset className="checklist">
           <legend>Start from</legend>
           {skeletons.map((s) => (

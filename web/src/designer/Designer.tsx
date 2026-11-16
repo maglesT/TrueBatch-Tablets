@@ -100,7 +100,7 @@ export function Designer({ me, versionId, onBack, onOpen }: { me: Me; versionId:
         <div className="d-main">
           <fieldset className="plain" disabled={!editable}>
             {tab === 'header' && <div className="card">{doc.pack ? <PackFields header={doc.header} pack={doc.pack} products={md.products} onChange={(header, pack) => change({ ...doc, header, pack })} />
-              : <HeaderFields header={doc.header} products={md.products} onChange={(header) => change({ ...doc, header })} />}</div>}
+              : <HeaderFields header={doc.header} products={md.products} rooms={md.rooms} onChange={(header) => change({ ...doc, header })} />}</div>}
             {tab === 'formula' && doc.pack && <PackMaterials doc={doc} md={md} onChange={change} />}
             {tab === 'formula' && !doc.pack && <FormulaTable doc={doc} onChange={change} md={md} masters={others} selected={place.line} onSelect={(line) => setPlace({ tab: 'formula', line })} problems={problems ?? []} onAnswer={onAnswer} />}
             {tab === 'process' && <Process doc={doc} onChange={change} md={md} place={place} onPlace={setPlace} editable={!!editable} />}

@@ -4,7 +4,7 @@ import type { EventKind, Payload, StepEvent, StepKey } from '../shared/engine/in
 // An invented film-coated tablet, 100 mg of an invented API, batch of 100 000 tablets (core 250.0 mg, coated
 // 257.5 mg). Core: 100.0 + 120.0 + 10.0 + 17.5 + 2.5 = 250.0 mg; the granulation water is a solvent.
 export const tablet = (): MasterDoc => masterSchema.parse({
-  header: { productItemId: 'prd-1', productCode: 'PRD-001', productName: 'Examplol 100 mg film-coated tablets', batchSize: '100000', coreWeightMg: '250.0', coatedWeightMg: '257.5' },
+  header: { productItemId: 'prd-1', productCode: 'PRD-001', productName: 'Examplol 100 mg film-coated tablets', batchSize: '100000', coreWeightMg: '250.0', coatedWeightMg: '257.5', dispensingRooms: ['DSP-01'] },
   formula: [
     { key: 'api', materialItemId: 'mat-api', code: 'MAT-001', name: 'Examplol', mgPerTablet: '100.0', role: 'api', place: 'intragranular', adjust: { potency: { basis: 'dried', standardIs: 'anhydrous' } } },
     { key: 'lactose', materialItemId: 'mat-lac', code: 'MAT-002', name: 'Lactose monohydrate', mgPerTablet: '120.0', role: 'excipient', place: 'intragranular', adjust: { compensates: ['api'] } },
@@ -72,7 +72,7 @@ export const unplaced = <T extends { rule?: string; path: string }>(problems: T[
 /** A small master with the given stages; each step defaults to a "check a value" step without a checker. */
 export function small(stages: object[]): MasterDoc {
   return masterSchema.parse({
-    header: { productItemId: 'p', productCode: 'P', productName: 'P', batchSize: '1000', coreWeightMg: '100.0' },
+    header: { productItemId: 'p', productCode: 'P', productName: 'P', batchSize: '1000', coreWeightMg: '100.0', dispensingRooms: ['DSP-01'] },
     formula: [{ key: 'x', materialItemId: 'm', code: 'M', name: 'M', mgPerTablet: '100.0', role: 'excipient', place: 'intragranular' }],
     stages: stages.map((s, i) => ({ key: `s${i}`, name: `Stage ${i}`, kind: 'normal', ...s,
       steps: ((s as { steps?: object[] }).steps ?? [{}]).map((t, j) => ({ key: `t${j}`, block: { id: 'check', version: 1 }, checker: false,

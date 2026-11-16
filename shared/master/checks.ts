@@ -35,6 +35,9 @@ export function masterChecks(doc: MasterDoc): Problem[] {
   else formulaChecks(doc, out, error);
 
   twice(doc.stages.map((s) => s.key), 'stages');
+  // TB-11: a master that weighs names the rooms its materials are weighed in (its balances are offered there).
+  const weighs = doc.stages.some((s) => s.steps.some((t) => findBlock(t.block)?.fields.some((f) => f.kind === 'machine' && isBalance(f))));
+  if (weighs && !doc.header.dispensingRooms?.length) error('header.dispensingRooms', 'The master weighs but names no dispensing rooms: choose them in the header (rooms of master data)', 'TB-11');
   doc.stages.forEach((s, si) => {
     const path = `stages[${si}]`;
     twice(s.steps.map((t) => t.key), `${path}.steps`);

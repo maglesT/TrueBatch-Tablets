@@ -13,7 +13,7 @@ import { CERTIFICATE, fieldLabel, handEntered, LINK_OF } from '../../../shared/e
 import { notYetText } from '../../../shared/engine/batch.js';
 import { lineQuantity } from '../../../shared/engine/values.js';
 import { plantText } from '../../../shared/plant-time.js';
-import { machineRefusal, roomRefusal, untypedNote } from '../../../shared/engine/picks.js';
+import { dispensingRooms, machineRefusal, roomRefusal, untypedNote } from '../../../shared/engine/picks.js';
 import { materialLines } from '../../../shared/master/schema.js';
 
 type Dialog = { kind: 'done' | 'repeat' | 'check' | 'na' | 'send-back' | 'note' } | { kind: 'na-sign'; reason: string } | { kind: 'correct'; field: BlockField };
@@ -79,7 +79,7 @@ export function StepScreen({ me, d, blocks, row, now, reload }: { me: Me; d: Bat
   }, [block]);
   // What each machine or room field offers: as the server accepts it (shared/engine/picks.ts).
   const picksFor = (f: BlockField) => f.kind === 'room' ? md.room.filter((r) => r.active && !roomRefusal(stage, r))
-    : f.kind === 'machine' ? md.machine.filter((m) => m.active && !machineRefusal(stage, f, m, md.room)) : [];
+    : f.kind === 'machine' ? md.machine.filter((m) => m.active && !machineRefusal(stage, f, m, md.room, dispensingRooms(doc, md.room))) : [];
 
   const post = (action: string, body: object = {}, key = row.id) => api('POST', `/api/batches/${d.batch.id}/steps/${key}/${action}`, body);
   const run = async (fn: () => Promise<unknown>) => {

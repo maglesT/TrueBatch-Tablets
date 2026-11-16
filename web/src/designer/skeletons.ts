@@ -63,6 +63,10 @@ const SKELETONS: { id: string; name: string; text: string; stages: StagePlan[] }
 ];
 export const SKELETON_LIST = SKELETONS.map(({ id, name, text }) => ({ id, name, text }));
 
+/** The dispensing rooms a new tablet master starts with (TB-11): the active rooms whose area is exactly "Dispensing". */
+export const defaultDispensingRooms = (rooms: readonly { code: string; area: string | null; active: boolean }[]) =>
+  rooms.filter((r) => r.active && r.area === 'Dispensing').map((r) => r.code);
+
 /** The stages of a skeleton for this header. */
 export function skeletonStages(id: string, h: Header): Stage[] {
   const sk = SKELETONS.find((s) => s.id === id);

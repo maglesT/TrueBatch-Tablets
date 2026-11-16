@@ -4,7 +4,7 @@ import type { Sql, Tx } from '../db.js';
 import { audit } from '../audit.js';
 import { parseId, requirePermission, type SessionUser } from '../auth.js';
 import { usableItem } from '../master.js';
-import { machineRefusal, roomRefusal } from '../../shared/engine/picks.js';
+import { dispensingRooms, machineRefusal, roomRefusal } from '../../shared/engine/picks.js';
 import { handProblem, lineOf, mfgDateProblem, pullBulk, pullItem, pullLot, pulledWords } from '../pull.js';
 import { SignError, authenticateSigner, contentHash, sign, signBody } from '../signatures.js';
 import { masterVersion } from './masters.js';
@@ -107,7 +107,7 @@ async function readValues(app: FastifyInstance, doc: MasterDoc, key: StepKey, ra
       const rooms = await app.master.rooms();
       const item = f.kind === 'machine' ? usableItem(await app.master.equipment(), String(x), 'machine') : usableItem(rooms, String(x), 'room');
       const type = 'type' in item ? item.type : item.area;
-      const no = 'type' in item ? machineRefusal(stage, f, item, rooms) : roomRefusal(stage, item);
+      const no = 'type' in item ? machineRefusal(stage, f, item, rooms, dispensingRooms(doc, rooms)) : roomRefusal(stage, item);
       if (no) { problems.push(no); continue; }
       // The area of the room it stands in, so a later stage that runs in that area keeps it in use by the batch (equipment_use_v1).
       const room = 'room' in item ? item.room : item.code;
@@ -287,7 +287,8 @@ export function batchRoutes(app: FastifyInstance, sql: Sql) {
         if (v?.state !== 'effective') throw new StepError(409, 'not_effective', ['Only an effective master version can be issued.']);
         // Approval will refuse a version with errors; until that workflow exists, issuing checks it too.
         // A version approved before its stages had to name their rooms (TB-11) still issues: its stages allow any room.
-        const errors = masterChecks(v.doc).filter((p) => blocking(p) && !(p.rule === 'TB-11' && p.path.endsWith('.roomTypes')));
+        // So does one approved before it had to name its dispensing rooms: its balances are those of the Dispensing area.
+        const errors = masterChecks(v.doc).filter((p) => blocking(p) && !(p.rule === 'TB-11' && (p.path.endsWith('.roomTypes') || p.path === 'header.dispensingRooms')));
         if (errors.length) throw new StepError(409, 'master_has_errors', errors.map((p) => `${p.path}: ${p.message}`));
         const atIssue = findBlock(v.doc.stages[0]?.steps[0]?.block ?? { id: '', version: 0 })?.atIssue;
         const facts = atIssue ? await issueValues(app, tx, v.doc, b.data.values, (await tx<{ now: Date }[]>`select now() as now`)[0]!.now) : null;

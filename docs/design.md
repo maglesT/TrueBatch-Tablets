@@ -64,8 +64,11 @@ answering) or **ok**.
   … at …: reason".
 - **Where machines are**: a stage that works machines or names a room chooses the rooms it may run in (master check,
   TB-11); the floor is offered the machines of the field's type standing in those rooms. A balance is offered where
-  the weighing is done: in a dispensing or weighing area, or in a room the stage allows, never in a QC or laboratory
-  area (master data's room `area`, `shared/engine/picks.ts`, the same rule on the server and the screen).
+  the weighing is done: in one of the master's **dispensing rooms** (header, picked from master data's rooms; a new
+  tablet master starts with the rooms whose area is exactly "Dispensing"; a master that weighs and names none is ⛔),
+  or in a room the stage allows, never in a QC or laboratory area (`shared/engine/picks.ts`, the same rule on the
+  server and the screen). Not every area called dispensing: a liquids block's "Liquid dispensing" balance is not
+  offered to a tablet weighing. A version approved before the setting reads the rooms of the Dispensing area.
 
 ## Rules and where they are enforced
 - 22 TrueBatch GMP rules (EU GMP Part I and Annex 11, 21 CFR 211 and Part 11, Revised Schedule M), listed in
