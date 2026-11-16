@@ -4,11 +4,17 @@ import { logIn } from './helpers.js';
 // The master designer: a small master built from a skeleton, a master-check problem found and fixed, then the review
 // and approval workflow with three people, each in their own browser (TB-02).
 
-async function as(browser: Browser, who: string): Promise<Page> {
-  const page = await (await browser.newContext()).newPage();
+async function as(browser: Browser, who: string, viewport?: { width: number; height: number }): Promise<Page> {
+  const page = await (await browser.newContext(viewport ? { viewport } : {})).newPage();
   await logIn(page, who);
   await page.getByRole('button', { name: 'Master records' }).click();
   return page;
+}
+// Opens the master's review again, as read now.
+async function review(page: Page) {
+  await page.getByRole('button', { name: '← Master records' }).click();
+  await page.getByRole('row', { name: /PRD-001/ }).getByRole('button', { name: 'Open' }).click();
+  await page.getByRole('button', { name: 'Review and approval' }).click();
 }
 // Signing opens core's password window; the stand-in answers at once and the window closes itself.
 async function sign(page: Page) {
@@ -81,17 +87,33 @@ test('TB-02 build a master from a skeleton, fix a master-check problem, then che
   await sign(author);
   await expect(author.locator('.d-title')).toContainText('In review');
 
-  // A second person checks it, in their own browser.
+  // A second person returns it with a long reason, then checks it once sent again, in their own browser.
   const checker = await as(browser, 'mcheck1');
   await checker.getByRole('row', { name: /PRD-001/ }).getByRole('button', { name: 'Open' }).click();
+  await checker.getByRole('button', { name: 'Return to the author' }).click();
+  await checker.getByLabel('Reason').fill(`Returned for the re-test: ${'the approval under a change control of another product was tried and must be refused, '.repeat(5)}see QMS/change-controls/CC-2026-0007/approval-history/without-a-single-break-in-this-long-reference-to-the-record.`);
+  await checker.getByRole('dialog').getByRole('button', { name: 'Return' }).click();
+  await expect(checker.locator('.timeline')).toContainText('Returned to the author');
+  await review(author);
+  await author.getByRole('button', { name: 'Send for review' }).click();
+  await sign(author);
+  await expect(author.locator('.d-title')).toContainText('In review');
+  await review(checker);
   await checker.getByRole('button', { name: 'Pass the check' }).click();
   await sign(checker);
   await expect(checker.locator('.timeline')).toContainText('Checked (passed) · MCHECK1');
 
-  // QA approves with a change control number, then makes it effective.
-  const qa = await as(browser, 'qa1');
+  // QA approves with a change control number, then makes it effective. At 1366×900 the review history with the long
+  // reason wraps in its column: nothing lies over the Approve button.
+  const qa = await as(browser, 'qa1', { width: 1366, height: 900 });
   await qa.getByRole('row', { name: /PRD-001/ }).getByRole('button', { name: 'Open' }).click();
-  await qa.getByRole('button', { name: 'Approve' }).click();
+  const approve = qa.getByRole('button', { name: 'Approve' });
+  await expect(qa.locator('.timeline')).toContainText('without-a-single-break');
+  const box = (await approve.boundingBox())!;
+  expect(await qa.evaluate(([x, y]) => document.elementFromPoint(x!, y!)?.closest('button')?.textContent, [box.x + box.width / 2, box.y + box.height / 2])).toBe('Approve');
+  const timeline = (await qa.locator('.timeline').boundingBox())!;
+  expect(timeline.x + timeline.width).toBeLessThanOrEqual(box.x);
+  await approve.click();
   await qa.getByLabel('Change control number').fill('CC-2026-031');
   await qa.getByRole('button', { name: 'Continue to sign' }).click();
   await sign(qa);

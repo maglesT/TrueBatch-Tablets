@@ -44,9 +44,12 @@ fieldset.plain { border: 0; padding: 0; margin: 0; min-width: 0; }
 .check-panel::before { content: ''; display: block; height: 3px; margin: -14px -14px 4px; border-radius: var(--radius) var(--radius) 0 0; background: var(--brand-gradient); }
 .cp-head { display: flex; gap: 8px; align-items: center; } .cp-head h2 { font-size: 1.05rem; }
 .cp-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-.cp-list > li > button { display: grid; grid-template-columns: 22px 1fr; gap: 6px; text-align: left; justify-content: stretch; align-items: start; width: 100%; min-height: 0; padding: 8px 10px; font-size: 0.86rem; border-radius: 8px; }
-.cp-list li.error > button { background: #fff5f4; border-color: #f5c6c1; }
-.cp-list li.warning > button { background: #fffbea; border-color: #f1dfa6; }
+.cp-list > li > button { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 6px; text-align: left; justify-content: stretch; align-items: start; width: 100%; min-height: 0; padding: 8px 10px; font-size: 0.86rem; border-radius: 8px; overflow-wrap: anywhere; }
+/* The card is the item: a warning's answer sits inside it, under the message, and wraps. */
+.cp-list > li { border: 1px solid transparent; border-radius: 8px; }
+.cp-list li.error { background: #fff5f4; border-color: #f5c6c1; }
+.cp-list li.warning { background: #fffbea; border-color: #f1dfa6; }
+.cp-list li > button { background: transparent; border: 0; }
 .cp-where { display: flex; gap: 6px; align-items: center; font-weight: 650; font-size: 0.8rem; color: var(--brand-grey); margin-bottom: 2px; }
 .cp-rule { font-size: 0.7rem; font-weight: 700; padding: 0 6px; border-radius: 99px; background: #fff; border: 1px solid var(--line-strong); }
 .cp-invalid { margin: 0; font-size: 0.88rem; color: var(--bad); }
@@ -54,6 +57,7 @@ fieldset.plain { border: 0; padding: 0; margin: 0; min-width: 0; }
 .cp-answer select, .cp-answer input { min-width: 0; flex: 1 1 120px; font-size: 0.84rem; }
 .cp-answer button { min-height: 0; padding: 4px 10px; font-size: 0.82rem; }
 .check-panel .cp-answer select, .check-panel .cp-answer input { flex-basis: 100%; }
+.check-panel .cp-answer { margin: 0 10px 8px 38px; overflow-wrap: anywhere; }
 p.cp-answer { display: block; }
 p.cp-answer .link { margin-left: 8px; }
 @media (max-width: 1180px) {
@@ -145,6 +149,8 @@ input.dec { text-align: right; font-variant-numeric: tabular-nums; padding: 7px 
 .review-actions p { margin: 2px 0 0; text-align: right; }
 .timeline { list-style: none; margin: 8px 0 0; padding: 0 0 0 14px; border-left: 3px solid var(--line); display: grid; gap: 6px; font-size: 0.9rem; }
 .timeline li { position: relative; }
+/* Not the floor's step-history grid (floor.css): a long reason wraps in its column, never over the actions. */
+.review-bar .timeline li { display: block; overflow-wrap: anywhere; }
 .timeline li::before { content: ''; position: absolute; left: -20.5px; top: 6px; width: 10px; height: 10px; border-radius: 50%; background: var(--line-strong); }
 .timeline li.passed::before, .timeline li.approved::before, .timeline li.effective::before { background: var(--ok); }
 .timeline li.returned::before { background: var(--bad); } .timeline li.submitted::before { background: var(--info); }
