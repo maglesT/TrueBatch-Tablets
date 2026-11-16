@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { BLOCKS, findBlock } from '../shared/blocks/index.js';
 import { blocking, masterChecks } from '../shared/master/checks.js';
 import { masterSchema } from '../shared/master/schema.js';
+import { stepTitle } from '../shared/engine/batch.js';
 import { describeMaster, diffMasters, stepText } from '../web/src/designer/describe.js';
 import { dispensing, workedExample } from '../web/src/designer/example.js';
 import { answerDoc, earlierRefs, neededKind, scaleDoc, stepFrom } from '../web/src/designer/model.js';
@@ -148,9 +149,21 @@ describe('master designer', () => {
     // Without master data, as the master has it; a material master data counts in another unit keeps the master's.
     expect(describeMaster(packing()).flatMap((s) => s.lines).find((l) => l.key === 'carton')!.text).toMatch(/: 0\.1 units per pack/);
     expect(all).toMatch(/Leaflet \(PM-104\), leaflet: 0\.1 units per pack/);
-    const steps = sections.flatMap((s) => s.lines).filter((l) => /^\d+\. (Issue a packing material|Reconciliation of a printed material) /.test(l.text)).map((l) => l.text);
-    expect(steps.find((x) => x.includes('Carton (PM-103)') && x.includes('Issue a packing'))).toMatch(/Packing material: Carton \(PM-103\)\. Unit: nos\./);
-    expect(steps.find((x) => x.includes('Printed aluminium foil (PM-101)') && x.includes('Reconciliation'))).toMatch(/Printed material: Printed aluminium foil \(PM-101\)\. Unit: m\./);
+    const steps = sections.flatMap((s) => s.lines).filter((l) => /^\d+\. (Issue|Reconcile) /.test(l.text)).map((l) => l.text);
+    expect(steps.find((x) => /^\d+\. Issue Carton \(PM-103\): /.test(x))).toMatch(/Packing material: Carton \(PM-103\)\. Unit: nos\./);
+    expect(steps.find((x) => /^\d+\. Reconcile Printed aluminium foil \(PM-101\): /.test(x))).toMatch(/Printed material: Printed aluminium foil \(PM-101\)\. Unit: m\./);
+  });
+
+  it('the plain view titles each step as the floor does and never shows a step\'s internal key', () => {
+    const d = packing();
+    const all = d.stages.flatMap((s) => s.steps);
+    d.stages[1]!.steps[2]!.orderAfter = d.stages[1]!.steps[1]!.key;
+    const lines = describeMaster(d).filter((s) => s.key.startsWith('stage:')).flatMap((s) => s.lines.filter((l) => l.key !== 'about'));
+    expect(lines.map((l) => /^\d+\. ([^:]+):/.exec(l.text)?.[1])).toEqual(d.stages.flatMap((s) => s.steps.map((t) => stepTitle(d, t))));
+    for (const l of lines) for (const t of all) expect(l.text, l.key).not.toContain(`(${t.key})`);
+    expect(lines.map((l) => l.text).filter((x) => /Order-critical/.test(x)).map((x) => /Order-critical: [^.]*\.[^.]*\./.exec(x)![0]))
+      .toEqual([`Order-critical: after step 2. ${stepTitle(d, d.stages[1]!.steps[1]!)}.`]);
+    expect(lines.map((l) => /^\d+\. Issue [^:]+/.exec(l.text)?.[0]).filter(Boolean)).toEqual(['2. Issue Printed aluminium foil (PM-101)', '3. Issue PVC/PVDC film (PM-102)', '4. Issue Carton (PM-103)', '5. Issue Leaflet (PM-104)']);
   });
 
   it('calculation checks: the author answers a warning; the answer is kept in the master and shown in the review and changes views', () => {
