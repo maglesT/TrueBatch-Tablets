@@ -8,6 +8,7 @@ import { answerDoc, earlierRefs, neededKind, scaleDoc, stepFrom } from '../web/s
 import { sentence, sentenceText } from '../web/src/designer/sentences.js';
 import { defaultDispensingRooms, SKELETON_LIST, skeletonStages } from '../web/src/designer/skeletons.js';
 import { tablet, unplaced } from './engine-fixture.js';
+import { packing } from './packing-fixture.js';
 
 // The designer's pure parts: sentences instead of formulas, inputs offered by kind, worked examples and the
 // calculation preview through the engine, skeletons, copying to a new batch size, and the changes view.
@@ -127,6 +128,15 @@ describe('master designer', () => {
     const lines = diff.flatMap((s) => s.lines.filter((l) => l.change !== 'same').map((l) => `${s.title} ${l.key} ${l.change}`));
     expect(lines).toEqual(['Formula mcc changed', 'Stage 2: Granulation about changed', 'Stage 3: Compression yield removed']);
     expect(describeMaster(prev).map((s) => s.title)).toEqual(['Header', 'Formula', 'Stage 1: Binder solution', 'Stage 2: Granulation', 'Stage 3: Compression', 'Stage 4: Coating']);
+  });
+
+  it('TB-P1 a packing master reads in packing words: the pack and its packing materials, no formula and no coating', () => {
+    const [top, materials] = describeMaster(packing());
+    expect([top!.title, materials!.title]).toEqual(['Pack', 'Packing materials']);
+    const text = [top, materials].flatMap((s) => s!.lines.map((l) => l.text)).join(' ');
+    expect(text).not.toMatch(/formula|uncoated|coated weight/i);
+    expect(text).toMatch(/Blister of 10 tablets; \d+ packs per carton\./);
+    expect(materials!.lines.length).toBe(packing().pack!.materials.length);
   });
 
   it('calculation checks: the author answers a warning; the answer is kept in the master and shown in the review and changes views', () => {

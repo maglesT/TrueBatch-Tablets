@@ -52,7 +52,21 @@ export function stepText(doc: MasterDoc, t: Step, j: number): string {
 
 export function describeMaster(doc: MasterDoc): Section[] {
   const h = doc.header;
-  return [
+  const p = doc.pack;
+  // A packing master (TB-P1) in packing words: the pack and its packing materials, no formula or coating.
+  const top: Section[] = p ? [
+    { key: 'header', title: 'Pack', lines: [
+      { key: 'product', text: `Pack product ${h.productCode}, ${h.productName}.` },
+      { key: 'bulk', text: `Packs the bulk tablets ${p.bulkCode}, ${p.bulkName}; tablet weight ${h.coreWeightMg} mg (for counts by weight).` },
+      { key: 'batch', text: `Standard packing batch ${h.batchSize} tablets.` },
+      { key: 'pack', text: `${p.type[0]!.toUpperCase()}${p.type.slice(1)} of ${p.unitsPerPack} tablets; ${p.packsPerCarton} packs per carton.` },
+      { key: 'expiry', text: `Approved shelf life ${p.shelfLifeMonths} months; expiry ${p.expiryRule === 'same month' ? 'month of manufacture + shelf life' : 'month of manufacture + shelf life − 1'}.` },
+      { key: 'market', text: `For ${p.destination}${p.mrp ? `; MRP Rs. ${p.mrp} per pack` : ''}.` },
+      ...(p.serialisation ? [{ key: 'serialisation', text: `Serialisation checked${p.gtin ? `; pack GTIN ${p.gtin}` : ''}.` }] : []),
+    ] },
+    { key: 'formula', title: 'Packing materials', lines: p.materials.map((m) => ({ key: m.key,
+      text: `${m.name} (${m.code}), ${m.kind}: ${m.perPack} ${m.unit} per pack${m.printed ? '; printed, issued with a second person and reconciled' : ''}${m.coded ? '; coded with the batch details' : ''}.` })) },
+  ] : [
     { key: 'header', title: 'Header', lines: [
       { key: 'product', text: `Product ${h.productCode}, ${h.productName}.` },
       { key: 'batch', text: `Batch size ${h.batchSize} tablets.` },
@@ -62,6 +76,9 @@ export function describeMaster(doc: MasterDoc): Section[] {
     ] },
     { key: 'formula', title: 'Formula', lines: doc.formula.map((l) => ({ key: l.key,
       text: `${l.name} (${l.code}), ${ROLE[l.role]}, ${PLACE[l.place]}${l.place === 'coating' ? ` layer ${l.layer ?? 1}` : ''}: ${l.mgPerTablet} mg per tablet${l.labelClaim ? ` (label claim ${l.labelClaim})` : ''}${l.batchQuantity ? ` (batch quantity written as ${l.batchQuantity})` : ''}${adjustText(doc, l)}.` })) },
+  ];
+  return [
+    ...top,
     ...doc.stages.map((s, i) => ({ key: `stage:${s.key}`, title: `Stage ${i + 1}: ${s.name}`, lines: [
       { key: 'about', text: stageText(doc, s) },
       ...s.steps.map((t, j) => ({ key: t.key, text: stepText(doc, t, j) })),
