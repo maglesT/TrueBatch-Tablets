@@ -68,6 +68,10 @@ QA release of the packed batch. Built the Logbook way, as TrueBatch Tablets is.
   that clearance is not refused because the line is dirty), `step_name` at the end of both, quantities in the material's
   master-data unit (a count in e.g. nos), and `deviation_note_v1` with TrueBatch Tablets' columns (source_ref
   `truebatch_packing:note:<id>`), so the Deviations system files packing's notes too (late periodic checks).
+  `0104` (owner, 16 Nov 2026): `material_use_v1.quantity` is what the batch used of the lot: the quantity issued less
+  what the reconciliation of the same material returned to stores uncoded, once that reconciliation is signed done
+  (before it, the quantity issued). Destroyed and batch-coded material stays used. MMS takes the quantity off the lot,
+  so the uncoded material returned to stores is available again in MMS with no change there.
 
 ## Left for later
 - An issue screen (as for TrueBatch Tablets, batches are issued through the API for now) and a read-only line display.

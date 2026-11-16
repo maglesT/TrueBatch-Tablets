@@ -223,7 +223,13 @@ describe('a packing batch from a released bulk batch', () => {
     expect(await lineUse()).toEqual({ ended: false });
     const fg = await step('2.1.0.1', { packs: '9800', cartons: '980', samples: '40', returnedWeight: '0.375', rejectWeight: '0.125' });
     expect(fg.results.accountability).toMatchObject({ check: { pass: true } });
+    // Before the reconciliation MMS takes off the whole quantity issued.
+    const usedOf = async (lot: string) => (await t.owner.unsafe(`select quantity::text from ${t.schema}_report.material_use_v1 where lot_number = $1
+      and batch_number = (select batch_no from batches where id = $2)`, [lot, id]))[0]?.quantity as string | undefined;
+    expect(await usedOf('FOIL-1')).toBe('1250');
     await step('2.1.1.1', { used: '1176', destroyed: '20', returned: '54' });
+    // Once the reconciliation is signed, what went back to stores uncoded is no longer used (destroyed material is).
+    expect(await usedOf('FOIL-1')).toBe('1196');
     await step('2.1.2.1', { used: '984', destroyed: '6', returned: '10' });
     await step('2.1.3.1', { used: '980', destroyed: '0', returned: '20' });
     await step('2.1.4.1', { what: 'Foil 20 m, cartons 6', method: 'shredded', destroyed: 'yes' });
@@ -277,9 +283,10 @@ describe('a packing batch from a released bulk batch', () => {
     expect(eq).toEqual([{ equipment_code: 'BL-01', equipment_type: 'blister line', room_code: 'PK-01', step: 'packing/clearance', step_name: 'Packing › Line clearance before packing', ended: true }]);
     const used = await t.owner.unsafe(`select lot_number, material_code, material_master_id, quantity::text, unit, step, status
       from ${t.schema}_report.material_use_v1 where batch_number = $1 order by step`, [batchNo]);
-    // A count in master data's unit (nos).
-    expect(used).toEqual([['CARTON-1', 'PM-103', 'pm-ctn', '1000', 'nos', 'issue/issue-carton'], ['FOIL-1', 'PM-101', 'pm-foil', '1250', 'm', 'issue/issue-foil'],
-      ['LEAFLET-1', 'PM-104', 'pm-lft', '1000', 'nos', 'issue/issue-leaflet'], ['PVC-1', 'PM-102', 'pm-pvc', '1250', 'm', 'issue/issue-pvc']]
+    // A count in master data's unit (nos). A printed material: issued less returned to stores uncoded (cartons 1000 − 10,
+    // leaflets 1000 − 20, foil 1250 − 54); the forming film, not reconciled, as issued.
+    expect(used).toEqual([['CARTON-1', 'PM-103', 'pm-ctn', '990', 'nos', 'issue/issue-carton'], ['FOIL-1', 'PM-101', 'pm-foil', '1196', 'm', 'issue/issue-foil'],
+      ['LEAFLET-1', 'PM-104', 'pm-lft', '980', 'nos', 'issue/issue-leaflet'], ['PVC-1', 'PM-102', 'pm-pvc', '1250', 'm', 'issue/issue-pvc']]
       .map(([lot_number, material_code, material_master_id, quantity, unit, step]) => ({ lot_number, material_code, material_master_id, quantity, unit, step, status: 'dispensed' })));
     const cols = async (v: string) => (await t.owner.unsafe(`select string_agg(column_name || ' ' || data_type, ', ' order by ordinal_position) as c from information_schema.columns
       where table_schema = $1 and table_name = $2`, [`${t.schema}_report`, v]))[0]!.c as string;
