@@ -9,6 +9,7 @@ import { decimalsOf } from '../templates/core.js';
 import { evaluate, lineQuantity } from '../engine/values.js';
 import { materialLines, type Answer, type FormulaLine, type Limit, type MasterDoc, type SettingValue } from './schema.js';
 import { packingChecks } from './packing.js';
+import { unitKindProblem } from './kinds.js';
 import { isBalance } from '../engine/picks.js';
 
 /** A warning the author answers: one of the options, with a reason when `needsReason`. */
@@ -72,6 +73,10 @@ export function masterChecks(doc: MasterDoc): Problem[] {
         const listed = !bs?.options || (typeof v === 'string' && bs.options.includes(v));
         const why = !bs ? `The block ${block.name} has no setting ${name}` : listed ? settingProblem(doc, si, ti, bs.kind, v) : `${bs.label}: choose one of ${bs.options!.join(', ')}`;
         if (why) error(`${p}.settings.${name}`, why);
+        // TB-01: a limit (or a typed target) in a unit of another kind than the value it checks.
+        const unit = typeof v === 'object' && 'unit' in v ? v.unit : typeof v === 'string' && bs?.kind === 'quantity' ? QUANTITY.exec(v)?.[3] : undefined;
+        const wrong = !why && unit !== undefined ? unitKindProblem(block, name, st.settings, unit) : null;
+        if (wrong) error(`${p}.settings.${name}`, wrong, 'TB-01');
       }
       // A calculation that needs no recorded value is worked out now (e.g. a liquid make-up, T17): a refusal must be fixed.
       const now = evaluate(doc, [], { stage: si, sub: 1, step: ti, round: 1 }, {});

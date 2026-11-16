@@ -55,6 +55,21 @@ describe('master review and approval', () => {
     expect(await state(id)).toBe('draft');
   });
 
+  it('TB-01 a limit written through the API in a unit of another kind than its value: saved as a draft, refused by the check, not sent for review', async () => {
+    const doc = placed(tablet());
+    const compress = doc.stages[2]!.steps.find((t) => t.key === 'compress')!;
+    compress.settings.meanLimit = { low: '245.0', high: '255.0', unit: 'min' };
+    const { id } = await draft(doc);
+    const checks = (await as('author', 'GET', `/api/master-versions/${id}/checks`)).json() as { problems: { level: string; rule?: string; path: string; message: string }[] };
+    expect(checks.problems).toEqual([{ level: 'error', rule: 'TB-01', path: 'stages[2].steps[1].settings.meanLimit', message: expect.stringMatching(/^Mean weight limits: min is a time, but the value checked is a mass/) }]);
+    expect((await act('author', id, 'submit')).json().error).toBe('master_has_errors');
+    // The same limit in a unit of the right kind is accepted.
+    compress.settings.meanLimit = { low: '0.245', high: '0.255', unit: 'g' };
+    expect((await as('author', 'PUT', `/api/master-versions/${id}`, { doc })).statusCode).toBe(200);
+    expect(((await as('author', 'GET', `/api/master-versions/${id}/checks`)).json() as { problems: unknown[] }).problems).toEqual([]);
+    expect((await act('author', id, 'submit')).statusCode).toBe(200);
+  });
+
   it('calculation checks: a warning that needs an answer blocks "Send for review" until the author answers it in the master', async () => {
     const doc = placed(tablet());
     doc.formula[4]!.adjust = { content: { formulaQuantityIs: 'dry', contentSource: 'in-process result', resultType: 'content' } };

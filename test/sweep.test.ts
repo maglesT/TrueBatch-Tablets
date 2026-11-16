@@ -5,6 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import { BLOCKS, findBlock, type Block } from '../shared/blocks/index.js';
 import { evaluate, type StepEvent, type Value } from '../shared/engine/index.js';
+import { masterChecks } from '../shared/master/checks.js';
 import { masterSchema, type MasterDoc, type Step } from '../shared/master/schema.js';
 import { at, ev, tablet } from './engine-fixture.js';
 import { GTIN, pack, packing } from './packing-fixture.js';
@@ -107,10 +108,13 @@ describe('the sweep: no template crashes on any block or test master', () => {
   it.each(BLOCKS.map((b) => [b.id, b] as const))('%s: all its settings set, its fields filled, required only or all, in two rounds', (id, b) => {
     expect(Object.keys(SETTINGS[id] ?? {}).sort()).toEqual(b.settings.map((s) => s.name).sort());
     for (const all of [false, true]) expect(crashes(using(b), all)).toEqual([]);
+    // Its limits and targets are of the kinds of the values they check (TB-01).
+    expect(masterChecks(using(b)).filter((p) => /every reading would be refused/.test(p.message))).toEqual([]);
   });
 
   it.each([['tablet', tablet()], ['packing', packing()], ['packing, serialised', packing({ gtin: GTIN, serialisation: true })],
     ['packing, bottles', packing({ type: 'bottle' })]] as const)('the %s test master', (_name, doc) => {
     for (const all of [false, true]) expect(crashes(doc, all)).toEqual([]);
+    expect(masterChecks(doc).filter((p) => /every reading would be refused/.test(p.message))).toEqual([]);
   });
 });

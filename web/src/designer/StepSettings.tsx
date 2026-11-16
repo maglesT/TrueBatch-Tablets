@@ -157,8 +157,8 @@ function Slot({ doc, si, ti, block, settings, name, onChange }: {
   if (s.kind === 'limit') {
     const field = block.fields.find((f) => f.kind === 'number' && f.unit && !f.unit.startsWith('$') && kindOfUnit(f.unit) === kind);
     const unitSetting = block.fields.find((f) => f.unit?.startsWith('$'))?.unit?.slice(1);
-    const def = kind === 'fraction' ? '%' : field?.unit ?? (unitSetting && typeof settings[unitSetting] === 'string' ? settings[unitSetting] as string : '');
     const k = kind ?? (unitSetting ? kindOfUnit(settings[unitSetting] as string) : undefined);
+    const def = kind === 'fraction' ? '%' : field?.unit ?? (unitSetting && typeof settings[unitSetting] === 'string' ? settings[unitSetting] as string : unitsOf(k)[0]?.symbol ?? '');
     return <LimitEdit label={s.label} value={typeof v === 'object' && 'unit' in v ? v : undefined} kind={k} unit={def} onChange={onChange} missing={missing} />;
   }
   return <QuantitySource doc={doc} si={si} ti={ti} label={s.label} kind={kind} value={v} onChange={onChange} missing={missing} />;

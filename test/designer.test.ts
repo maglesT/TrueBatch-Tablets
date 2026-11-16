@@ -48,6 +48,10 @@ describe('master designer', () => {
     expect(neededKind(block('stage-yield'), 'theoretical')).toBe('mass');
     expect(neededKind(block('stage-yield'), 'yieldLimit')).toBe('fraction');
     expect(neededKind(block('compress'), 'hardnessLimit')).toBe('force');
+    // A limit on a result whose template sets its kind: not the kind of the values it is worked out from.
+    expect(['pressureLimit', 'carrLimit', 'hausnerLimit', 'reposeLimit', 'finesLimit', 'recoveryLimit', 'rsdLimit', 'mixTimeLimit']
+      .map((n) => neededKind(BLOCKS.find((b) => b.settings.some((x) => x.name === n))!, n)))
+      .toEqual(['pressure', 'fraction', 'number', 'angle', 'fraction', 'fraction', 'fraction', 'time']);
     const masses = earlierRefs(tablet(), 3, 0).filter((r) => r.kind === 'mass').map((r) => r.ref);
     expect(masses).toContain('compression/compress/meanWeight');
     expect(masses).not.toContain('compression/yield/yield');

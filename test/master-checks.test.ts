@@ -102,6 +102,26 @@ describe('master checks', () => {
       .toEqual(['error - stages[1].steps[3].settings.endPointLimit: The lower limit 12.0 is above the upper limit 8.0']);
   });
 
+  it('TB-01 a limit or a typed target in a unit of another kind than the value it checks is an error (every reading would be refused)', () => {
+    expect(errors((d) => { step(d, 'compression', 'compress').settings.meanLimit = { low: '245.0', high: '255.0', unit: 'min' }; }))
+      .toEqual(['error TB-01 stages[2].steps[0].settings.meanLimit: Mean weight limits: min is a time, but the value checked is a mass. Choose a unit of that kind (in min every reading would be refused at batch time)']);
+    expect(errors((d) => { step(d, 'coating', 'qa-hold').settings = { what: 'Weight', unit: 'mg', limit: { low: '95', high: '105', unit: '%' } }; }))
+      .toEqual(['error TB-01 stages[3].steps[1].settings.limit: Limits: % is a percentage, but the value checked is a mass. Choose a unit of that kind (in % every reading would be refused at batch time)']);
+    expect(errors((d) => { step(d, 'granulation', 'yield').settings.yieldLimit = { low: '97.0', high: '100.5', unit: 'kg' }; })).toHaveLength(1);
+    expect(errors((d) => { step(d, 'granulation', 'weigh-lactose').settings.target = '12.0 min'; })).toEqual([expect.stringMatching(/^error TB-01 stages\[1\]\.steps\[1\]\.settings\.target: .*min is a time, but the value checked is a mass/)]);
+    // A unit not in the list is refused as before; a unit of the same kind, or °C on a temperature difference, is not a kind problem.
+    expect(errors((d) => { step(d, 'compression', 'compress').settings.meanLimit = { low: '245.0', high: '255.0', unit: 'F-min' }; })).toEqual([expect.stringMatching(/"F-min" is not in the unit list/)]);
+    expect(errors((d) => { Object.assign(step(d, 'compression', 'compress').settings, { meanLimit: { low: '0.245', high: '0.255', unit: 'g' }, hardnessLimit: { low: '6', high: '12', unit: 'kp' } }); })).toEqual([]);
+    expect(errors((d) => { step(d, 'granulation', 'weigh-lactose').settings.target = '12.0 kg'; })).toEqual([]);
+  });
+
+  it('a limit of the wrong unit kind is refused at batch time too: C1 and T7 refuse the reading, nothing is compared', () => {
+    const d = tablet();
+    step(d, 'compression', 'compress').settings.meanLimit = { low: '245.0', high: '255.0', unit: 'min' };
+    const r = evaluate(d, [], { stage: 2, sub: 1, step: 0, round: 1 }, { weights: Array(20).fill({ value: '250.0', unit: 'mg' }) });
+    expect(r.meanWeight).toEqual({ ok: false, message: 'mg (mass) cannot be converted to min (time)' });
+  });
+
   it('TB-15 compression checks more than 30 minutes apart, or with no interval, are an error', () => {
     expect(after((d) => { step(d, 'compression', 'compress').everyMinutes = 45; }))
       .toEqual(['error TB-15 stages[2].steps[0].everyMinutes: Periodic checks every 45 min: they must be at least every 30 min']);
