@@ -226,7 +226,7 @@ test('TB-21 QA terminates a packing batch after materials were issued: the windo
   const iss = await person(browser, 'piss');
   const mv = ((await (await iss.page.request.get('/api/masters')).json()) as { id: number; state: string }[]).find((v) => v.state === 'effective')!.id;
   const labels = { 'line.clean': 'yes', 'line.calibrated': 'yes', 'line.inService': 'yes', 'line.qualified': 'yes' };
-  const res = await iss.page.request.post('/api/batches', { data: { masterVersionId: mv, proof: await iss.proof('issued'), values: { line: 'ln-1', ...labels, bulk: 'TB260001', tablets: '100000' } } });
+  const res = await iss.page.request.post('/api/batches', { data: { masterVersionId: mv, proof: await iss.proof('issued'), values: { line: 'ln-1', ...labels, bulk: 'TB260001', tablets: '60000' } } });
   expect(res.ok(), await res.text()).toBe(true);
   const batch = await res.json() as { id: number; batchNo: string };
   await iss.ctx.close();
@@ -319,6 +319,12 @@ test('TB-21 QA terminates a packing batch after materials were issued: the windo
   await qa.page.setViewportSize(tablet);
   await qa.page.goto(`/#/batch/${batch.id}`);
   await expect(qa.page.getByRole('note')).toContainText(/^Terminated by PQA at .* IST: Blister line 1 down for repair: the batch cannot be finished · Back to stores unused: lot FOIL-2 \(PM-101 · Printed aluminium foil\) 300 m, lot CTN-2 \(PM-103 · Carton\) 5 nos; the rest counts as used$/);
+  // The batch screen: the bulk tablets issued to this batch (not the master's standard batch), and no stage is "now".
+  await expect(qa.page.getByRole('region', { name: 'Batch', exact: true })).toContainText('Bulk tablets issued 60,000 tablets');
+  await expect(qa.page.getByRole('region', { name: 'Batch', exact: true })).not.toContainText('Batch size');
+  const stages = qa.page.getByRole('navigation', { name: 'Stages' });
+  await expect(stages).toContainText('Terminated');
+  await expect(stages.locator('small', { hasText: /^(Now|Open|Waiting)$/ })).toHaveCount(0);
   if (process.env.SHOTS) await qa.page.screenshot({ path: `${process.env.SHOTS}/packing-terminated-returns.png`, fullPage: true });
   await qa.ctx.close();
 });

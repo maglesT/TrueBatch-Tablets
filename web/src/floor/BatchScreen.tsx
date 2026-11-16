@@ -52,6 +52,9 @@ export function BatchScreen({ me, id, step, approve }: { me: Me; id: number; ste
 
 export function BatchHeader({ d }: { d: BatchDetail }) {
   const h = d.master.doc.header;
+  // A packing batch: the bulk tablets issued to it (recorded at issue), not the master's standard packing batch.
+  const issued = d.master.doc.pack ? d.steps.find((s) => s.id === '0.1.0.1')?.values.tablets : undefined;
+  const tablets = issued && typeof issued === 'object' && 'value' in issued ? issued.value : undefined;
   return (
     <section className="dash-panel bh" aria-label="Batch">
       <div>
@@ -59,7 +62,8 @@ export function BatchHeader({ d }: { d: BatchDetail }) {
         <h1>{h.productName}</h1>
         <div className="meta">
           <span>Product <b>{h.productCode}</b></span>
-          <span>Batch size <b>{Number(h.batchSize).toLocaleString('en-IN')} tablets</b></span>
+          {tablets ? <span>Bulk tablets issued <b>{Number(tablets).toLocaleString('en-IN')} tablets</b></span>
+            : <span>Batch size <b>{Number(h.batchSize).toLocaleString('en-IN')} tablets</b></span>}
           <span>Master version <b>{d.master.versionNo}</b></span>
           <span>Issued <b>{plainClock(d.batch.issuedAt)}</b></span>
         </div>
@@ -75,8 +79,11 @@ export function BatchHeader({ d }: { d: BatchDetail }) {
 const finished = (s: StepRow) => ['done', 'checked', 'not_applicable'].includes(s.state);
 
 function Overview({ d, blocks, now, reload }: { d: BatchDetail; blocks: Block[]; now: number; reload: () => Promise<void> }) {
-  const current = d.stages.find((s) => s.open && !s.closed) ?? d.stages.find((s) => !s.closed);
-  const [shown, setShown] = useState(current?.index ?? 0);
+  const at = d.stages.find((s) => s.open && !s.closed) ?? d.stages.find((s) => !s.closed);
+  // A batch terminated, released or rejected runs no more: no stage is "now"; one left unclosed says Terminated.
+  const ended = !!d.batch.terminated || ['released', 'rejected'].includes(d.batch.status);
+  const current = ended ? undefined : at;
+  const [shown, setShown] = useState(at?.index ?? 0);
   const doc = d.master.doc;
   const title = (s: StepRow) => stepTitle(doc, blocks, stepOf(doc, s.key));
   const stage = doc.stages[shown]!;
@@ -88,7 +95,7 @@ function Overview({ d, blocks, now, reload }: { d: BatchDetail; blocks: Block[];
       <nav className="stagebar" aria-label="Stages">
         {d.stages.map((s) => (
           <button key={s.key} className={`${s.closed ? 'closed' : s === current ? 'current' : ''}${s.index === shown ? ' on' : ''}`} onClick={() => setShown(s.index)} aria-pressed={s.index === shown}>
-            <small>{s.closed ? '✓ Closed' : s === current ? 'Now' : s.open ? 'Open' : 'Waiting'}</small><span>{s.name}</span>
+            <small>{s.closed ? '✓ Closed' : ended ? 'Terminated' : s === current ? 'Now' : s.open ? 'Open' : 'Waiting'}</small><span>{s.name}</span>
           </button>
         ))}
       </nav>
