@@ -10,7 +10,7 @@ import { FieldInput } from './Fields.js';
 import { DemoSkip } from './DemoSkip.js';
 import { ReasonDialog } from './ReasonDialog.js';
 import { CERTIFICATE, fieldLabel, handEntered, LINK_OF } from '../../../shared/engine/links.js';
-import { notYetText } from '../../../shared/engine/batch.js';
+import { cutShort, notYetText } from '../../../shared/engine/batch.js';
 import { lineQuantity } from '../../../shared/engine/values.js';
 import { plantText } from '../../../shared/plant-time.js';
 import { dispensingRooms, inLogbook, machineRefusal, roomRefusal, untypedNote } from '../../../shared/engine/picks.js';
@@ -208,12 +208,12 @@ export function StepScreen({ me, d, blocks, row, now, reload }: { me: Me; d: Bat
       <div className="alerts">
         <Alerts d={d} blocks={blocks} now={now} only={row.id} />
         {row.blocked && !d.batch.terminated && <div className="fl-alert info"><span className="tag">Not open yet</span><span>{row.blocked}</span><span /></div>}
-        {sentBack && row.state === 'in_progress' && lastDone && sentBack.id > lastDone.id && (
+        {sentBack && !d.batch.terminated && row.state === 'in_progress' && lastDone && sentBack.id > lastDone.id && (
           <div className="fl-alert bad"><span className="tag">Sent back</span><span>“{sentBack.payload.reason}”<small>by {sentBack.personName}, {plainClock(sentBack.at)}. Correct the value, then sign again.</small></span><span /></div>
         )}
         {row.inputChanged.map((e) => <InputChanged key={e.id} e={e} d={d} blocks={blocks} />)}
-        {row.needsResign && !row.inputChanged.length && <div className="fl-alert warn"><span className="tag">Sign again</span><span>A value of this step was corrected after it was signed: check it and sign the step again.</span><span /></div>}
-        {periodic && <div className={`fl-alert ${periodic.state === 'late' ? 'bad' : 'info'}`}><span className="tag">Next check</span><span>Check {periodic.key.round} (every {st.everyMinutes} min)<small>due {plainClock(periodic.at)}{periodic.skipped ? ' · DEMO: wait skipped' : ''}</small></span>
+        {row.needsResign && !d.batch.terminated && !row.inputChanged.length && <div className="fl-alert warn"><span className="tag">Sign again</span><span>A value of this step was corrected after it was signed: check it and sign the step again.</span><span /></div>}
+        {periodic && !d.batch.terminated && <div className={`fl-alert ${periodic.state === 'late' ? 'bad' : 'info'}`}><span className="tag">Next check</span><span>Check {periodic.key.round} (every {st.everyMinutes} min)<small>due {plainClock(periodic.at)}{periodic.skipped ? ' · DEMO: wait skipped' : ''}</small></span>
             <span className="countdown">{Date.parse(periodic.at) > now ? `in ${timeLeft(Date.parse(periodic.at) - now)}` : 'now'}</span></div>}
       </div>
       <DemoSkip me={me} d={d} row={row} reload={() => reload()} />
@@ -234,7 +234,7 @@ export function StepScreen({ me, d, blocks, row, now, reload }: { me: Me; d: Bat
                 ))}</tbody></table>
               {handEntered(row.source) && <p className="notice warn">Entered by hand because a link is off or down: check each value against the status label, the lot label and the QC report.</p>}
               {fields.filter((f) => row.values[f.name] !== undefined).map((f) => <Replaced key={f.name} h={history} field={f.name} names={names} label={f.label} mdUnit={mdUnit} />)}
-              {!can('check') && <p className="notice info">{involved ? 'You performed or recorded this step: a second person checks it on their own device.' : 'Waiting for a second person to check this step.'}</p>}
+              {!can('check') && !d.batch.terminated && <p className="notice info">{involved ? 'You performed or recorded this step: a second person checks it on their own device.' : 'Waiting for a second person to check this step.'}</p>}
             </section>
           ) : (
             <section className="dash-panel" aria-label="Record">
@@ -248,7 +248,7 @@ export function StepScreen({ me, d, blocks, row, now, reload }: { me: Me; d: Bat
           <section className="dash-panel" aria-label="Results">
             <div className="panel-head"><h2>Results</h2><span className="muted">worked out by the server</span></div>
             {resultRows.length === 0 ? <p className="muted">The results appear here as soon as the values are saved.</p> : (
-              <div className="results">{resultRows.map((x) => <ResultCard key={x.n} label={x.label} r={x.r} big={block.gmp === 'yield'} stop={x.n === row.notYet} terminated={!!d.batch.terminated} />)}</div>
+              <div className="results">{resultRows.map((x) => <ResultCard key={x.n} label={x.label} r={x.r} big={block.gmp === 'yield'} stop={x.n === row.notYet} terminated={cutShort(d.batch.terminated, row, rounds)} />)}</div>
             )}
           </section>
           {repeatUntil && rounds.length > 0 && (
@@ -258,7 +258,7 @@ export function StepScreen({ me, d, blocks, row, now, reload }: { me: Me; d: Bat
                 const s = stop ? r.results[stop] : undefined;
                 return (
                   <button key={r.id} className={r.id === row.id ? 'round here' : 'round'} onClick={() => go(stepLink(d.batch.id, r.id))}>
-                    <b>Round {r.key.round}</b><span>{s?.ok ? (tone(s) === 'ok' ? 'Passed' : d.batch.terminated ? 'Not reached' : 'Not yet') : ''}{s?.ok && headline(s) ? ` · ${headline(s)}` : ''}</span>
+                    <b>Round {r.key.round}</b><span>{s?.ok ? (tone(s) === 'ok' ? 'Passed' : cutShort(d.batch.terminated, r, rounds) ? 'Not reached' : 'Not yet') : ''}{s?.ok && headline(s) ? ` · ${headline(s)}` : ''}</span>
                     <span className={`chip ${stateLabel(r.state, d.batch.terminated)[1]}`}>{stateLabel(r.state, d.batch.terminated)[0]}</span>
                   </button>
                 );
