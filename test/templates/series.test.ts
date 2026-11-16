@@ -70,7 +70,10 @@ describe('C2 Count of readings', () => {
     [W20, '10', 'at least', true],
     ['800', '800', 'at least', true], // RTRT 800 samples in 40 h (formulation 50)
     ['799', '800', 'at least', false],
-  ] as [string[] | string, string, 'exactly' | 'at least', boolean][])('C2: %#: count vs %s (%s) → %s', (readings, required, mode, pass) => {
+    // The count as a number field records it ("4 units"): it used to crash ([DecimalError] Invalid argument: undefined).
+    [{ value: '4', unit: 'units' }, '4', 'at least', true],
+    [{ value: '3', unit: 'units' }, '4', 'at least', false],
+  ] as [string[] | string | { value: string; unit: string }, string, 'exactly' | 'at least', boolean][])('C2: %#: count vs %s (%s) → %s', (readings, required, mode, pass) => {
     expect(ok(c2Count({ readings, required, mode })).check?.pass).toBe(pass);
   });
 
