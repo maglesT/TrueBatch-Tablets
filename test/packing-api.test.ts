@@ -10,7 +10,7 @@ import { PACKING } from '../packing/product.js';
 import { PACKING_APP_ROLE } from '../packing/migrate.js';
 import { call, freshApp, handLabels, login, proofFor, seedUser, TEST_DATABASE_URL, type TestApp } from './helpers.js';
 import { packing } from './packing-fixture.js';
-import { openSteps, usesOfLot } from '../shared/engine/index.js';
+import { openSteps, returnsOf, usesOfLot } from '../shared/engine/index.js';
 
 // TrueBatch Tablets Packing through its own server: its own permission codes, a packing batch issued from a RELEASED
 // bulk batch read from TrueBatch Tablets' batch_fact_v1 (a fake provider schema, read with packing's restricted login),
@@ -175,14 +175,35 @@ describe('a packing batch from a released bulk batch', () => {
   it('TB-21 QA terminates a packing batch in production (owner, 16 Nov 2026): rejected with its reason, its line use ended, the line takes the next order', async () => {
     const id = (await t.owner<{ id: number }[]>`select id::int from batches order by id desc limit 1`)[0]!.id;
     expect((await issue({ line: 'ln-2', bulk: 'TB260004', tablets: '50000' })).json()).toMatchObject({ error: 'line_in_use' });
+    // The bulk checked, then foil and forming film issued before the line broke down.
+    expect((await as('chk1', 'POST', `/api/batches/${id}/steps/0.1.0.1/check`, { proof: proofFor('chk1'), contentHash: (await get(id)).steps[0]!.contentHash })).statusCode).toBe(200);
+    for (const [key, values] of [['0.1.1.1', { lot: 'FOIL-9', issued: '1250' }], ['0.1.2.1', { lot: 'PVC-9', issued: '800' }]] as const) {
+      expect((await as('op1', 'POST', `/api/batches/${id}/steps/${key}/start`)).statusCode).toBe(200);
+      const rec = await as('op1', 'POST', `/api/batches/${id}/steps/${key}/record`, { values: { ...values, ...handLabels('lot', 'lot'), matches: 'yes' } });
+      expect(rec.statusCode, rec.body).toBe(200);
+      const done = await as('op1', 'POST', `/api/batches/${id}/steps/${key}/done`, { proof: proofFor('op1'), contentHash: (await get(id)).steps.find((x) => x.id === key)!.contentHash });
+      expect(done.statusCode, done.body).toBe(200);
+    }
     const b = await get(id, 'qa1');
     expect(b.batch.actions).toEqual(['terminate']);
-    const r = await as('qa1', 'POST', `/api/batches/${id}/terminate`, { proof: proofFor('qa1'), contentHash: b.batch.contentHash, reason: 'Blister line 2 down for repair' });
+    // The window asks, per lot issued, what went back to stores unused: up to what was issued, in the published unit.
+    expect((b.batch as unknown as { issued: object[] }).issued).toEqual([{ lot: 'FOIL-9', material: 'PM-101 · Printed aluminium foil', value: '1250', unit: 'm' }, { lot: 'PVC-9', material: expect.stringMatching(/^PM-102 · /), value: '800', unit: 'm' }]);
+    const terminate = (returns?: object[]) => as('qa1', 'POST', `/api/batches/${id}/terminate`, { proof: proofFor('qa1'), contentHash: b.batch.contentHash, reason: 'Blister line 2 down for repair', ...(returns ? { returns } : {}) });
+    expect((await terminate()).json()).toMatchObject({ error: 'invalid_values', problems: [expect.stringMatching(/^Say how much of lot FOIL-9 /), expect.stringMatching(/^Say how much of lot PVC-9 /)] });
+    expect((await terminate([{ lot: 'FOIL-9', value: '1300', unit: 'm' }, { lot: 'PVC-9', value: '0', unit: 'm' }])).json())
+      .toMatchObject({ problems: ['Lot FOIL-9: 1250 m was issued to this batch; 1300 m cannot have gone back to stores.'] });
+    const r = await terminate([{ lot: 'FOIL-9', value: '300', unit: 'm' }, { lot: 'PVC-9', value: '0', unit: 'm' }]);
     expect(r.statusCode, r.body).toBe(200);
     expect((await get(id)).batch).toMatchObject({ status: 'rejected', actions: [] });
     const no = (await t.owner<{ no: string }[]>`select batch_no as no from batches where id = ${id}`)[0]!.no;
     expect(await t.owner.unsafe(`select status from ${t.schema}_report.packing_batch_v1 where batch_number = $1`, [no])).toEqual([{ status: 'REJECTED' }]);
-    expect(JSON.stringify(batchRecordDoc(await recordInput(t.sql, (await loadBatch(t.sql, id))!), 'QA1'))).toMatch(/Terminated by QA1 at [^"]* IST: Blister line 2 down for repair/);
+    // material_use_v1 gives back what went back to stores; the app counts the same (shared/engine/stock.ts).
+    const used = await t.owner.unsafe(`select lot_number, quantity::text, unit from ${t.schema}_report.material_use_v1 where batch_number = $1 order by lot_number`, [no]);
+    expect(used).toEqual([{ lot_number: 'FOIL-9', quantity: '950', unit: 'm' }, { lot_number: 'PVC-9', quantity: '800', unit: 'm' }]);
+    const l = (await loadBatch(t.sql, id))!;
+    expect(['FOIL-9', 'PVC-9'].map((lot) => usesOfLot(l.doc, openSteps(l.doc, l.events, l.now).steps, lot, returnsOf(l.batchEvents))[0]!.quantity.value)).toEqual(['950', '800']);
+    expect(JSON.stringify(batchRecordDoc(await recordInput(t.sql, l), 'QA1')))
+      .toMatch(/Terminated by QA1 at [^"]* IST: Blister line 2 down for repair · Back to stores unused: lot FOIL-9 \(PM-101 · Printed aluminium foil\) 300 m, lot PVC-9 \([^)]*\) 0 m; the rest counts as used/);
     expect((await issue({ line: 'ln-2', bulk: 'TB260004', tablets: '50000' })).statusCode).toBe(200);
   });
 

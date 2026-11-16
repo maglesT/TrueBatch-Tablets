@@ -4,7 +4,7 @@
 import type { Content, TDocumentDefinitions } from 'pdfmake/interfaces.js';
 import { findBlock, type Block } from '../shared/blocks/index.js';
 import type { Step } from '../shared/master/schema.js';
-import { batchView, deviations, fieldLabel, handFields, lateItems, lineQuantity, notYetText, openSteps, PROVIDER_NAME, deviationStatusWords, stepTitle, type DeviationStatus, type EventKind, type Source, type Stored, type StepView, type Value } from '../shared/engine/index.js';
+import { batchView, deviations, fieldLabel, handFields, lateItems, lineQuantity, notYetText, terminatedText, openSteps, PROVIDER_NAME, deviationStatusWords, stepTitle, type DeviationStatus, type EventKind, type Source, type Stored, type StepView, type Value } from '../shared/engine/index.js';
 import type { LoadedBatch } from './routes/batches.js';
 import { pageFrame, plant, runs } from './pdf.js';
 import { plantText } from '../shared/plant-time.js';
@@ -66,7 +66,7 @@ export function batchRecordDoc(r: RecordInput, by: string, printedAt = new Date(
   const record = doc.pack ? 'Packing record' : 'Batch record';
   // A batch QA terminated: said at the top and in the decisions.
   const ended = batchEvents.find((b) => b.payload.terminated);
-  const endedText = ended && `Terminated by ${ended.personName} at ${plant(ended.at)}: ${ended.payload.reason ?? ''}`;
+  const endedText = ended && terminatedText(ended, plant);
   const facts = doc.pack ? steps.find((v) => v.id === '0.1.0.1') : undefined;
   const content: Content[] = [
     { text: runs(`${record} ${r.batch.batchNo}`), fontSize: 16, bold: true },

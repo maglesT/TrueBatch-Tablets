@@ -3,7 +3,7 @@ import { connect, type Sql } from '../server/db.js';
 import { links } from '../server/links.js';
 import { PACKING } from '../packing/product.js';
 import { PACKING_APP_ROLE } from '../packing/migrate.js';
-import { inLotUnit } from '../shared/engine/index.js';
+import { inLotUnit, issuedLots, materialUses, returnProblems, unitName, type StepView } from '../shared/engine/index.js';
 import { call, freshApp, handLabels, login, proofFor, seedUser, TEST_DATABASE_URL, type TestApp } from './helpers.js';
 import { pack, packing } from './packing-fixture.js';
 
@@ -39,7 +39,7 @@ beforeAll(async () => {
   for (const m of packing().pack!.materials) t.master.materials_.push({ ...item(m.materialItemId, m.code, m.name), category: 'packing', unit: m.unit === 'units' ? 'nos' : m.unit });
   t.master.equipment_.push({ ...item('ln-1', 'BL-01', 'Blister line 1'), kind: 'equipment', type: 'blister line', room: 'PK-01' },
     { ...item('ln-2', 'BL-02', 'Blister line 2'), kind: 'equipment', type: 'blister line', room: 'PK-02' });
-  for (const [name, perms] of Object.entries({ author: P('master.author'), issuer: P('batch.issue'), op1: P('batch.operate'), chk1: P('batch.check') })) {
+  for (const [name, perms] of Object.entries({ author: P('master.author'), issuer: P('batch.issue'), op1: P('batch.operate'), chk1: P('batch.check'), qa1: P('qa.release') })) {
     await seedUser(t.owner, name, perms);
     cookies[name] = (await login(t.app, name)).cookie;
   }
@@ -116,11 +116,53 @@ describe('a packing material lot is not issued beyond what MMS shows available',
     }
   });
 
+  it('TB-21 what a terminated batch gave back to stores is available again (owner, 16 Nov 2026)', async () => {
+    const b = (await as('qa1', 'GET', `/api/batches/${first}`)).json() as { batch: { contentHash: string; issued: object[] } };
+    expect(b.batch.issued).toEqual([{ lot: 'CTN-1', material: expect.stringMatching(/^PM-103 /), value: '600', unit: 'nos' }]);
+    const r = await as('qa1', 'POST', `/api/batches/${first}/terminate`, { proof: proofFor('qa1'), contentHash: b.batch.contentHash, reason: 'Line down',
+      returns: [{ lot: 'CTN-1', value: '200', unit: 'nos' }] });
+    expect(r.statusCode, r.body).toBe(200);
+    // 1000 in stock less 400 still used by the terminated batch: 600 available for the other one.
+    expect((await record(second, { lot: 'CTN-1', issued: '601', matches: 'yes' })).json()).toMatchObject({ problems: [expect.stringMatching(/^Lot CTN-1 has 600 nos available in MMS \(1000 nos in stock less 400 nos already used/)] });
+    expect((await record(second, { lot: 'CTN-1', issued: '600', matches: 'yes' })).statusCode).toBe(200);
+  });
+
   it('a quantity is counted in the lot\'s unit as MMS counts it: the same kind by a power of ten, never across kinds', () => {
     expect(inLotUnit({ value: '600.5', unit: 'g' }, 'kg')?.toString()).toBe('0.6005');
     expect(inLotUnit({ value: '12', unit: 'units' }, 'Nos')?.toString()).toBe('12');
     expect(inLotUnit({ value: '1.5', unit: 'L' }, 'mL')?.toString()).toBe('1500');
     expect(inLotUnit({ value: '12', unit: 'm' }, 'kg')).toBeNull();
     expect(inLotUnit({ value: '12', unit: 'g' }, 'nos')).toBeNull();
+  });
+
+  it('a terminated batch\'s returns are taken off its uses of the same lot and unit, the last step first, never below 0 (as material_use_v1)', () => {
+    const doc = packing();
+    const at = (kind: string) => doc.stages.flatMap((st, stage) => st.steps.map((t, step) => ({ t, stage, step })))
+      .find((x) => x.t.block.id === 'pack-material-issue' && (x.t.settings.material as { formula: string }).formula === kind)!;
+    const use = (kind: string, lot: string, value: string, unit: string, stockUnit?: string) => {
+      const { stage, step } = at(kind);
+      return { key: { stage, sub: 1, step, round: 1 }, id: `${stage}.1.${step}.1`, values: { lot, issued: { value, unit } }, results: {},
+        events: [{ kind: 'done', payload: stockUnit ? { stockUnit } : {} }] } as unknown as StepView;
+    };
+    const steps = [use('foil', 'L-1', '100', 'm'), use('pvc', 'l-1', '50', 'm'), use('carton', 'C-1', '105', 'units', 'nos')];
+    // What QA is asked about: per lot and unit as published (a count in master data's name for it).
+    expect(issuedLots(doc, steps)).toEqual([{ lot: 'L-1', material: expect.stringMatching(/^PM-101 /), value: '150', unit: 'm' }, { lot: 'C-1', material: expect.stringMatching(/^PM-103 /), value: '105', unit: 'nos' }]);
+    const net = (returns: { lot: string; value: string; unit: string }[]) => materialUses(doc, steps, returns.map((r) => ({ ...r, material: '' }))).map((u) => `${u.lot} ${u.quantity.value} ${u.quantity.unit}`);
+    expect(net([{ lot: 'L-1', value: '80', unit: 'm' }, { lot: 'C-1', value: '5', unit: 'nos' }])).toEqual(['L-1 70 m', 'l-1 0 m', 'C-1 100 nos']);
+    expect(net([{ lot: 'L-1', value: '150', unit: 'm' }, { lot: 'C-1', value: '5', unit: 'units' }])).toEqual(['L-1 0 m', 'l-1 0 m', 'C-1 105 nos']);
+    // Validated: one answer per lot, 0 up to what the batch used of it.
+    const issued = issuedLots(doc, steps);
+    expect(returnProblems(issued, [{ lot: 'L-1', value: '0', unit: 'm' }, { lot: 'C-1', value: '105', unit: 'nos' }])).toEqual([]);
+    expect(returnProblems(issued, [{ lot: 'L-1', value: '151', unit: 'm' }, { lot: 'X-9', value: '1', unit: 'm' }])).toEqual(['Lot X-9 (m) was not issued to this batch.',
+      'Lot L-1: 150 m was issued to this batch; 151 m cannot have gone back to stores.', expect.stringMatching(/^Say how much of lot C-1 \(PM-103 · .*\) went back to stores unused: 0 if none\.$/)]);
+    expect(returnProblems([], [])).toEqual([]);
+  });
+
+  it('a quantity field shows master data\'s name for the same unit (nos for units), never another unit', () => {
+    expect(unitName('units', 'nos')).toBe('nos');
+    expect(unitName('kg', 'kg')).toBe('kg');
+    expect(unitName('g', 'kg')).toBe('g');
+    expect(unitName('m', 'nos')).toBe('m');
+    expect(unitName('units', null)).toBe('units');
   });
 });

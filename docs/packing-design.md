@@ -72,6 +72,13 @@ QA release of the packed batch. Built the Logbook way, as TrueBatch Tablets is.
   what the reconciliation of the same material returned to stores uncoded, once that reconciliation is signed done
   (before it, the quantity issued). Destroyed and batch-coded material stays used. MMS takes the quantity off the lot,
   so the uncoded material returned to stores is available again in MMS with no change there.
+  `0105` (owner, 16 Nov 2026): when QA terminates a packing batch that has packing material issued, the "Terminate
+  batch" window asks, per lot issued, how much went back to stores unused (0 up to what the batch still counts as used
+  of it); the rest counts as used (destroyed or coded). The quantities are kept in the terminate event
+  (`payload.returns`: lot, material, quantity and unit as `material_use_v1` publishes them) and `material_use_v1`
+  takes them off the batch's issues of that lot, the last first, never below 0: same columns and rows, MMS shows the
+  returned material available again with no change there. Shared with TrueBatch Tablets (`db/migrations/0012`,
+  `shared/engine/stock.ts`); see docs/design.md.
 
 ## Left for later
 - An issue screen (as for TrueBatch Tablets, batches are issued through the API for now) and a read-only line display.
