@@ -139,6 +139,20 @@ describe('master designer', () => {
     expect(materials!.lines.length).toBe(packing().pack!.materials.length);
   });
 
+  it('TB-P1 the plain view names a step\'s packing material by its name and code, and a count in master data\'s unit (nos), as the floor does', () => {
+    const units = new Map([['pm-foil', 'm'], ['pm-ctn', 'nos']]);
+    const sections = describeMaster(packing(), units);
+    const all = sections.flatMap((s) => s.lines.map((l) => l.text)).join(' ');
+    expect(all).not.toMatch(/the batch quantity of/);
+    expect(sections[1]!.lines.find((l) => l.key === 'carton')!.text).toBe('Carton (PM-103), carton: 0.1 nos per pack; printed, issued with a second person and reconciled; coded with the batch details.');
+    // Without master data, as the master has it; a material master data counts in another unit keeps the master's.
+    expect(describeMaster(packing()).flatMap((s) => s.lines).find((l) => l.key === 'carton')!.text).toMatch(/: 0\.1 units per pack/);
+    expect(all).toMatch(/Leaflet \(PM-104\), leaflet: 0\.1 units per pack/);
+    const steps = sections.flatMap((s) => s.lines).filter((l) => /^\d+\. (Issue a packing material|Reconciliation of a printed material) /.test(l.text)).map((l) => l.text);
+    expect(steps.find((x) => x.includes('Carton (PM-103)') && x.includes('Issue a packing'))).toMatch(/Packing material: Carton \(PM-103\)\. Unit: nos\./);
+    expect(steps.find((x) => x.includes('Printed aluminium foil (PM-101)') && x.includes('Reconciliation'))).toMatch(/Printed material: Printed aluminium foil \(PM-101\)\. Unit: m\./);
+  });
+
   it('calculation checks: the author answers a warning; the answer is kept in the master and shown in the review and changes views', () => {
     const prev = tablet();
     prev.formula[0]!.name = 'Examplol hydrochloride';

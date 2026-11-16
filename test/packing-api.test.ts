@@ -283,8 +283,11 @@ describe('a packing batch from a released bulk batch', () => {
     expect((await get(id, 'qa1')).batch.status).toBe('released');
 
     // TB-22 for packing: the packing record PDF, with the pack, the bulk and the packing materials.
-    const pdf = JSON.stringify(batchRecordDoc(await recordInput(t.sql, (await loadBatch(t.sql, id))!), 'QA'));
+    const pdf = JSON.stringify(batchRecordDoc(await recordInput(t.sql, (await loadBatch(t.sql, id))!, t.app.master), 'QA'));
     for (const text of ['Packing record TP', 'TrueBatch Tablets Packing', 'batch TB260001', 'expiry 10/2028', 'QC report QC-26-0101', 'Packing materials', 'Lot FOIL-1: 1250 m', '1176 m used']) expect(pdf).toContain(text);
+    // A count in master data's name for it (cartons in nos), as on screen and in MMS: per pack, the lots issued, the values.
+    for (const text of ['"0.1 nos"', 'Lot CARTON-1: 1000 nos', 'Quantity issued: 1000 nos', 'Used in good packs: 980 nos']) expect(pdf).toContain(text);
+    for (const text of ['"0.1 units"', 'Lot CARTON-1: 1000 units', 'Quantity issued: 1000 units']) expect(pdf).not.toContain(text);
     // A check's line that states its own question says it once.
     expect(pdf).toContain('Packing finished: ');
     expect(pdf).not.toMatch(/Packing finished: Packing finished/i);

@@ -3,7 +3,7 @@
 import type { Block } from '../../../shared/blocks/index.js';
 import { findBlock } from '../../../shared/blocks/index.js';
 import { refsIn } from '../../../shared/blocks/format.js';
-import type { Limit, MasterDoc, SettingValue } from '../../../shared/master/schema.js';
+import { materialLines, type Limit, type MasterDoc, type SettingValue } from '../../../shared/master/schema.js';
 import { HEADER_LABEL, unitLabel } from './model.js';
 
 export type Part = string | { setting: string } | { field: string } | { calc: string } | { prev: string };
@@ -111,7 +111,9 @@ export function settingText(doc: MasterDoc, v: SettingValue | undefined): string
   if (typeof v === 'string') return v.trim() === '' ? '(none)' : v;
   if ('unit' in v) return limitText(v);
   if ('formula' in v) {
-    const l = doc.formula.find((x) => x.key === v.formula);
+    const l = materialLines(doc).find((x) => x.key === v.formula);
+    // A packing material by its name and code, as in the master's packing materials.
+    if (l && 'perPack' in l) return `${l.name} (${l.code})`;
     return `the batch quantity of ${l?.name || v.formula}${v.adjusted ? ', adjusted for the lot' : ''}`;
   }
   if ('header' in v) return HEADER_LABEL[v.header].label;

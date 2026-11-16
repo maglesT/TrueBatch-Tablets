@@ -2,7 +2,8 @@
 // changes view against the previous version. Each line has a key, so two versions can be compared line by line.
 import { findBlock } from '../../../shared/blocks/index.js';
 import { masterChecks } from '../../../shared/master/checks.js';
-import type { FormulaLine, MasterDoc, Stage, Step } from '../../../shared/master/schema.js';
+import { materialLines, type FormulaLine, type MasterDoc, type Stage, type Step } from '../../../shared/master/schema.js';
+import { unitName } from '../../../shared/engine/stock.js';
 import { placeLabel } from './model.js';
 import { sentence, sentenceText, settingText, slotsOf } from './sentences.js';
 
@@ -33,11 +34,17 @@ function stageText(doc: MasterDoc, s: Stage): string {
     s.produces ? `Produces ${s.produces.name}, to be used within ${s.produces.holdHours ?? '(not set)'} hours.` : 'Produces no intermediate.'].filter(Boolean).join(' ');
 }
 
-export function stepText(doc: MasterDoc, t: Step, j: number): string {
+/** Master data's units of the materials, by item id: a unit is named as master data names it when the same (nos for units). */
+export type Units = ReadonlyMap<string, string>;
+
+export function stepText(doc: MasterDoc, t: Step, j: number, units?: Units): string {
   const b = findBlock(t.block);
   if (!b) return `${j + 1}. Unknown block ${t.block.id}.`;
   const slots = slotsOf(b);
-  const loose = b.settings.filter((s) => !slots.has(s.name) && t.settings[s.name] !== undefined).map((s) => `${s.label}: ${settingText(doc, t.settings[s.name])}.`);
+  const m = Object.values(t.settings).find((v): v is { formula: string } => typeof v === 'object' && 'formula' in v);
+  const stock = m && units?.get(materialLines(doc).find((l) => l.key === m.formula)?.materialItemId ?? '');
+  const shown = (name: string) => { const v = t.settings[name]; return name === 'unit' && typeof v === 'string' && v ? unitName(v, stock) : settingText(doc, v); };
+  const loose = b.settings.filter((s) => !slots.has(s.name) && t.settings[s.name] !== undefined).map((s) => `${s.label}: ${shown(s.name)}.`);
   const calcs = b.calcs.map((c) => sentenceText(doc, b, t.settings, sentence(b, c)));
   const flow = t.flow.kind === 'repeat-until' ? `Repeated until the check "${b.calcs.find((c) => c.name === ((t.flow.kind === 'repeat-until' && t.flow.stop) || b.stop))?.label ?? '(not chosen)'}" passes, at most ${t.flow.maxRounds ?? '?'} rounds${t.everyMinutes ? `, a round every ${t.everyMinutes} minutes` : ''}.`
     : t.flow.kind === 'optional-with-reason' ? 'Optional: it may be skipped with a reason.' : t.flow.kind === 'qa-hold' ? 'QA hold: QA releases it before the next step.' : '';
@@ -50,7 +57,7 @@ export function stepText(doc: MasterDoc, t: Step, j: number): string {
     t.applyPerCharge ? `Apply ${t.applyPerCharge.liquid} of the liquid per ${t.applyPerCharge.charge} charged, then stop.` : ''].filter(Boolean).join(' ');
 }
 
-export function describeMaster(doc: MasterDoc): Section[] {
+export function describeMaster(doc: MasterDoc, units?: Units): Section[] {
   const h = doc.header;
   const p = doc.pack;
   // A packing master (TB-P1) in packing words: the pack and its packing materials, no formula or coating.
@@ -65,7 +72,7 @@ export function describeMaster(doc: MasterDoc): Section[] {
       ...(p.serialisation ? [{ key: 'serialisation', text: `Serialisation checked${p.gtin ? `; pack GTIN ${p.gtin}` : ''}.` }] : []),
     ] },
     { key: 'formula', title: 'Packing materials', lines: p.materials.map((m) => ({ key: m.key,
-      text: `${m.name} (${m.code}), ${m.kind}: ${m.perPack} ${m.unit} per pack${m.printed ? '; printed, issued with a second person and reconciled' : ''}${m.coded ? '; coded with the batch details' : ''}.` })) },
+      text: `${m.name} (${m.code}), ${m.kind}: ${m.perPack} ${unitName(m.unit, units?.get(m.materialItemId))} per pack${m.printed ? '; printed, issued with a second person and reconciled' : ''}${m.coded ? '; coded with the batch details' : ''}.` })) },
   ] : [
     { key: 'header', title: 'Header', lines: [
       { key: 'product', text: `Product ${h.productCode}, ${h.productName}.` },
@@ -81,7 +88,7 @@ export function describeMaster(doc: MasterDoc): Section[] {
     ...top,
     ...doc.stages.map((s, i) => ({ key: `stage:${s.key}`, title: `Stage ${i + 1}: ${s.name}`, lines: [
       { key: 'about', text: stageText(doc, s) },
-      ...s.steps.map((t, j) => ({ key: t.key, text: stepText(doc, t, j) })),
+      ...s.steps.map((t, j) => ({ key: t.key, text: stepText(doc, t, j, units) })),
     ] })),
 
     // The calculation checks the author answered (or not yet), for the checker and QA; only when there are some.
@@ -95,9 +102,9 @@ export interface DiffLine extends Line { change: Change; was?: string }
 export interface DiffSection { key: string; title: string; change: Change; lines: DiffLine[] }
 
 /** The changes from the previous version, line by line (by key; a step that moved shows its new number). */
-export function diffMasters(prev: MasterDoc, next: MasterDoc): DiffSection[] {
-  const before = new Map(describeMaster(prev).map((s) => [s.key, s]));
-  const after = describeMaster(next);
+export function diffMasters(prev: MasterDoc, next: MasterDoc, units?: Units): DiffSection[] {
+  const before = new Map(describeMaster(prev, units).map((s) => [s.key, s]));
+  const after = describeMaster(next, units);
   const out: DiffSection[] = after.map((s) => {
     const old = before.get(s.key);
     const lines: DiffLine[] = s.lines.map((l) => {

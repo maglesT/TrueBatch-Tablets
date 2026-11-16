@@ -3,16 +3,18 @@
 // is struck through and kept with the reason, the person and the time.
 import type { Content, TDocumentDefinitions } from 'pdfmake/interfaces.js';
 import { findBlock, type Block } from '../shared/blocks/index.js';
-import type { Step } from '../shared/master/schema.js';
-import { batchView, deviations, fieldLabel, handFields, lateItems, lineQuantity, notYetText, terminatedText, openSteps, PROVIDER_NAME, deviationStatusWords, stepTitle, type DeviationStatus, type EventKind, type Source, type Stored, type StepView, type Value } from '../shared/engine/index.js';
+import { materialLines, type Step } from '../shared/master/schema.js';
+import { batchView, deviations, fieldLabel, handFields, lateItems, lineQuantity, notYetText, terminatedText, openSteps, PROVIDER_NAME, deviationStatusWords, stepTitle, unitName, type DeviationStatus, type EventKind, type Source, type Stored, type StepView, type Value } from '../shared/engine/index.js';
 import type { LoadedBatch } from './routes/batches.js';
 import { pageFrame, plant, runs } from './pdf.js';
 import { plantText } from '../shared/plant-time.js';
 
 // A signature of the batch; `step` is the step instance of a step signature.
 export interface Signature { objectType: string; objectId: number; printedName: string; meaning: string; signedAt: Date; step: string | null }
-// deviationsRead: the deviations as the Deviations system has them now (null without the link).
-export interface RecordInput extends LoadedBatch { versionNo: number; issuedByName: string; signatures: Signature[]; deviationsRead?: ReadonlyMap<string, DeviationStatus> | null }
+// deviationsRead: the deviations as the Deviations system has them now (null without the link). units: master data's
+// units of the materials by item id, a quantity named as master data names the same unit (nos for units), as on screen.
+export interface RecordInput extends LoadedBatch { versionNo: number; issuedByName: string; signatures: Signature[]; deviationsRead?: ReadonlyMap<string, DeviationStatus> | null;
+  units?: ReadonlyMap<string, string> }
 
 const MEANING: Record<string, string> = {
   issued: 'Issued', performed: 'Performed', verified: 'Verified (second person)', released: 'Released', rejected: 'Rejected',
@@ -29,11 +31,11 @@ const STATE: Record<string, string> = {
 
 const RED = '#b3261e';
 const isItem = (v: Value): v is { itemId: string; code: string; name: string; version: number } => typeof v === 'object' && !Array.isArray(v) && 'itemId' in v;
-export function valueText(v: Value | undefined): string {
+export function valueText(v: Value | undefined, stockUnit?: string): string {
   if (v === undefined) return '—';
-  if (Array.isArray(v)) return v.map((x) => x.value).join(', ') + (v[0]?.unit ? ` ${v[0].unit}` : '');
+  if (Array.isArray(v)) return v.map((x) => x.value).join(', ') + (v[0]?.unit ? ` ${unitName(v[0].unit, stockUnit)}` : '');
   if (isItem(v)) return `${v.code} · ${v.name} (v${v.version})`;
-  if (typeof v === 'object') return `${v.value}${v.unit ? ` ${v.unit}` : ''}`;
+  if (typeof v === 'object') return `${v.value}${v.unit ? ` ${unitName(v.unit, stockUnit)}` : ''}`;
   return plantText(v);
 }
 /** The value at the end of a worked line ("… = 10.152 kg"). */
@@ -55,6 +57,11 @@ export function batchRecordDoc(r: RecordInput, by: string, printedAt = new Date(
   const who = (id: number | null) => (id === null ? 'server' : names.get(id) ?? `person ${id}`);
   const sigOf = new Map(r.signatures.filter((s) => s.objectType === 'step_event').map((s) => [s.objectId, s]));
   const stepOf = (v: StepView) => doc.stages[v.key.stage]!.steps[v.key.step]!;
+  // Master data's unit of a step's material.
+  const unitOf = (v: StepView) => {
+    const m = Object.values(stepOf(v).settings).find((x): x is { formula: string } => typeof x === 'object' && 'formula' in x);
+    return m && r.units?.get(materialLines(doc).find((l) => l.key === m.formula)?.materialItemId ?? '');
+  };
   const stepName = (v: StepView) => {
     const s = doc.stages[v.key.stage]!;
     const st = stepOf(v);
@@ -85,8 +92,8 @@ export function batchRecordDoc(r: RecordInput, by: string, printedAt = new Date(
   // Packing: the packing materials, with the lots and quantities issued and their reconciliation.
   const naming = (v: StepView, key: string, block: string) => stepOf(v).block.id === block && Object.values(stepOf(v).settings).some((x) => typeof x === 'object' && 'formula' in x && x.formula === key);
   if (doc.pack) content.push(heading('Packing materials'), table([150, 70, 60, '*', '*'], ['Material', 'Kind', 'Per pack', 'Lots and quantities issued', 'Reconciliation'], doc.pack.materials.map((m) => [
-    small(`${m.code} · ${m.name}`), small(`${m.kind}${m.printed ? ', printed' : ''}${m.coded ? ', coded' : ''}`), small(`${m.perPack} ${m.unit}`),
-    small(steps.filter((v) => naming(v, m.key, 'pack-material-issue')).map((v) => `Lot ${valueText(v.values.lot)}: ${valueText(v.values.issued)} · ${stepName(v)}`).join('\n') || 'not issued yet'),
+    small(`${m.code} · ${m.name}`), small(`${m.kind}${m.printed ? ', printed' : ''}${m.coded ? ', coded' : ''}`), small(`${m.perPack} ${unitName(m.unit, r.units?.get(m.materialItemId))}`),
+    small(steps.filter((v) => naming(v, m.key, 'pack-material-issue')).map((v) => `Lot ${valueText(v.values.lot)}: ${valueText(v.values.issued, unitOf(v))} · ${stepName(v)}`).join('\n') || 'not issued yet'),
     small(steps.filter((v) => naming(v, m.key, 'printed-reconciliation')).map((v) => (v.results.reconciliation?.ok ? v.results.reconciliation.shown : 'not reconciled yet')).join('\n') || (m.printed ? 'not reconciled yet' : '—')),
   ])));
 
@@ -116,7 +123,7 @@ export function batchRecordDoc(r: RecordInput, by: string, printedAt = new Date(
       const block = findBlock(st.block);
       return [
         { stack: [small(stepName(v), { bold: true }), small(STATE[v.state] ?? v.state, { color: v.state === 'not_applicable' ? '#666666' : undefined })] },
-        { stack: block ? valueLines(block, v, who) : [] },
+        { stack: block ? valueLines(block, v, who, unitOf(v)) : [] },
         { stack: block ? resultLines(block, st, v, who) : [] },
         { stack: v.events.filter((e) => e.kind !== 'value').map((e) => {
           // Demo installations only (server/demo.ts).
@@ -166,16 +173,16 @@ export function batchRecordDoc(r: RecordInput, by: string, printedAt = new Date(
 }
 
 /** The recorded values; a corrected value shows the original struck through, the reason, the person and the time. */
-function valueLines(block: Block, v: StepView, who: (id: number | null) => string): Content[] {
+function valueLines(block: Block, v: StepView, who: (id: number | null) => string, stockUnit?: string): Content[] {
   // Label answers typed while a link was off stay in the record when the link gives the value again.
   const names = new Set([...block.fields, ...handFields(block.fields, v.source)].map((f) => f.name).concat(Object.keys(v.values), v.replaced.map((x) => x.field)));
   return [...names].filter((name) => v.values[name] !== undefined || v.replaced.some((x) => x.field === name)).map((name) => {
     const changes = v.replaced.filter((x) => x.field === name);
-    const now = runs(`${fieldLabel(block.fields, name)}: ${valueText(v.values[name])}${sourceText(v.source[name])}`);
+    const now = runs(`${fieldLabel(block.fields, name)}: ${valueText(v.values[name], stockUnit)}${sourceText(v.source[name])}`);
     if (!changes.length) return { text: now, fontSize: 7.5 };
     return { stack: [
       { text: [...now, { text: '  CHANGED', bold: true, color: RED }], fontSize: 7.5 },
-      ...changes.map((c) => ({ text: [{ text: 'was ' }, ...runs(valueText(c.was)).map((x) => ({ ...x, decoration: 'lineThrough' as const })),
+      ...changes.map((c) => ({ text: [{ text: 'was ' }, ...runs(valueText(c.was, stockUnit)).map((x) => ({ ...x, decoration: 'lineThrough' as const })),
         ...runs(` · reason: ${c.reason} · ${who(c.person)}, ${plant(c.at)}`)], fontSize: 7, color: RED, margin: [8, 0, 0, 0] as [number, number, number, number] })),
     ] } as Content;
   });
