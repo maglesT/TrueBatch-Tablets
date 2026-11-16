@@ -20,7 +20,8 @@ async function person(browser: Browser, username: string) {
   return { ctx, page, proof };
 }
 
-async function productionApprovedBatch(browser: Browser): Promise<{ id: number; batchNo: string }> {
+/** A batch issued from a small effective master, nothing done yet. */
+async function issuedBatch(browser: Browser): Promise<{ id: number; batchNo: string }> {
   const iss = await person(browser, 'iss1');
   const doc = small([{ name: 'Blending', steps: [{ checker: true },
     { block: { id: 'stage-yield', version: 1 }, checker: true, settings: { theoretical: '0.100 kg', yieldLimit: { low: '97.0', high: '100.5', unit: '%' } } }] }]);
@@ -31,6 +32,11 @@ async function productionApprovedBatch(browser: Browser): Promise<{ id: number; 
   await owner.end();
   const batch = await (await iss.page.request.post('/api/batches', { data: { masterVersionId: mv, proof: await iss.proof('issued') } })).json() as { id: number; batchNo: string };
   await iss.ctx.close();
+  return batch;
+}
+
+async function productionApprovedBatch(browser: Browser): Promise<{ id: number; batchNo: string }> {
+  const batch = await issuedBatch(browser);
 
   const op = await person(browser, 'op1');
   const chk = await person(browser, 'chk1');
@@ -117,5 +123,27 @@ test('TB-22 release journey: QC approves with its report number, QA reviews, clo
   if (process.env.SHOTS) copyFileSync(path, `${process.env.SHOTS}/batch-record.pdf`);
   await qa.page.getByRole('button', { name: '← To review' }).click();
   await expect(qa.page.getByRole('region', { name: 'Waiting for QA release' })).not.toContainText(batch.batchNo);
+  await qa.ctx.close();
+});
+
+test('TB-21 QA terminates a batch still in production from the To review list: a reason, a signature; the batch screen says who, when and why', async ({ browser }) => {
+  const batch = await issuedBatch(browser);
+  const qa = await person(browser, 'qa1');
+  await qa.page.getByRole('button', { name: 'To review' }).click();
+  const inProduction = qa.page.getByRole('region', { name: 'In production' });
+  await expect(inProduction).toContainText(batch.batchNo);
+  if (process.env.SHOTS) await qa.page.screenshot({ path: `${process.env.SHOTS}/to-review-in-production.png`, fullPage: true });
+  await inProduction.locator('.pending-row', { hasText: batch.batchNo }).getByRole('button', { name: 'Terminate batch' }).click();
+  await qa.page.getByLabel('Reason for terminating').fill('The pH meter failed and no other is qualified: the batch cannot be finished');
+  await qa.page.getByRole('button', { name: 'Continue to sign' }).click();
+  await expect(qa.page.getByRole('dialog')).toContainText('Sign: Rejected');
+  await sign(qa.page);
+  await expect(inProduction).not.toContainText(batch.batchNo);
+  await qa.page.goto(`/#/batch/${batch.id}`);
+  await expect(qa.page.getByRole('note')).toContainText(/^Terminated by QA1 at \d{1,2} \w{3}, \d\d:\d\d IST: The pH meter failed/);
+  await expect(qa.page.locator('.bh')).toContainText('rejected');
+  await expect(qa.page.getByRole('button', { name: 'Terminate batch' })).toHaveCount(0);
+  await expect(qa.page.getByRole('region', { name: 'Production approval' })).toHaveCount(0);
+  if (process.env.SHOTS) await qa.page.screenshot({ path: `${process.env.SHOTS}/batch-terminated.png`, fullPage: true });
   await qa.ctx.close();
 });
