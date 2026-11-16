@@ -67,7 +67,8 @@ views it reads from master data and the four linked products, and the views it p
 The platform sets `TRUEBATCH_DEMO=1` only for the demo customer's installation of either product, never for a plant's
 (`server/demo.ts`). Then every screen shows a DEMO banner, and a person with `truebatch.demo.skip` (packing:
 `truebatch_packing.demo.skip`) sees "Skip wait (demo)" on a step that waits (a minimum time, the next periodic check, a
-hold time running), which ends that wait at once. To prepare a demo from a terminal in the product's container:
+hold time running, a mixing time below its lower limit), which ends that wait at once. To prepare a demo from a
+terminal in the product's container:
 
 ```sh
 node dist/server/demo-skip.js TB260004 [stage] --as <username>           # TrueBatch Tablets

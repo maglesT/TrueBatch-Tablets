@@ -19,7 +19,7 @@ export interface StepRow {
   // Where values came from (a link, or by hand) and the label questions of what was entered by hand.
   source: Record<string, Source>; handFields: BlockField[];
 }
-export interface TimerRow { id: string; kind: 'hold' | 'periodic' | 'minimum'; key: StepKey; label: string; from: string; at: string; state: 'running' | 'due soon' | 'due' | 'late'; skipped?: { person: number | null; at: string } }
+export interface TimerRow { id: string; kind: 'hold' | 'periodic' | 'minimum' | 'duration'; key: StepKey; label: string; from: string; at: string; state: 'running' | 'due soon' | 'due' | 'late'; skipped?: { person: number | null; at: string } }
 export interface StageRow { index: number; key: string; name: string; open: boolean; blocked?: string; closed: boolean }
 export interface Deviation { note: number; step: string; reference: string; text: string; open: boolean; status?: string; closedAt?: string | null }
 export interface BatchDetail {

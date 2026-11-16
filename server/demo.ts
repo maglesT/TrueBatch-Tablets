@@ -9,9 +9,10 @@ import { keyId, skipKey, skippable, timers, type Timer } from '../shared/engine/
 
 // Demo installations only. The platform sets TRUEBATCH_DEMO=1 only for the demo customer's installation, never for a
 // plant's: every screen then says DEMO, and a person with the demo permission (truebatch.demo.skip,
-// truebatch_packing.demo.skip) may end a running wait at once (a minimum time, a periodic check, a hold time). Each skip
-// is one insert-only step event, shown in the step history, QA's review and the batch record PDF. Anywhere else the
-// button is absent, the route answers 403 and the terminal command exits non-zero.
+// truebatch_packing.demo.skip) may end a running wait at once (a minimum time, a periodic check, a hold time, a mixing
+// time: its lower limit then counts as met, shared/engine/values.ts evaluate). Each skip is one insert-only step event,
+// shown in the step history, QA's review and the batch record PDF. Anywhere else the button is absent, the route
+// answers 403 and the terminal command exits non-zero.
 export const isDemo = (env: NodeJS.ProcessEnv = process.env) => env.TRUEBATCH_DEMO === '1';
 
 const closed = (l: LoadedBatch) => l.batchEvents.some((e) => ['production_approved', 'released', 'rejected'].includes(e.kind));

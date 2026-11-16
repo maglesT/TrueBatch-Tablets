@@ -5,8 +5,8 @@
 import { findBlock } from '../blocks/index.js';
 import { materialLines, type MasterDoc, type Step } from '../master/schema.js';
 import { keyId, stepState, type EventKind, type State, type StepEvent, type StepKey } from './state.js';
-import { c1WithinLimits } from '../templates/index.js';
-import { currentValues, evaluate, failed, headerValue, inputChanges, type Current } from './values.js';
+import { c1WithinLimits, convert, Dec, findUnit } from '../templates/index.js';
+import { currentValues, durationId, durations, evaluate, failed, headerValue, inputChanges, type Current } from './values.js';
 import { handEntered, handFields } from './links.js';
 
 export interface StepView extends Current {
@@ -72,7 +72,7 @@ export function leftOutBy(doc: MasterDoc, st: Step): string | null {
 export interface StageView { index: number; key: string; name: string; open: boolean; blocked?: string; closed: boolean }
 export interface Timer {
   id: string;
-  kind: 'hold' | 'periodic' | 'minimum';
+  kind: 'hold' | 'periodic' | 'minimum' | 'duration';
   // The step it applies to (where the timer job records "late").
   key: StepKey;
   label: string;
@@ -234,7 +234,7 @@ export function doneProblems(doc: MasterDoc, v: StepView, now: Date): string[] {
   return p;
 }
 
-/** Hold times, periodic checks (every N minutes from the previous round's start) and minimum times. */
+/** Hold times, periodic checks (every N minutes from the previous round's start), minimum times and mixing times. */
 export function timers(doc: MasterDoc, events: readonly StepEvent[], now: Date): Timer[] {
   const out = holdTimers(doc, events, now);
   const { steps } = openSteps(doc, events, now);
@@ -247,6 +247,19 @@ export function timers(doc: MasterDoc, events: readonly StepEvent[], now: Date):
       const at = skip?.at ?? plus(started, st.minMinutes);
       out.push({ id: `min:${v.id}`, kind: 'minimum', key: v.key, label: `Minimum time of “${stepTitle(doc, st)}” (${st.minMinutes} min)`, from: started, at,
         state: skip || now >= at ? 'due' : 'running', ...skipped(skip) });
+    }
+    // A mixing time with a lower limit: from its recorded start until the lower limit is reached (or the end is recorded).
+    for (const d of v.state === 'in_progress' ? durations(findBlock(st.block), st) : []) {
+      const begun = v.values[d.start];
+      const from = new Date(typeof begun === 'string' ? begun : NaN);
+      const unit = findUnit(d.limit.unit);
+      const ms = Number(d.limit.low) * (unit?.kind === 'time' ? convert(new Dec(1000), unit, findUnit('s')!).toNumber() : NaN);
+      if (v.values[d.end] !== undefined || Number.isNaN(from.getTime() + ms)) continue;
+      const id = durationId(v.key, d.calc);
+      const skip = skipOf(v.events, id);
+      const at = skip?.at ?? new Date(from.getTime() + ms);
+      out.push({ id, kind: 'duration', key: v.key, label: `${d.label} of “${stepTitle(doc, st)}” (at least ${d.limit.low} ${d.limit.unit})`, from, at,
+        state: skip || now >= at ? 'due' : phase(from, at, now), ...skipped(skip) });
     }
     if (st.everyMinutes) {
       const key = { ...v.key, round: v.key.round + 1 };

@@ -7,7 +7,7 @@ import { batchRecordDoc } from '../server/batch-record.js';
 import { loadBatch, recordInput } from '../server/routes/batches.js';
 import { ownCodes, TABLETS } from '../server/product.js';
 import { PACKING } from '../packing/product.js';
-import { doneProblems, lateItems, openSteps, timers, type StepEvent } from '../shared/engine/index.js';
+import { doneProblems, evaluate, lateItems, openSteps, timers, type StepEvent } from '../shared/engine/index.js';
 import { at, ev, pass, reading, small } from './engine-fixture.js';
 import { call, fakeSignOn, freshApp, login, proofFor, seedUser, TEST_PROOF_KEY, type TestApp } from './helpers.js';
 
@@ -49,6 +49,42 @@ describe('the engine: a skip ends the wait at once', () => {
     expect(openSteps(doc, done, at(300)).steps[1]!.state).toBe('waiting');
     expect(openSteps(doc, skipped, at(300)).steps[1]!.state).toBe('open');
     expect(timers(doc, [...skipped, ev('started', '1.1.0.1', { min: 400 })], at(500))).toEqual([]);
+  });
+
+  describe('a mixing time (T13 from a start timer to an end timer) is a wait until its lower limit', () => {
+    const mixing = (limit: object) => small([{ steps: [{ block: { id: 'dry-mix', version: 1 }, settings: { mixTimeLimit: limit } }] }]);
+    const doc = mixing({ low: '10', high: '30', unit: 'min' });
+    const stamp = (min: number) => `${at(min).toISOString().slice(0, 19)}Z`;
+    const begun = [ev('started', '0.1.0.1', { min: 0 }), ev('value', '0.1.0.1', { min: 1, payload: { values: { mixStart: stamp(1) } } })];
+    const id = 'dur:0.1.0.1:mixTime';
+    const mixTime = (events: StepEvent[], end: number, d = doc) => evaluate(d, events, { stage: 0, sub: 1, step: 0, round: 1 }, { mixStart: stamp(1), mixEnd: stamp(end) }).mixTime;
+
+    it('runs from the recorded start to the lower limit, then is due; gone once the end is recorded; none without a lower limit', () => {
+      const t = (now: number, events = begun, d = doc) => timers(d, events, at(now)).map((x) => `${x.id} ${x.kind} ${x.state} ${x.at.toISOString()}`);
+      expect(timers(doc, begun, at(5))).toMatchObject([{ id, kind: 'duration', key: { stage: 0, step: 0 }, label: 'Mixing time of “Dry mix for a time” (at least 10 min)', from: at(1), at: at(11), state: 'running' }]);
+      expect([t(10), t(12)]).toEqual([[`${id} duration due soon ${at(11).toISOString()}`], [`${id} duration due ${at(11).toISOString()}`]]);
+      expect(t(0, begun.slice(0, 1))).toEqual([]);
+      expect(t(12, [...begun, ev('value', '0.1.0.1', { min: 11, payload: { values: { mixEnd: stamp(11) } } })])).toEqual([]);
+      expect(t(5, begun, mixing({ high: '30', unit: 'min' }))).toEqual([]);
+      expect(timers(mixing({ low: '0.5', high: '2', unit: 'h' }), begun, at(5))).toMatchObject([{ id, at: at(31), label: 'Mixing time of “Dry mix for a time” (at least 0.5 h)' }]);
+    });
+
+    it('skipped: due from the skip, and the lower limit counts as met with the real duration shown; the upper limit still applies', () => {
+      const skipped = [...begun, skip('0.1.0.1', id, 3)];
+      expect(timers(doc, skipped, at(4))).toMatchObject([{ id, state: 'due', at: at(3), skipped: { person: 1, at: at(3) } }]);
+      // Without a skip nothing changes: 2 min is below the lower limit.
+      expect(mixTime(begun, 3)).toMatchObject({ ok: true, value: '2', check: { pass: false } });
+      expect(JSON.stringify(mixTime(begun, 3))).not.toContain('DEMO');
+      const short = mixTime(skipped, 3);
+      expect(short).toMatchObject({ ok: true, value: '2', shown: expect.stringMatching(/= 2 min · DEMO: wait skipped$/), check: { pass: true, shown: expect.stringMatching(/· DEMO: wait skipped$/) } });
+      expect(mixTime(skipped, 41)).toMatchObject({ ok: true, value: '40', check: { pass: false, shown: expect.stringContaining('above the upper limit') } });
+      // A lower limit alone: no check is left, the result passes.
+      const lowOnly = mixing({ low: '10', unit: 'min' });
+      expect(mixTime(skipped, 3, lowOnly)).toMatchObject({ ok: true, value: '2' });
+      expect(mixTime(skipped, 3, lowOnly)).not.toHaveProperty('check');
+      // A skip of another wait of the step does not touch the mixing time.
+      expect(mixTime([...begun, skip('0.1.0.1', 'min:0.1.0.1', 3)], 3)).toMatchObject({ check: { pass: false } });
+    });
   });
 });
 
@@ -141,6 +177,44 @@ describe('demo skip through the server', () => {
     expect(await skipWaits(t.sql, b.batchNo, 'packing', 'asha')).toEqual({ error: `Batch ${b.batchNo} has no stage packing: 1 s0 (Stage 0).` });
     expect(await skipWaits(t.sql, b.batchNo, 'Stage 0', 'asha')).toEqual({ skipped: ['Minimum time of “Check a value against limits: pH” (30 min)'] });
     expect(await skipWaits(t.sql, b.batchNo, undefined, 'asha')).toEqual({ skipped: [] });
+  });
+
+  it('a mixing time: skipped by the button or the terminal command, its lower limit counts as met; the result says DEMO', async () => {
+    const mix = { key: 'mix', block: { id: 'dry-mix', version: 1 }, checker: false, settings: { mixTimeLimit: { low: '10', high: '30', unit: 'min' } } };
+    const yieldStep = { block: { id: 'stage-yield', version: 1 }, checker: true, settings: { theoretical: '0.100 kg', yieldLimit: { low: '97.0', high: '100.5', unit: '%' } } };
+    const m = await as('author', 'POST', '/api/masters', { doc: small([{ steps: [mix, { ...mix, key: 'mix-2' }, yieldStep] }]) });
+    const { id: mv } = m.json() as { id: number };
+    for (const s of ['in_review', 'approved', 'effective']) await t.owner`update master_versions set state = ${s} where id = ${mv}`;
+    const issue2 = async () => (await as('issuer', 'POST', '/api/batches', { masterVersionId: mv, proof: proofFor('issuer') })).json() as { id: number; batchNo: string };
+    const b = await issue2();
+    const record = (id: number, values: object) => as('asha', 'POST', `/api/batches/${id}/steps/0.1.0.1/record`, { values });
+    const timer = 'dur:0.1.0.1:mixTime';
+    expect((await as('asha', 'POST', `/api/batches/${b.id}/steps/0.1.0.1/start`)).statusCode).toBe(200);
+    expect((await as('asha', 'POST', `/api/batches/${b.id}/demo-skip`, { timer })).json()).toMatchObject({ error: 'no_wait' });
+    expect((await record(b.id, { mixStart: 'now' })).statusCode).toBe(200);
+    const d = (await as('asha', 'GET', `/api/batches/${b.id}`)).json() as { timers: { id: string; kind: string; state: string; label: string }[] };
+    expect(d.timers).toMatchObject([{ id: timer, kind: 'duration', state: 'running', label: 'Mixing time of “Dry mix for a time” (at least 10 min)' }]);
+    expect((await as('ravi', 'POST', `/api/batches/${b.id}/demo-skip`, { timer })).statusCode).toBe(403);
+    expect((await call(plain, plainCookies.asha!, 'POST', `/api/batches/${b.id}/demo-skip`, { timer })).statusCode).toBe(403);
+    expect((await as('asha', 'POST', `/api/batches/${b.id}/demo-skip`, { timer })).statusCode).toBe(200);
+    expect((await record(b.id, { mixEnd: 'now' })).statusCode).toBe(200);
+    type Row = { id: string; values: Record<string, string>; results: Record<string, { value: string; shown: string; check: { pass: boolean } }> };
+    const mixed = async (id: number) => ((await as('asha', 'GET', `/api/batches/${id}`)).json() as { steps: Row[] }).steps.find((s) => s.id === '0.1.0.1')!;
+    // The real recorded duration (well under the 10 min) counts as met; nothing recorded is changed.
+    const first = await mixed(b.id);
+    expect(first.results.mixTime).toMatchObject({ value: '0', shown: expect.stringContaining('· DEMO: wait skipped'), check: { pass: true } });
+    expect(first.values.mixEnd).toMatch(/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/);
+    // The terminal command skips a running mixing time too; without a skip the same short mix is out of limits.
+    const [c, e] = [await issue2(), await issue2()];
+    for (const x of [c, e]) {
+      expect((await as('asha', 'POST', `/api/batches/${x.id}/steps/0.1.0.1/start`)).statusCode).toBe(200);
+      expect((await record(x.id, { mixStart: 'now' })).statusCode).toBe(200);
+    }
+    expect(await skipWaits(t.sql, c.batchNo, undefined, 'asha')).toEqual({ skipped: ['Mixing time of “Dry mix for a time” (at least 10 min)'] });
+    for (const x of [c, e]) expect((await record(x.id, { mixEnd: 'now' })).statusCode).toBe(200);
+    expect((await mixed(c.id)).results.mixTime).toMatchObject({ check: { pass: true } });
+    expect((await mixed(e.id)).results.mixTime).toMatchObject({ check: { pass: false } });
+    expect(JSON.stringify((await mixed(e.id)).results.mixTime)).not.toContain('DEMO');
   });
 
   it('packing has its own demo permission, read as the app\'s', () => {

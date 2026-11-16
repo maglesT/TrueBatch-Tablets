@@ -3,8 +3,8 @@
  * this file only picks the inputs (fields, settings, earlier steps, formula lines) and calls the templates.
  */
 import { Dec, type Outcome, type Q, type ResultValue } from '../templates/index.js';
-import { findBlock, type BlockField } from '../blocks/index.js';
-import type { FormulaLine, MasterDoc, Pack, SettingValue } from '../master/schema.js';
+import { findBlock, type Block, type BlockField } from '../blocks/index.js';
+import type { FormulaLine, Limit, MasterDoc, Pack, SettingValue, Step } from '../master/schema.js';
 import { callTemplate } from './templates.js';
 import { keyId, type StepEvent, type StepKey } from './state.js';
 import type { Source } from './links.js';
@@ -253,11 +253,40 @@ export function evaluate(doc: MasterDoc, events: readonly StepEvent[], key: Step
   for (const c of block.calcs) {
     const args = resolve(c.args, c.template === 'C1' ? { ...inputs, ...asResults } : inputs);
     if (args === MISSING) continue;
-    const r = store(callTemplate(c.template, args));
+    const skip = c.template === 'T13' && events.some((e) => e.kind === 'demo_wait_skipped' && e.payload.timer === durationId(key, c.name));
+    const r = store(callTemplate(c.template, skip ? lowMet(args as { limit?: Limit }) : args));
+    if (skip && r.ok) {
+      r.shown += DEMO_SKIPPED;
+      if (r.check) r.check.shown += DEMO_SKIPPED;
+    }
     results[c.name] = r;
     const q = asQ(r);
     if (q) inputs[c.name] = q;
     if (r.ok) asResults[c.name] = { ok: true, value: new Dec(r.value), unit: r.unit };
   }
   return results;
+}
+
+/** Demo only: the timer id of a block's minimum duration (a mixing time) in one step instance (batch.ts timers). */
+export const durationId = (k: StepKey, calc: string) => `dur:${keyId(k)}:${calc}`;
+const DEMO_SKIPPED = ' · DEMO: wait skipped';
+// The limit without its lower bound: the wait was skipped, the upper limit still applies.
+const lowMet = (a: { limit?: Limit }) => {
+  const { low: _low, lowStrict: _strict, alertLow: _alert, ...rest } = a.limit ?? { unit: '' };
+  return { ...a, limit: rest.high === undefined ? undefined : rest };
+};
+
+/**
+ * The minimum durations of a step: the block's T13 durations from a start timer field to an end timer field (the
+ * mixing times) whose limit, as the master sets it, has a lower bound.
+ */
+export function durations(block: Block | undefined, st: Step): { calc: string; label: string; start: string; end: string; limit: Limit & { low: string } }[] {
+  const timer = (x: unknown) => block?.fields.find((f) => f.kind === 'timer' && x === `$${f.name}`)?.name;
+  return (block?.calcs ?? []).flatMap((c) => {
+    const a = c.args;
+    const limit = typeof a.limit === 'string' ? st.settings[a.limit.slice(1)] : undefined;
+    const [start, end] = [timer(a.start), timer(a.end)];
+    return c.template === 'T13' && a.mode === 'duration' && start && end && typeof limit === 'object' && 'low' in limit && limit.low
+      ? [{ calc: c.name, label: c.label, start, end, limit: { ...limit, low: limit.low } }] : [];
+  });
 }

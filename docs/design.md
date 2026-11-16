@@ -85,7 +85,9 @@ answering) or **ok**.
 - The designer is forms and ordered lists.
 - Server timers as the Logbook does them. In a demo installation only (`TRUEBATCH_DEMO=1`, set by the platform for the
   demo customer alone) a person with the demo permission may end a running wait at once; the skip is an insert-only
-  step event the timers count as the wait satisfied (owner, 15 November 2026; README "Demo installations").
+  step event the timers count as the wait satisfied (owner, 15 November 2026; README "Demo installations"). A mixing
+  time (T13 from a start timer to an end timer) is such a wait too: once skipped, its lower limit counts as met, the
+  recorded duration and the upper limit are kept, and the result says "DEMO: wait skipped" (16 November 2026).
 - The second-person checker signs on their own device.
 - Version 1: weights are typed (no balance connection).
 - PDF output as the Logbook does its exports.
