@@ -3,7 +3,7 @@ import { connect } from '../server/db.js';
 import { PACKING_APP_ROLE } from '../packing/migrate.js';
 import { TEST_DATABASE_URL } from '../test/helpers.js';
 import { E2E_PACKING_PORT, E2E_PACKING_SCHEMA } from './config.js';
-import { clearOfActionBar, justAboveActionBar, logIn } from './helpers.js';
+import { clearOfActionBar, justAboveActionBar, logIn, wholeOnScreen } from './helpers.js';
 
 // TrueBatch Tablets Packing in the browser: a packing master built in the designer from the packing skeleton (its
 // materials picked from master data), checked and approved; a packing batch issued from the released bulk batch of
@@ -215,7 +215,7 @@ test('TB-P2 packing journey: packing master from the skeleton, approved; a packi
   await qa.ctx.close();
 });
 
-test('TB-21 QA terminates a packing batch after materials were issued: the window asks what went back to stores of each lot, shown with the termination; a refusal on the step screen is not hidden behind the action bar', async ({ browser }) => {
+test('TB-21 QA terminates a packing batch after materials were issued: the window, whole on the screen, asks what went back to stores of each lot, shown with the termination; a refusal on the step screen is not hidden behind the action bar', async ({ browser }) => {
   const tablet = { width: 1366, height: 900 };
   // A packing batch on line BL-01 (free again after the journey), its bulk received and checked, through the API.
   const iss = await person(browser, 'piss');
@@ -273,10 +273,28 @@ test('TB-21 QA terminates a packing batch after materials were issued: the windo
   await op.ctx.close();
   await chk.ctx.close();
 
-  // QA terminates it from the batch screen: for each lot issued, what went back to stores unused.
+  // QA terminates it: the window is whole on the screen, over the page, at 1366 × 900 and in a browser window (760), from
+  // the batch screen and from the To review list (where the row moves on hover: the window is not held inside its card).
   const qa = await person(browser, 'pqa', tablet);
-  await qa.page.goto(`/#/batch/${batch.id}`);
-  await qa.page.getByRole('button', { name: 'Terminate batch' }).click();
+  const window = qa.page.getByRole('dialog', { name: `Terminate batch ${batch.batchNo}` });
+  for (const height of [900, 760]) {
+    await qa.page.setViewportSize({ width: 1366, height });
+    for (const where of ['batch', 'list'] as const) {
+      if (where === 'batch') await qa.page.goto(`/#/batch/${batch.id}`);
+      else await qa.page.getByRole('button', { name: 'To review' }).click();
+      const button = where === 'batch' ? qa.page.getByRole('button', { name: 'Terminate batch' })
+        : qa.page.getByRole('region', { name: 'In production' }).locator('.pending-row', { hasText: batch.batchNo }).getByRole('button', { name: 'Terminate batch' });
+      await button.click();
+      await wholeOnScreen(qa.page, window.locator('form'));
+      for (const what of [window.getByLabel('Reason for terminating'), window.getByLabel('Lot FOIL-2 back to stores'), window.getByLabel('Lot CTN-2 back to stores'), window.getByRole('button', { name: 'Continue to sign' })]) {
+        await expect(what).toBeInViewport({ ratio: 1 });
+      }
+      if (process.env.SHOTS) await qa.page.screenshot({ path: `${process.env.SHOTS}/packing-terminate-${where}-${height}.png` });
+      await window.getByRole('button', { name: 'Cancel' }).click();
+      await expect(window).toHaveCount(0);
+    }
+  }
+  await qa.page.getByRole('region', { name: 'In production' }).locator('.pending-row', { hasText: batch.batchNo }).getByRole('button', { name: 'Terminate batch' }).click();
   const back = qa.page.getByRole('group', { name: 'Back to stores' });
   await expect(back).toContainText('Lot FOIL-2 · PM-101 · Printed aluminium foil (used 1250 m)');
   await expect(back).toContainText('Lot CTN-2 · PM-103 · Carton (used 105 nos)');
@@ -288,7 +306,11 @@ test('TB-21 QA terminates a packing batch after materials were issued: the windo
   await back.getByLabel('Lot CTN-2 back to stores').fill('5');
   await qa.page.getByRole('button', { name: 'Continue to sign' }).click();
   await expect(qa.page.getByRole('dialog')).toContainText('Back to stores unused: lot FOIL-2 300 m, lot CTN-2 5 nos; the rest counts as used.');
+  await wholeOnScreen(qa.page, qa.page.getByRole('dialog').locator('form'));
   await sign(qa.page);
+  await expect(qa.page.getByRole('region', { name: 'In production' }).locator('.pending-row', { hasText: batch.batchNo })).toHaveCount(0);
+  await qa.page.setViewportSize(tablet);
+  await qa.page.goto(`/#/batch/${batch.id}`);
   await expect(qa.page.getByRole('note')).toContainText(/^Terminated by PQA at .* IST: Blister line 1 down for repair: the batch cannot be finished · Back to stores unused: lot FOIL-2 \(PM-101 · Printed aluminium foil\) 300 m, lot CTN-2 \(PM-103 · Carton\) 5 nos; the rest counts as used$/);
   if (process.env.SHOTS) await qa.page.screenshot({ path: `${process.env.SHOTS}/packing-terminated-returns.png`, fullPage: true });
   await qa.ctx.close();
