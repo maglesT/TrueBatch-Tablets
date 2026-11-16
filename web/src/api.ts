@@ -1,3 +1,5 @@
+import { sep } from '../../shared/plant-time.js';
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -51,7 +53,7 @@ export const can = (me: Me, code: string) => me.permissions.includes(`truebatch.
 export function plantTime(iso: string | null): string {
   if (!iso) return '—';
   const s = new Date(iso).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' });
-  return `${s} IST`;
+  return `${sep(s)} IST`;
 }
 
 // The meanings of server/signatures.ts, as the sign dialog shows them.

@@ -4,11 +4,14 @@ export const PLANT_TZ = 'Asia/Kolkata';
 // "2026-11-15T18:23:50Z", "2026-11-15T18:23:50.123+05:30", "2026-11-15 17:38:16.254+00" (PostgreSQL text).
 const STAMP = /\b\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(?::\d{2})?(?:\.\d+)?(?:Z|[+-]\d{2}(?::?\d{2})?)(?![\d:])/g;
 
+// The browser's and Node's date words write September "Sept" (en-GB, en-IN); every date here says "Sep".
+export const sep = (s: string) => s.replace(/\bSept\b/g, 'Sep');
+
 /** One instant in plant time: "15 Nov 2026, 23:43 IST", or "15 Nov 2026, 23:43:19 IST" with seconds. */
 export function plantClock(t: string | Date, seconds = false): string {
   const s = new Date(t).toLocaleString('en-GB', { timeZone: PLANT_TZ, day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
     ...(seconds ? { second: '2-digit' } : {}), hourCycle: 'h23' });
-  return `${s} IST`;
+  return `${sep(s)} IST`;
 }
 
 // A calendar date on its own ("2029-10-31": a lot's expiry, a date of manufacture), not inside a code or a time stamp.

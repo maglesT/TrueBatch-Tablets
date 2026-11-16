@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { plantClock, plantDate, plantText } from '../shared/plant-time.js';
 import { valueText } from '../server/batch-record.js';
+import { plant } from '../server/pdf.js';
+import { plantTime } from '../web/src/api.js';
+import { plainClock } from '../web/src/api-floor.js';
 
 // Times are shown in plant time (IST) everywhere, never as raw UTC or ISO text (owner, 15 Nov 2026).
 describe('plant time', () => {
@@ -25,5 +28,10 @@ describe('plant time', () => {
   it('one instant, with or without seconds', () => {
     expect(plantClock('2026-11-15T18:30:00Z')).toBe('16 Nov 2026, 00:00 IST');
     expect(plantClock(new Date('2026-11-15T18:30:05Z'), true)).toBe('16 Nov 2026, 00:00:05 IST');
+  });
+
+  it('September is "Sep" like every other month, on the screens and in the PDF (never "Sept")', () => {
+    const t = '2027-09-30T06:00:00Z';
+    expect([plantClock(t), plant(t), plantTime(t), plainClock(t), plantDate('2027-09-30')]).toEqual(['30 Sep 2027, 11:30 IST', '30 Sep 2027, 11:30 IST', '30 Sep 2027, 11:30 am IST', '30 Sep, 11:30 IST', '30 Sep 2027']);
   });
 });

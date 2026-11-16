@@ -7,6 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import PdfPrinter from 'pdfmake';
 import type { Content, TDocumentDefinitions } from 'pdfmake/interfaces.js';
+import { sep } from '../shared/plant-time.js';
 
 export const PLANT_TZ = process.env.DISPLAY_TZ ?? 'Asia/Kolkata';
 
@@ -39,7 +40,7 @@ export function runs(text: string): { text: string; font?: string }[] {
 
 /** Plant time with the zone label: "15 Nov 2026, 10:21 IST". */
 export const plant = (d: Date | string | null | undefined) =>
-  d ? `${new Date(d).toLocaleString('en-GB', { timeZone: PLANT_TZ, dateStyle: 'medium', timeStyle: 'short' })} IST` : '';
+  d ? `${sep(new Date(d).toLocaleString('en-GB', { timeZone: PLANT_TZ, dateStyle: 'medium', timeStyle: 'short' }))} IST` : '';
 
 const DEMO = { text: 'DEMO · ', bold: true, color: '#b3261e' };
 /**

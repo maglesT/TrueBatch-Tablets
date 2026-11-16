@@ -7,7 +7,7 @@ import type { Action, EventKind, Payload, State, StepKey } from '../../shared/en
 import type { Stored, Value } from '../../shared/engine/values.js';
 import { PROVIDER_NAME, type Source } from '../../shared/engine/links.js';
 import { stepTitle as sharedStepTitle } from '../../shared/engine/batch.js';
-import { plantText } from '../../shared/plant-time.js';
+import { plantText, sep } from '../../shared/plant-time.js';
 
 export type { Block, BlockField, MasterDoc, Step, Action, State, StepKey, Stored, Value, Source };
 
@@ -132,7 +132,7 @@ export function rawOf(v: Value | undefined): string | string[] {
 
 // Plant time, short: "15 Nov, 10:21 IST".
 export const plainClock = (iso: string) =>
-  `${new Date(iso).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false })} IST`;
+  `${sep(new Date(iso).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false }))} IST`;
 
 /** Time left (or past) in words: "12 min", "1 h 05 min"; under 10 minutes with seconds. */
 export function timeLeft(ms: number): string {
