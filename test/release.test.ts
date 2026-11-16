@@ -163,5 +163,11 @@ describe('the review list for QA', () => {
     const live = record([]);
     expect(live.match(/NOT YET: the rounds go on/g)).toHaveLength(2);
     expect(live).not.toContain('terminated');
+    // Round 2 signed done without passing, round 3 opened but never started, then terminated: round 2 was cut short.
+    const events3 = [...events, ev('done', '0.1.0.2')];
+    const { steps: steps3 } = openSteps(d, events3, at(1000));
+    const r3 = steps3.find((v) => v.id === '0.1.0.3');
+    expect(r3 && ['waiting', 'open'].includes(r3.state)).toBe(true);
+    expect(steps3.filter((v) => v.id !== '0.1.0.3').map((v) => [v.id, cutShort(true, v, steps3)])).toEqual([['0.1.0.1', false], ['0.1.0.2', true]]);
   });
 });
