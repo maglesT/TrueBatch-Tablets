@@ -276,7 +276,18 @@ test('TB-21 QA terminates a packing batch after materials were issued: the windo
   await quantity.getByRole('textbox').press('Enter');
   await expect(quantity.getByRole('alert')).toHaveCount(0);
   await expect(quantity).toContainText('Saved');
-  await signed('0.1.2.1');
+  await post(op, '0.1.2.1', 'done', { proof: await op.proof('performed'), contentHash: (await step(op.page, '0.1.2.1')).contentHash });
+  // The checker's screen waits for master data's unit: the quantity never reads "105 units" first and "105 nos" a moment later.
+  let answer!: () => void;
+  const held = new Promise<void>((r) => { answer = r; });
+  await chk.page.route('**/api/master/materials', async (r) => { await held; await r.continue(); });
+  await chk.page.goto(`/#/batch/${batch.id}/step/0.1.2.1`);
+  await expect(chk.page.getByLabel('Loading the step')).toBeVisible();
+  await expect(chk.page.locator('body')).not.toContainText('105 units');
+  answer();
+  await expect(chk.page.getByRole('region', { name: 'What was recorded' })).toContainText('105 nos');
+  await expect(chk.page.locator('body')).not.toContainText('105 units');
+  await post(chk, '0.1.2.1', 'check', { proof: await chk.proof('verified'), contentHash: (await step(chk.page, '0.1.2.1')).contentHash });
   await op.ctx.close();
   await chk.ctx.close();
 
