@@ -29,9 +29,9 @@ export async function pullItem(app: FastifyInstance, block: Block, f: BlockField
   if (!s) return refused(`${item.code} is not in the Logbook, so it cannot be used.`);
   // The line clearance after packing clears the line this batch has just used (it may already be dirty: a stage that
   // names no rooms does not keep the line in use, equipment_use_v1).
-  if (!s.fitForUse && block.id !== 'pack-clearance-after') return refused(`${item.code} is not fit for use (Logbook): ${s.blockers.join('; ') || s.state}.`);
+  if (!s.fitForUse && block.id !== 'pack-clearance-after') return refused(`${item.code} is not fit for use (Logbook): ${s.blockers.join('; ') || stateWords(s.state)}.`);
   if (s.inUseBatch && s.inUseBatch !== batchNo) return refused(`${item.code} is in use by batch ${s.inUseBatch} (Logbook).`);
-  const source: Source = { from: 'logbook', asOf: s.checkedAt, shown: [`${item.code}: ${s.state}`, ...s.warnings].join('; ') };
+  const source: Source = { from: 'logbook', asOf: s.checkedAt, shown: [`${item.code}: ${stateWords(s.state)}`, ...s.warnings].join('; ') };
   const out: Pulled = { source, values: {}, sources: {}, problems: [] };
   // The line clearance facts the Logbook has (the room, or a packing line): clean (it is fit for use), when and by whom it was cleaned.
   if ((f.kind === 'room' || f.kind === 'machine') && block.gmp === 'line-clearance') {
@@ -40,6 +40,9 @@ export async function pullItem(app: FastifyInstance, block: Block, f: BlockField
   }
   return out;
 }
+
+// A Logbook status in plain words (equipment_status_v1.state), never its key.
+export const stateWords = (state: string) => state.replace(/_/g, ' ').replace(/\bpm\b/, 'PM');
 
 // An MMS lot status in plain words.
 const LOT_WORDS: Record<string, string> = { quarantine: 'in quarantine', quarantined: 'in quarantine', under_test: 'under test', on_hold: 'on hold' };
