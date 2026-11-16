@@ -64,6 +64,9 @@ export function batchRecordDoc(r: RecordInput, by: string, printedAt = new Date(
   const stepLabel = (id: string) => { const v = byId.get(id); return v ? `${doc.stages[v.key.stage]!.name} · ${stepName(v)}` : id; };
 
   const record = doc.pack ? 'Packing record' : 'Batch record';
+  // A batch QA terminated: said at the top and in the decisions.
+  const ended = batchEvents.find((b) => b.payload.terminated);
+  const endedText = ended && `Terminated by ${ended.personName} at ${plant(ended.at)}: ${ended.payload.reason ?? ''}`;
   const facts = doc.pack ? steps.find((v) => v.id === '0.1.0.1') : undefined;
   const content: Content[] = [
     { text: runs(`${record} ${r.batch.batchNo}`), fontSize: 16, bold: true },
@@ -76,6 +79,7 @@ export function batchRecordDoc(r: RecordInput, by: string, printedAt = new Date(
         : [th('Batch size'), small(`${Number(h.batchSize).toLocaleString('en-IN')} tablets`), th('Core tablet weight'), small(`${h.coreWeightMg} mg${h.coatedWeightMg ? ` (coated ${h.coatedWeightMg} mg)` : ''}`), th('Master version'), small(`version ${r.versionNo}`)],
       [th('Issued'), small(`${r.issuedByName}, ${plant(r.batch.issuedAt)}`), th('Times'), small('plant time (IST)'), th('Changed values'), small('marked CHANGED; the original is struck through, with the reason', { color: RED })],
     ] }, layout: 'lightHorizontalLines' },
+    ...(endedText ? [small(endedText, { bold: true, color: RED, margin: [0, 6, 0, 0] })] : []),
   ];
 
   // Packing: the packing materials, with the lots and quantities issued and their reconciliation.
@@ -152,7 +156,7 @@ export function batchRecordDoc(r: RecordInput, by: string, printedAt = new Date(
   // The decisions: production approval, QC approval (with the QC report), QA release or rejection.
   content.push(heading('Release decision'));
   const decisions = batchEvents.filter((b) => b.kind !== 'deviation_closed');
-  content.push(decisions.length ? { stack: decisions.map((b) => small(
+  content.push(decisions.length ? { stack: decisions.map((b) => small(b === ended ? endedText! :
     `${MEANING[b.kind] ?? b.kind}: ${b.personName}, ${plant(b.at)}${b.payload.reportNo ? ` · QC report ${b.payload.reportNo}` : ''}${b.payload.reason ? ` · reason: ${b.payload.reason}` : ''}`,
     { fontSize: 9, bold: b.kind === 'released' || b.kind === 'rejected', color: b.kind === 'rejected' ? RED : undefined, margin: [0, 0, 0, 2] })) }
     : { text: `No decision yet: the batch is ${view.status}.`, italics: true, fontSize: 9 });

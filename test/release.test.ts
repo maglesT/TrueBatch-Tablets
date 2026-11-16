@@ -61,6 +61,13 @@ describe('batch signatures', () => {
     ['TB-21 rejection while a linked deviation is open', 'reject', 'qa', [...complete, deviation], approved, 'Deviation DEV-26-001 (Stage 0 › Check a value against limits: pH) is open'],
     ['TB-21 release once the deviation is closed', 'release', 'qa', [...complete, deviation], [...approved, close], null],
     ['TB-21 release after rejection', 'release', 'qa', complete, [...approved, be('rejected')], 'Not possible while the batch is rejected.'],
+    ['TB-21 QA terminates a batch in production', 'terminate', 'qa', started, [], null],
+    ['TB-21 QA terminates a complete batch with an open deviation', 'terminate', 'qa', [...complete, deviation], [], null],
+    ['TB-21 termination after production approval', 'terminate', 'qa', complete, approved.slice(0, 1), 'Not possible while the batch is production approved: QA decides at release.'],
+    ['TB-21 termination without qa.release', 'terminate', 'supervisor', started, [], 'You do not have the permission for this action.'],
+    ['TB-21 termination of a released batch', 'terminate', 'qa', complete, [...approved, be('released')], 'The batch is released.'],
+    ['TB-21 termination of a rejected batch', 'terminate', 'qa', complete, [...approved, be('rejected')], 'The batch is rejected.'],
+    ['TB-21 production approval after termination', 'production-approve', 'supervisor', complete, [be('rejected', { terminated: true, reason: 'x' })], 'Not possible while the batch is rejected.'],
   ])('%s → %s', (_what, action, who, events, batch, want) => {
     expect(refused(action, who, events, batch)?.problems[0] ?? null).toBe(want);
   });

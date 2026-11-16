@@ -172,6 +172,7 @@ const BATCH_BODIES: Record<BatchAction, z.ZodTypeAny> = {
   'qc-approve': signBody.extend({ reportNo: z.string().trim().min(1).max(60) }),
   release: signBody,
   reject: signBody.extend({ reason }),
+  terminate: signBody.extend({ reason }),
   'close-deviation': z.object({ note: z.number().int().positive(), reason }),
 };
 // GET /api/batches/:id shows the last few events of each step; the full history is per step.
@@ -331,22 +332,25 @@ export function batchRoutes(app: FastifyInstance, sql: Sql) {
     return out;
   });
 
-  // To review: for QC the production-approved batches, for QA the QC-approved ones (TB-21), oldest decision first.
+  // To review: for QC the production-approved batches, for QA the QC-approved ones (TB-21), oldest decision first; for
+  // QA also the batches still in production, which QA may terminate.
   app.get('/api/batches/to-review', { preHandler: requirePermission('truebatch.qc.approve', 'truebatch.qa.release') }, async (req) => {
+    const qa = req.user!.permissions.includes('truebatch.qa.release');
     const ids = await sql<{ id: number }[]>`
       select b.id::int from batches b
-      where exists (select 1 from batch_events e where e.batch_id = b.id and e.kind = 'production_approved')
+      where (${qa} or exists (select 1 from batch_events e where e.batch_id = b.id and e.kind = 'production_approved'))
         and not exists (select 1 from batch_events e where e.batch_id = b.id and e.kind in ('released', 'rejected'))
       order by b.issued_at limit 200`;
     const out = [];
     for (const { id } of ids) {
       const l = (await loadBatch(sql, id))!;
       const bv = view(l, (await deviationsRead(app, l)).read);
-      const waiting = bv.status === 'production approved' ? 'QC' : 'QA';
+      const waiting = bv.status === 'production approved' ? 'QC' : bv.status === 'QC approved' ? 'QA' : 'production';
       if (!req.user!.permissions.includes(waiting === 'QC' ? 'truebatch.qc.approve' : 'truebatch.qa.release')) continue;
-      const last = l.batchEvents.filter((e) => e.kind !== 'deviation_closed').at(-1)!;
+      const last = l.batchEvents.filter((e) => e.kind !== 'deviation_closed').at(-1);
       out.push({ id, batchNo: l.batch.batchNo, productCode: l.doc.header.productCode, productName: l.doc.header.productName, status: bv.status, waiting,
-        since: last.at, by: last.personName, openDeviations: bv.deviations.filter((d) => d.open).length, actions: BATCH_NAMES.filter((a) => a !== 'close-deviation' && !batchRefusal(a, bv, req.user!)) });
+        since: last?.at ?? l.batch.issuedAt, by: last?.personName ?? '', openDeviations: bv.deviations.filter((d) => d.open).length,
+        actions: BATCH_NAMES.filter((a) => a !== 'close-deviation' && !batchRefusal(a, bv, req.user!)) });
     }
     return out;
   });
@@ -361,17 +365,20 @@ export function batchRoutes(app: FastifyInstance, sql: Sql) {
     const { stages, steps } = openSteps(l.doc, l.events, l.now);
     const dv = await deviationsRead(app, l);
     const bv = view(l, dv.read);
+    // A released or rejected batch takes no more step actions and runs no more timers (a terminated one included).
+    const decided = bv.status === 'released' || bv.status === 'rejected';
     return {
-      batch: { ...l.batch, ...bv, deviationsLink: dv.link, contentHash: batchHash(l), actions: BATCH_NAMES.filter((a) => a !== 'close-deviation' && !batchRefusal(a, bv, req.user!)) },
+      batch: { ...l.batch, ...bv, deviationsLink: dv.link, contentHash: batchHash(l), actions: BATCH_NAMES.filter((a) => a !== 'close-deviation' && !batchRefusal(a, bv, req.user!)),
+        terminated: l.batchEvents.find((e) => e.payload.terminated) ?? null },
       // The server time: the screens count timers down on the server clock.
-      now: l.now, master: { id: v!.id, masterId: v!.masterId, versionNo: v!.versionNo, doc: l.doc }, stages, timers: timers(l.doc, l.events, l.now),
+      now: l.now, master: { id: v!.id, masterId: v!.masterId, versionNo: v!.versionNo, doc: l.doc }, stages, timers: decided ? [] : timers(l.doc, l.events, l.now),
       steps: steps.map((s) => {
         const { events, replaced: _, ...current } = s;
         return {
           ...current, events: events.slice(-LAST_EVENTS), contentHash: stepHash(l.batch.id, s),
           // The label questions of what was entered by hand (shared/engine/links.ts).
           handFields: handFields(findBlock(l.doc.stages[s.key.stage]!.steps[s.key.step]!.block)?.fields ?? [], s.source),
-          actions: NAMES.filter((a) => !refusal(a, context(l.doc, s, req.user!))),
+          actions: decided ? [] : NAMES.filter((a) => !refusal(a, context(l.doc, s, req.user!))),
           problems: s.state === 'in_progress' ? doneProblems(l.doc, s, l.now) : [],
         };
       }),
@@ -434,7 +441,8 @@ export function batchRoutes(app: FastifyInstance, sql: Sql) {
     return sendPdf(reply, `${l.doc.pack ? 'packing' : 'batch'}-record-${l.batch.batchNo}`, await render(def));
   });
 
-  // Production approval, QC approval, release or rejection (each an e-signature), and QA closing a deviation note.
+  // Production approval, QC approval, release or rejection (each an e-signature), QA terminating a batch (a signed
+  // rejection: equipment_use_v1 then ends every open use of the batch), and QA closing a deviation note.
   for (const action of BATCH_NAMES) {
     const rule = BATCH_ACTIONS[action];
     app.post<{ Params: { id: string } }>(`/api/batches/:id/${action}`, anyUser, async (req, reply) => {
@@ -452,7 +460,7 @@ export function batchRoutes(app: FastifyInstance, sql: Sql) {
           const no = batchRefusal(action, view(l, (await deviationsRead(app, l)).read), user, b.note);
           if (no) throw new StepError(no.status, no.error, no.problems);
           if (signer && b.contentHash !== batchHash(l)) throw new StepError(409, 'content_changed', ['The batch record changed since you opened it.']);
-          const payload = { ...(b.reportNo ? { reportNo: b.reportNo } : {}), ...(b.reason ? { reason: b.reason } : {}), ...(b.note ? { note: b.note } : {}) };
+          const payload = { ...(action === 'terminate' ? { terminated: true } : {}), ...(b.reportNo ? { reportNo: b.reportNo } : {}), ...(b.reason ? { reason: b.reason } : {}), ...(b.note ? { note: b.note } : {}) };
           const [ev] = await tx<{ id: number }[]>`
             insert into batch_events (batch_id, kind, payload, person_id) values (${id}, ${rule.event}, ${tx.json(payload)}, ${user.id}) returning id::int`;
           if (signer && rule.meaning) {
@@ -492,7 +500,7 @@ export function batchRoutes(app: FastifyInstance, sql: Sql) {
           // Once production has approved the record it is closed to changes; notes stay possible until QA decides.
           const decided = l.batchEvents.find((e) => e.kind === 'released' || e.kind === 'rejected');
           if (decided || (action !== 'note' && l.batchEvents.some((e) => e.kind === 'production_approved'))) {
-            throw new StepError(409, 'batch_closed', [decided ? `The batch is ${decided.kind}.` : 'Production has approved the batch record.']);
+            throw new StepError(409, 'batch_closed', [decided ? `The batch is ${decided.payload.terminated ? 'terminated' : decided.kind}.` : 'Production has approved the batch record.']);
           }
           // 3. allowed?
           const no = refusal(action, context(l.doc, v, user));

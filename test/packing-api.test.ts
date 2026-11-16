@@ -171,6 +171,20 @@ describe('a packing batch from a released bulk batch', () => {
     }
   });
 
+  it('TB-21 QA terminates a packing batch in production (owner, 16 Nov 2026): rejected with its reason, its line use ended, the line takes the next order', async () => {
+    const id = (await t.owner<{ id: number }[]>`select id::int from batches order by id desc limit 1`)[0]!.id;
+    expect((await issue({ line: 'ln-2', bulk: 'TB260004', tablets: '50000' })).json()).toMatchObject({ error: 'line_in_use' });
+    const b = await get(id, 'qa1');
+    expect(b.batch.actions).toEqual(['terminate']);
+    const r = await as('qa1', 'POST', `/api/batches/${id}/terminate`, { proof: proofFor('qa1'), contentHash: b.batch.contentHash, reason: 'Blister line 2 down for repair' });
+    expect(r.statusCode, r.body).toBe(200);
+    expect((await get(id)).batch).toMatchObject({ status: 'rejected', actions: [] });
+    const no = (await t.owner<{ no: string }[]>`select batch_no as no from batches where id = ${id}`)[0]!.no;
+    expect(await t.owner.unsafe(`select status from ${t.schema}_report.packing_batch_v1 where batch_number = $1`, [no])).toEqual([{ status: 'REJECTED' }]);
+    expect(JSON.stringify(batchRecordDoc(await recordInput(t.sql, (await loadBatch(t.sql, id))!), 'QA1'))).toMatch(/Terminated by QA1 at [^"]* IST: Blister line 2 down for repair/);
+    expect((await issue({ line: 'ln-2', bulk: 'TB260004', tablets: '50000' })).statusCode).toBe(200);
+  });
+
   it('TB-P6 the packing record runs to the end: materials issued and reconciled, checks alongside the line, finished goods; QC approves it, then QA releases it, and the line is free again', async () => {
     const id = first;
     const step = async (key: string, values: Record<string, unknown>) => {

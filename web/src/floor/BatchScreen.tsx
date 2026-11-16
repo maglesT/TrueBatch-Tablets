@@ -8,6 +8,7 @@ import {
 } from '../api-floor.js';
 import { StepScreen } from './StepScreen.js';
 import { DemoSkip } from './DemoSkip.js';
+import { Terminate, terminatedText } from '../release/Terminate.js';
 import './floor.css';
 
 // One batch on the floor: its header, the stages as a progress bar and the alerts, then the overview, one step, or
@@ -44,7 +45,7 @@ export function BatchScreen({ me, id, step, approve }: { me: Me; id: number; ste
       {error && <p className="notice bad" role="alert">{error}</p>}
       {step ? (row ? <StepScreen me={me} d={d} blocks={blocks} row={row} now={now} reload={reload} /> : <p className="notice">This step is not open in the batch yet.</p>)
         : approve ? <Approval d={d} blocks={blocks} reload={reload} />
-        : <><Overview d={d} blocks={blocks} now={now} /><DemoSkip me={me} d={d} reload={() => reload()} /></>}
+        : <><Overview d={d} blocks={blocks} now={now} reload={() => reload()} /><DemoSkip me={me} d={d} reload={() => reload()} /></>}
     </div>
   );
 }
@@ -73,7 +74,7 @@ export function BatchHeader({ d }: { d: BatchDetail }) {
 
 const finished = (s: StepRow) => ['done', 'checked', 'not_applicable'].includes(s.state);
 
-function Overview({ d, blocks, now }: { d: BatchDetail; blocks: Block[]; now: number }) {
+function Overview({ d, blocks, now, reload }: { d: BatchDetail; blocks: Block[]; now: number; reload: () => Promise<void> }) {
   const current = d.stages.find((s) => s.open && !s.closed) ?? d.stages.find((s) => !s.closed);
   const [shown, setShown] = useState(current?.index ?? 0);
   const doc = d.master.doc;
@@ -83,6 +84,7 @@ function Overview({ d, blocks, now }: { d: BatchDetail; blocks: Block[]; now: nu
   return (
     <>
       <BatchHeader d={d} />
+      {d.batch.terminated && <p className="notice bad" role="note"><b>{terminatedText(d.batch.terminated, plainClock)}</b></p>}
       <nav className="stagebar" aria-label="Stages">
         {d.stages.map((s) => (
           <button key={s.key} className={`${s.closed ? 'closed' : s === current ? 'current' : ''}${s.index === shown ? ' on' : ''}`} onClick={() => setShown(s.index)} aria-pressed={s.index === shown}>
@@ -114,6 +116,12 @@ function Overview({ d, blocks, now }: { d: BatchDetail; blocks: Block[]; now: nu
         <div className="panel-head"><h2>Production approval</h2><span className="muted">when every stage is closed</span></div>
         <button className="big" onClick={() => go(`${batchLink(d.batch.id)}/approve`)}>{d.batch.status === 'manufacturing complete' ? 'Review and approve the record' : 'See what is still open'}</button>
       </section>
+      {d.batch.actions.includes('terminate') && (
+        <section className="dash-panel" aria-label="Terminate the batch">
+          <div className="panel-head"><h2>Terminate the batch (QA)</h2><span className="muted">when the batch cannot be finished: it is rejected, its record kept</span></div>
+          <Terminate id={d.batch.id} batchNo={d.batch.batchNo} onDone={reload} />
+        </section>
+      )}
     </>
   );
 }

@@ -10,6 +10,7 @@ import { stepLabel } from '../../../shared/engine/batch.js';
 import { deviationStatusWords } from '../../../shared/engine/release.js';
 import { BatchHeader } from '../floor/BatchScreen.js';
 import { ReasonDialog } from '../floor/ReasonDialog.js';
+import { terminatedText } from './Terminate.js';
 import { product } from '../product.js';
 import '../floor/floor.css';
 import './release.css';
@@ -31,7 +32,7 @@ interface Review {
   notApplicable: FloorEvent[];
   // Demo installations only: the waits ended at once (server/demo.ts).
   demoSkips: FloorEvent[];
-  batchEvents: { id: number; kind: string; payload: { reportNo?: string; reason?: string }; personName: string; at: string }[];
+  batchEvents: { id: number; kind: string; payload: { reportNo?: string; reason?: string; terminated?: boolean }; personName: string; at: string }[];
   signatures: { objectType: string; printedName: string; meaning: string; signedAt: string; step: string | null }[];
 }
 type Signing = { meaning: 'qc_approved' | 'released' | 'rejected'; action: 'qc-approve' | 'release' | 'reject' };
@@ -150,7 +151,7 @@ export function ReleaseScreen({ me, id }: { me: Me; id: number }) {
         {notice && <p className="notice info" role="status">{notice}</p>}
         {r.batchEvents.filter((b) => b.kind !== 'deviation_closed').map((b) => (
           <p key={b.id} className={b.kind === 'rejected' ? 'notice bad' : 'all-good'}><span aria-hidden="true">{b.kind === 'rejected' ? '✕' : '✓'}</span>
-            {MEANING_LABEL[b.kind] ?? b.kind} by {b.personName}, {plainClock(b.at)}{b.payload.reportNo ? ` · QC report ${b.payload.reportNo}` : ''}{b.payload.reason ? ` · ${b.payload.reason}` : ''}</p>))}
+            {b.payload.terminated ? terminatedText(b, plainClock) : <>{MEANING_LABEL[b.kind] ?? b.kind} by {b.personName}, {plainClock(b.at)}{b.payload.reportNo ? ` · QC report ${b.payload.reportNo}` : ''}{b.payload.reason ? ` · ${b.payload.reason}` : ''}</>}</p>))}
         {qcTurn && (can(me, 'qc.approve') ? (
           <div className="decide">
             <label>QC report number<input value={reportNo} onChange={(e) => setReportNo(e.target.value)} maxLength={60} placeholder="e.g. QC-26-0042" /></label>

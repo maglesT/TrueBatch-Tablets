@@ -12,17 +12,20 @@ import { isHand, type Source } from './links.js';
 
 export const BATCH_EVENT_KINDS = ['production_approved', 'qc_approved', 'released', 'rejected', 'deviation_closed'] as const;
 export type BatchEventKind = (typeof BATCH_EVENT_KINDS)[number];
-export interface BatchEvent { id: number; kind: BatchEventKind; payload: { reportNo?: string; note?: number; reason?: string }; person: number; at: Date }
+// A batch QA terminated (stopped, not finished) is a rejection with `terminated` (owner, 16 Nov 2026): the record is kept.
+export interface BatchEvent { id: number; kind: BatchEventKind; payload: { reportNo?: string; note?: number; reason?: string; terminated?: boolean }; person: number; at: Date }
 
 export const BATCH_STATUSES = ['in production', 'manufacturing complete', 'production approved', 'QC approved', 'released', 'rejected'] as const;
 export type BatchStatus = (typeof BATCH_STATUSES)[number];
 
-export type BatchAction = 'production-approve' | 'qc-approve' | 'release' | 'reject' | 'close-deviation';
+export type BatchAction = 'production-approve' | 'qc-approve' | 'release' | 'reject' | 'terminate' | 'close-deviation';
 export const BATCH_ACTIONS: Record<BatchAction, { event: BatchEventKind; permission: Permission; from?: BatchStatus; meaning?: 'production_approved' | 'qc_approved' | 'released' | 'rejected' }> = {
   'production-approve': { event: 'production_approved', permission: 'truebatch.batch.supervise', from: 'manufacturing complete', meaning: 'production_approved' },
   'qc-approve': { event: 'qc_approved', permission: 'truebatch.qc.approve', from: 'production approved', meaning: 'qc_approved' },
   release: { event: 'released', permission: 'truebatch.qa.release', from: 'QC approved', meaning: 'released' },
   reject: { event: 'rejected', permission: 'truebatch.qa.release', from: 'QC approved', meaning: 'rejected' },
+  // QA stops a batch still in production that cannot be finished, with a reason (TB-21 rows in test/release.test.ts).
+  terminate: { event: 'rejected', permission: 'truebatch.qa.release', meaning: 'rejected' },
   'close-deviation': { event: 'deviation_closed', permission: 'truebatch.qa.release' },
 };
 
@@ -83,8 +86,10 @@ export function batchRefusal(action: BatchAction, v: BatchView, user: { id?: num
   const rule = BATCH_ACTIONS[action];
   if (!user.permissions.includes(rule.permission)) return { status: 403, error: 'forbidden', problems: ['You do not have the permission for this action.'] };
   const no = (...problems: string[]) => (problems.length ? { status: 409 as const, error: 'not_ready', problems } : null);
-  if (action === 'close-deviation') {
+  if (action === 'close-deviation' || action === 'terminate') {
     if (v.status === 'released' || v.status === 'rejected') return no(`The batch is ${v.status}.`);
+    // Still in production: production has not signed the record. After that, QC and QA decide at release.
+    if (action === 'terminate') return ['in production', 'manufacturing complete'].includes(v.status) ? null : no(`Not possible while the batch is ${v.status}: QA decides at release.`);
     const d = v.deviations.find((x) => x.note === note && x.open);
     if (!d) return no('There is no open deviation note with this number.');
     if (d.status !== undefined) return no(`The status of ${d.reference} comes from the Deviations system (now ${deviationStatusWords(d.status)}): it is closed there.`);

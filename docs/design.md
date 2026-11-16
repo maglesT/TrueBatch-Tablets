@@ -56,6 +56,12 @@ answering) or **ok**.
   dirty between weighings; the record keeps which balance was used and the Logbook checks its calibration as before. Both views add `step_name` at the end ("Granulation › Granulate to
   an end point", kept with the step's start); `step` stays the keys. `material_use_v1` gives the quantity in the
   material's unit in master data, read when the step is signed done (g and mg exactly in kg for a kg material).
+- **QA terminates a batch** (owner, 16 Nov 2026): a batch still in production (before production approval) that
+  cannot be finished is terminated by QA (`qa.release`) from the batch screen or the "To review" list, with a reason
+  and an e-signature meaning "rejected". It is a rejection (batch event `rejected` with `terminated`), so the status is
+  rejected (`batch_fact_v1`: REJECTED), the record is kept and takes no more actions, and `equipment_use_v1` ends every
+  open use of the batch then (machines and rooms dirty, no longer in use). Screens, review and PDF say "Terminated by
+  … at …: reason".
 - **Where machines are**: a stage that works machines or names a room chooses the rooms it may run in (master check,
   TB-11); the floor is offered the machines of the field's type standing in those rooms. A balance is offered where
   the weighing is done: in a dispensing or weighing area, or in a room the stage allows, never in a QC or laboratory

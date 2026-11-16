@@ -413,6 +413,72 @@ describe('production approval, QC approval and QA release', () => {
   });
 });
 
+describe('QA terminates a batch that cannot be finished (owner, 16 Nov 2026)', () => {
+  let id: number;
+  const full = async (who = 'viewer') => (await as(who, 'GET', `/api/batches/${id}`)).json() as {
+    batch: { status: string; contentHash: string; actions: string[]; terminated: { personName: string; payload: { reason: string } } | null };
+    steps: { actions: string[] }[]; timers: unknown[] };
+  const terminate = async (who: string, extra: object = { reason: 'The stirrer broke down; the binder cannot be made' }) =>
+    as(who, 'POST', `/api/batches/${id}/terminate`, { proof: proofFor(who), contentHash: (await full()).batch.contentHash, ...extra });
+  const uses = () => t.owner.unsafe(`select equipment_code, ended_at from ${t.schema}_report.equipment_use_v1 where batch_number = (select batch_no from batches where id = $1)`, [id]);
+  beforeAll(async () => {
+    id = (await issue(await effectiveMaster())).id;
+    // The binder: weighed, then the stirrer in use and the mix running.
+    await act('asha', id, '0.1.0.1', 'start');
+    await act('asha', id, '0.1.0.1', 'record', { values: { lot: 'PVP-2611', ...handLabels('lot', 'lot'), balance: 'eq-bal', ...handLabels('balance', 'machine'), gross: '1.350', tare: '0.350' } });
+    await sign('asha', id, '0.1.0.1', 'done');
+    await sign('ravi', id, '0.1.0.1', 'check');
+    await act('asha', id, '0.1.1.1', 'start');
+    await act('asha', id, '0.1.1.1', 'record', { values: { machine: 'eq-str', ...handLabels('machine', 'machine'), speed: '300' } });
+  });
+
+  it('TB-21 QA sees the batch in production on its To review list and may terminate it, with a reason; nobody else may', async () => {
+    const rows = ((await as('meera', 'GET', '/api/batches/to-review')).json() as { id: number; waiting: string; actions: string[] }[]).filter((b) => b.id === id);
+    expect(rows).toMatchObject([{ waiting: 'production', actions: ['terminate'] }]);
+    expect((await full('meera')).batch.actions).toEqual(['terminate']);
+    expect((await full('sam')).batch.actions).toEqual([]);
+    // Without qa.release at core, the signature itself is refused.
+    expect((await terminate('sam')).statusCode).toBe(401);
+    expect((await terminate('meera', {})).statusCode).toBe(400);
+    expect(await uses()).toEqual([{ equipment_code: 'STR-01', ended_at: null }]);
+  });
+
+  it('TB-21 terminate frees the uses: a signed rejection; equipment_use_v1 ends every open use then, batch_fact_v1 says REJECTED', async () => {
+    const res = await terminate('meera');
+    expect(res.statusCode).toBe(200);
+    const { eventId } = res.json() as { eventId: number };
+    expect(await t.owner`select 1 from signatures where object_type = 'batch_event' and object_id = ${eventId} and meaning = 'rejected'`).toHaveLength(1);
+    const [e] = await t.owner<{ at: Date; payload: object }[]>`select at, payload from batch_events where id = ${eventId}`;
+    expect(e!.payload).toEqual({ terminated: true, reason: 'The stirrer broke down; the binder cannot be made' });
+    expect(await uses()).toEqual([{ equipment_code: 'STR-01', ended_at: e!.at }]);
+    const [f] = await t.owner.unsafe(`select status from ${t.schema}_report.batch_fact_v1 where batch_number = (select batch_no from batches where id = $1)`, [id]);
+    expect(f).toEqual({ status: 'REJECTED' });
+    const b = await full();
+    expect(b.batch).toMatchObject({ status: 'rejected', actions: [], terminated: { personName: 'MEERA', payload: { reason: 'The stirrer broke down; the binder cannot be made' } } });
+    expect(b.steps.every((s) => !s.actions.length)).toBe(true);
+    expect(b.timers).toEqual([]);
+  });
+
+  it('TB-21 actions are refused after termination; the record is kept and leaves My work and the To review list', async () => {
+    expect((await act('asha', id, '0.1.1.1', 'record', { values: { speed: '310' } })).json()).toMatchObject({ error: 'batch_closed', problems: ['The batch is terminated.'] });
+    expect((await act('asha', id, '0.1.1.1', 'note', { text: 'x' })).json()).toMatchObject({ error: 'batch_closed' });
+    expect((await terminate('meera')).json()).toMatchObject({ error: 'not_ready', problems: ['The batch is rejected.'] });
+    expect((await as('meera', 'POST', `/api/batches/${id}/reject`, { proof: proofFor('meera'), contentHash: (await full()).batch.contentHash, reason: 'x' })).statusCode).toBe(409);
+    expect(((await as('meera', 'GET', '/api/batches/to-review')).json() as { id: number }[]).some((b) => b.id === id)).toBe(false);
+    expect(((await as('asha', 'GET', '/api/batches')).json() as { id: number }[]).some((b) => b.id === id)).toBe(false);
+    expect(await t.owner`select 1 from step_events where batch_id = ${id}`).not.toHaveLength(0);
+  });
+
+  it('TB-22 the PDF and the review show "Terminated by … at …: reason"', async () => {
+    const text = await recordText(id);
+    expect(text).toContain('Status | rejected');
+    expect(text.match(/Terminated by MEERA at \d{1,2} \w{3} 20\d\d, \d\d:\d\d IST: The stirrer broke down; the binder cannot be made/g)).toHaveLength(2);
+    expect(text).toContain('Rejected | MEERA');
+    const r = (await as('viewer', 'GET', `/api/batches/${id}/review`)).json() as { status: string; batchEvents: { kind: string; payload: object; personName: string }[] };
+    expect(r).toMatchObject({ status: 'rejected', batchEvents: [{ kind: 'rejected', payload: { terminated: true }, personName: 'MEERA' }] });
+  });
+});
+
 describe('the timer job', () => {
   it('TB-17 a hold time that ran out is recorded late once, and blocks the using stage until a deviation note', async () => {
     const { id } = await issue(await effectiveMaster());
