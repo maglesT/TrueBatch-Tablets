@@ -3,7 +3,7 @@ import { connect } from '../server/db.js';
 import { PACKING_APP_ROLE } from '../packing/migrate.js';
 import { TEST_DATABASE_URL } from '../test/helpers.js';
 import { E2E_PACKING_PORT, E2E_PACKING_SCHEMA } from './config.js';
-import { logIn } from './helpers.js';
+import { clearOfActionBar, justAboveActionBar, logIn } from './helpers.js';
 
 // TrueBatch Tablets Packing in the browser: a packing master built in the designer from the packing skeleton (its
 // materials picked from master data), checked and approved; a packing batch issued from the released bulk batch of
@@ -13,8 +13,8 @@ import { logIn } from './helpers.js';
 const baseURL = `http://127.0.0.1:${E2E_PACKING_PORT}`;
 test.use({ baseURL });
 
-async function person(browser: Browser, username: string) {
-  const ctx = await browser.newContext({ baseURL, viewport: { width: 1280, height: 900 } });
+async function person(browser: Browser, username: string, viewport = { width: 1280, height: 900 }) {
+  const ctx = await browser.newContext({ baseURL, viewport });
   const page = await ctx.newPage();
   await logIn(page, username);
   const proof = async (meaning: string) => /"signProof":"([^"]+)"/.exec(await (await page.request.get(`/sign?meanings=${meaning}`)).text())![1]!;
@@ -212,5 +212,84 @@ test('TB-P2 packing journey: packing master from the skeleton, approved; a packi
   expect(download.suggestedFilename()).toBe(`packing-record-${batch.batchNo}.pdf`);
   const { readFileSync } = await import('node:fs');
   expect(readFileSync(await download.path()).subarray(0, 5).toString()).toBe('%PDF-');
+  await qa.ctx.close();
+});
+
+test('TB-21 QA terminates a packing batch after materials were issued: the window asks what went back to stores of each lot, shown with the termination; a refusal on the step screen is not hidden behind the action bar', async ({ browser }) => {
+  const tablet = { width: 1366, height: 900 };
+  // A packing batch on line BL-01 (free again after the journey), its bulk received and checked, through the API.
+  const iss = await person(browser, 'piss');
+  const mv = ((await (await iss.page.request.get('/api/masters')).json()) as { id: number; state: string }[]).find((v) => v.state === 'effective')!.id;
+  const labels = { 'line.clean': 'yes', 'line.calibrated': 'yes', 'line.inService': 'yes', 'line.qualified': 'yes' };
+  const res = await iss.page.request.post('/api/batches', { data: { masterVersionId: mv, proof: await iss.proof('issued'), values: { line: 'ln-1', ...labels, bulk: 'TB260001', tablets: '100000' } } });
+  expect(res.ok(), await res.text()).toBe(true);
+  const batch = await res.json() as { id: number; batchNo: string };
+  await iss.ctx.close();
+  const op = await person(browser, 'pop', tablet);
+  const chk = await person(browser, 'pchk');
+  type Detail = { steps: { id: string; state: string; actions: string[]; contentHash: string }[] };
+  const step = async (p: Page, key: string) => ((await (await p.request.get(`/api/batches/${batch.id}`)).json()) as Detail).steps.find((s) => s.id === key)!;
+  const post = async (who: typeof op, key: string, action: string, data: object = {}) => {
+    const r = await who.page.request.post(`/api/batches/${batch.id}/steps/${key}/${action}`, { data });
+    expect(r.ok(), `${action} ${key}: ${await r.text()}`).toBe(true);
+  };
+  const signed = async (key: string) => {
+    await post(op, key, 'done', { proof: await op.proof('performed'), contentHash: (await step(op.page, key)).contentHash });
+    const s = await step(chk.page, key);
+    if (s.state === 'done_awaiting_check') await post(chk, key, 'check', { proof: await chk.proof('verified'), contentHash: s.contentHash });
+  };
+  const lot = (n: string) => ({ lot: n, 'lot.released': 'yes', 'lot.expiry': '2099-12-31' });
+  await post(op, '0.1.0.1', 'record', { values: { received: 'yes' } });
+  await signed('0.1.0.1');
+  await post(op, '0.1.1.1', 'start');
+  await post(op, '0.1.1.1', 'record', { values: { ...lot('FOIL-2'), issued: '1250', matches: 'yes' } });
+  await signed('0.1.1.1');
+  await post(op, '0.1.2.1', 'start');
+  await post(op, '0.1.2.1', 'record', { values: { ...lot('CTN-2'), matches: 'yes' } });
+
+  // The carton issue on the line's tablet: the quantity in the material's unit (nos, as MMS and its refusals say), and
+  // a refusal under the field shown in full, above the sticky Done bar.
+  await op.page.goto(`/#/batch/${batch.id}/step/0.1.2.1`);
+  const quantity = op.page.locator('.fl-field', { hasText: 'Quantity issued' });
+  await expect(quantity.locator('.unit')).toHaveText('nos');
+  const refused = async () => {
+    await justAboveActionBar(quantity.getByRole('textbox'));
+    await quantity.getByRole('textbox').fill('105 cartons');
+    await quantity.getByRole('textbox').press('Enter');
+    await clearOfActionBar(op.page, quantity.getByRole('alert'));
+    await quantity.getByRole('textbox').fill('');
+  };
+  await refused();
+  // The same 1366 × 900 screen in a browser window (its tabs and address bar take some 140 px), the field scrolled down
+  // to just above the bar: the refusal is scrolled up into view.
+  await op.page.setViewportSize({ width: 1366, height: 760 });
+  await refused();
+  await op.page.setViewportSize(tablet);
+  await quantity.getByRole('textbox').fill('105');
+  await quantity.getByRole('textbox').press('Enter');
+  await expect(quantity.getByRole('alert')).toHaveCount(0);
+  await expect(quantity).toContainText('Saved');
+  await signed('0.1.2.1');
+  await op.ctx.close();
+  await chk.ctx.close();
+
+  // QA terminates it from the batch screen: for each lot issued, what went back to stores unused.
+  const qa = await person(browser, 'pqa', tablet);
+  await qa.page.goto(`/#/batch/${batch.id}`);
+  await qa.page.getByRole('button', { name: 'Terminate batch' }).click();
+  const back = qa.page.getByRole('group', { name: 'Back to stores' });
+  await expect(back).toContainText('Lot FOIL-2 · PM-101 · Printed aluminium foil (used 1250 m)');
+  await expect(back).toContainText('Lot CTN-2 · PM-103 · Carton (used 105 nos)');
+  await qa.page.getByLabel('Reason for terminating').fill('Blister line 1 down for repair: the batch cannot be finished');
+  if (process.env.SHOTS) await qa.page.screenshot({ path: `${process.env.SHOTS}/packing-terminate-window.png` });
+  await qa.page.getByRole('button', { name: 'Continue to sign' }).click();
+  await expect(qa.page.getByRole('dialog').getByRole('alert')).toContainText('Say how much of lot FOIL-2, CTN-2 went back to stores unused');
+  await back.getByLabel('Lot FOIL-2 back to stores').fill('300');
+  await back.getByLabel('Lot CTN-2 back to stores').fill('5');
+  await qa.page.getByRole('button', { name: 'Continue to sign' }).click();
+  await expect(qa.page.getByRole('dialog')).toContainText('Back to stores unused: lot FOIL-2 300 m, lot CTN-2 5 nos; the rest counts as used.');
+  await sign(qa.page);
+  await expect(qa.page.getByRole('note')).toContainText(/^Terminated by PQA at .* IST: Blister line 1 down for repair: the batch cannot be finished · Back to stores unused: lot FOIL-2 \(PM-101 · Printed aluminium foil\) 300 m, lot CTN-2 \(PM-103 · Carton\) 5 nos; the rest counts as used$/);
+  if (process.env.SHOTS) await qa.page.screenshot({ path: `${process.env.SHOTS}/packing-terminated-returns.png`, fullPage: true });
   await qa.ctx.close();
 });

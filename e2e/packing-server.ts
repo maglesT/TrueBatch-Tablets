@@ -37,7 +37,7 @@ const item = (itemId: string, code: string, name: string) => ({ itemId, code, na
 master.products_.push({ ...item('pk-1', 'PK-001', 'Examplol 100 mg tablets, 10 x 10 blister'), strength: '100 mg', dosageForm: 'tablet' },
   { ...item('prd-1', 'PRD-001', 'Examplol 100 mg tablets'), strength: '100 mg', dosageForm: 'tablet' });
 master.materials_.push({ ...item('pm-foil', 'PM-101', 'Printed aluminium foil'), category: 'packing', unit: 'm' },
-  { ...item('pm-ctn', 'PM-103', 'Carton'), category: 'packing', unit: 'units' });
+  { ...item('pm-ctn', 'PM-103', 'Carton'), category: 'packing', unit: 'nos' });
 master.equipment_.push({ ...item('ln-1', 'BL-01', 'Blister line 1'), kind: 'equipment', type: 'blister line', room: 'PK-01' },
   { ...item('ln-2', 'BL-02', 'Blister line 2'), kind: 'equipment', type: 'blister line', room: 'PK-01' });
 // The line stands in a packing room (the packing stages allow the Packing area).

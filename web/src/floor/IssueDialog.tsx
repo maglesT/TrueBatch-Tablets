@@ -56,7 +56,7 @@ export function IssueDialog({ row, onCancel }: { row: MasterRow; onCancel: () =>
         <h2>Issue a batch</h2>
         <p>{doc.header.productCode} · {doc.header.productName}, version {row.versionNo}: {Number(doc.header.batchSize).toLocaleString('en-IN')} tablets{doc.pack ? `, packed from ${doc.pack.bulkCode}` : ''}. The batch number is given by the server.</p>
         {fields.map((f) => (
-          <FieldInput key={f.name} f={f} unit={f.unit ?? ''} picks={f.kind === 'machine' ? offer.offered : []} note={[untypedNote(f, machines), f.kind === 'machine' ? offer.note : null].filter(Boolean).join(' ') || null} onChange={set(f.name)}
+          <FieldInput key={f.name} f={f} unit={f.unit ?? ''} picks={f.kind === 'machine' ? offer.offered : []} note={[untypedNote(f, machines), f.kind === 'machine' ? offer.note : null]} onChange={set(f.name)}
             options={f.kind === 'bulk' ? (bulk?.batches ?? []).map((x) => x.batchNo) : []} />
         ))}
         {doc.pack && bulk && bulk.link !== 'ok' && <p className="notice warn">TrueBatch Tablets is not linked or not answering: type the bulk batch from its container labels; a second person checks it.</p>}
