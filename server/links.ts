@@ -108,6 +108,9 @@ export interface LotTest { test: string; value: string | null; unit: string | nu
 export interface LotRead {
   lotNumber: string; materialMasterId: string | null; materialCode: string | null; status: string; expiryDate: string | null;
   retestDate: string | null; qcReportRef: string | null; dataAsOf: string | null; tests: LotTest[];
+  // MMS's own balance of the lot (received − sampled − issued + returned ± adjustments − disposed) in the lot's unit;
+  // null from an MMS whose lot_v1 does not give it yet (then nothing is compared with it).
+  stock?: string | null; unit?: string | null;
 }
 type LotRow = { lot_number: string; material_master_id: string | null; material_code: string | null; status: string; expiry_date: string | null;
   retest_date: string | null; qc_report_ref: string | null; data_as_of: string | null };
@@ -116,11 +119,13 @@ const lotOf = (r: LotRow, tests: LotTest[] = []): LotRead => ({ lotNumber: r.lot
 const LOT_COLS = `lot_number, material_master_id::text, material_code, status, expiry_date::text, retest_date::text, qc_report_ref, data_as_of::text`;
 export const mmsClient = (l: Link) => ({
   lot: (lotNumber: string) => l.read(async (q, v) => {
-    const [r] = await q<LotRow[]>`select ${q.unsafe(LOT_COLS)} from ${v('lot_v1')} where lot_number = ${lotNumber} and kind = 'material' limit 1`;
+    // stock and unit through to_jsonb: the columns when MMS's view has them, null on a view from before they were appended.
+    const [r] = await q<(LotRow & { stock: string | null; unit: string | null })[]>`select ${q.unsafe(LOT_COLS)}, to_jsonb(l) ->> 'stock' as stock, to_jsonb(l) ->> 'unit' as unit
+      from ${v('lot_v1')} l where lot_number = ${lotNumber} and kind = 'material' limit 1`;
     if (!r) return null;
     const tests = await q<{ test: string; value: string | null; unit: string | null; basis: string | null; report_ref: string | null }[]>`
       select test, value::text, unit, basis, report_ref from ${v('lot_test_v1')} where lot_number = ${lotNumber} and value is not null`;
-    return lotOf(r, tests.map((t) => ({ test: t.test, value: t.value, unit: t.unit, basis: t.basis, reportRef: t.report_ref })));
+    return { ...lotOf(r, tests.map((t) => ({ test: t.test, value: t.value, unit: t.unit, basis: t.basis, reportRef: t.report_ref }))), stock: r.stock, unit: r.unit };
   }),
   // The lots of a material that may be used today, for the pick list.
   usable: (materialId: string, today: string) => l.read(async (q, v) => (await q<LotRow[]>`

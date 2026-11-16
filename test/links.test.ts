@@ -34,7 +34,7 @@ beforeAll(async () => {
         checked_at timestamptz default now(), read_at timestamptz default now(), data_as_of timestamptz default now());
       create table ${S.mms}.lot_v1 (lot_number text, kind text, material_master_id text, material_code text, product_code text, status text, status_since timestamptz,
         expiry_date date, retest_date date, manufacturer_batch text, supplier_code text, qc_report_ref text, qc_conclusion text,
-        read_at timestamptz default now(), data_as_of timestamptz default now());
+        read_at timestamptz default now(), data_as_of timestamptz default now(), stock numeric, unit text);
       create table ${S.mms}.lot_test_v1 (lot_number text, report_ref text, test text, specification text, result text, value numeric, unit text, basis text,
         tested_at timestamptz, read_at timestamptz default now(), data_as_of timestamptz default now());
       grant usage on schema ${S.dv}, ${S.qms}, ${S.lb}, ${S.mms} to truebatch_app;
@@ -59,6 +59,7 @@ beforeAll(async () => {
         ('API-RT', 'material', 'mat-api', 'MAT-001', 'approved', '2099-01-31', '2021-06-30', 'QC-20-001'),
         ('API-ASIS', 'material', 'mat-api', 'MAT-001', 'approved', '2099-01-31', null, 'QC-26-102'),
         ('LAC-1', 'material', 'mat-lac', 'MAT-002', 'approved', '2099-01-31', null, 'QC-26-103');
+      update ${S.mms}.lot_v1 set stock = 25, unit = 'kg' where lot_number = 'API-OK';
       insert into ${S.mms}.lot_test_v1 (lot_number, report_ref, test, result, value, unit, basis) values
         ('API-OK', 'QC-26-101', 'Assay', '99.1 %', 99.1, '%', 'dried'), ('API-OK', 'QC-26-101', 'LOD', '0.4 %', 0.4, '%', 'as is'),
         ('API-OK', 'QC-26-101', 'Identity', 'complies', null, null, null), ('API-ASIS', 'QC-26-102', 'Assay', '98.0 %', 98.0, '%', 'as is');`);
@@ -308,6 +309,14 @@ describe('TB-12 MMS: only released, in-date lots of the material; certificate va
     expect(await uses('BAL-01')).toEqual([]);
   });
 
+  it('TB-12 a weighing takes no more of a lot than MMS shows available: its stock less what TrueBatch Tablets already dispensed (signed) from it', async () => {
+    // API-OK: 25 kg in MMS; 10.150 kg dispensed above (signed done); the other batch's weighing is not signed yet.
+    const third = await issue(granulation());
+    await act('asha', third.id, '0.1.0.1', 'start');
+    expect(await problems(record(third.id, '0.1.0.1', { lot: 'API-OK', balance: 'eq-bal', gross: '16.000', tare: '0.850' }))).toEqual([
+      'Lot API-OK has 14.85 kg available in MMS (25 kg in stock less 10.15 kg already used in TrueBatch Tablets): 15.15 kg cannot be taken from it. Take at most 14.85 kg, or another lot.']);
+    expect((await record(third.id, '0.1.0.1', { lot: 'API-OK', balance: 'eq-bal', gross: '15.000', tare: '0.850' })).statusCode).toBe(200);
+  });
 });
 
 describe('TB-21 Deviations: the deviation number and its status come from the Deviations system', () => {

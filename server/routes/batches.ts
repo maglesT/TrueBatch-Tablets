@@ -13,9 +13,10 @@ import { render, sendPdf } from '../pdf.js';
 import { findBlock } from '../../shared/blocks/index.js';
 import { blocking, masterChecks } from '../../shared/master/checks.js';
 import type { MasterDoc } from '../../shared/master/schema.js';
+import { Dec } from '../../shared/templates/index.js';
 import {
-  ACTIONS, BATCH_ACTIONS, CERTIFICATE, LINK_OF, batchRefusal, stepLabel, stepPlace, stepTitle, handFields, isHand, batchView, doneProblems, evaluate, lateItems, openSteps, parseKey, readValue, refusal, review, timers,
-  type Action, type BatchAction, type BatchEvent, type DeviationStatus, type LinkState, type Source, type StageView, type StepEvent, type StepKey, type StepView, type Timer, type Value,
+  ACTIONS, BATCH_ACTIONS, CERTIFICATE, LINK_OF, MATERIAL_USE, batchRefusal, inLotUnit, usedQuantity, usesOfLot, stepLabel, stepPlace, stepTitle, handFields, isHand, batchView, doneProblems, evaluate, lateItems, openSteps, parseKey, readValue, refusal, review, timers,
+  type Action, type BatchAction, type BatchEvent, type DeviationStatus, type LinkState, type Source, type StageView, type Stored, type StepEvent, type StepKey, type StepView, type Timer, type Value,
 } from '../../shared/engine/index.js';
 
 // Plant time zone: the batch number's year is the plant's year.
@@ -246,14 +247,47 @@ function myWork(l: LoadedBatch, user: SessionUser) {
   };
 }
 
-// The blocks whose material other products read as used (material_use_v1 of both products).
-const MATERIAL_USE = ['weigh', 'lubricate', 'pack-material-issue'];
 /** The unit master data gives the step's material, read now; none when master data does not answer. */
 async function stockUnit(app: FastifyInstance, doc: MasterDoc, key: StepKey): Promise<string | undefined> {
   const st = doc.stages[key.stage]!.steps[key.step]!;
   const line = MATERIAL_USE.includes(st.block.id) ? lineOf(doc, st) : undefined;
   if (!line) return undefined;
   try { return (await app.master.materials()).find((m) => m.itemId === line.materialItemId)?.unit?.trim() || undefined; } catch { return undefined; }
+}
+
+/**
+ * A lot is not used beyond what MMS shows available (owner, 16 Nov 2026): MMS's balance of the lot less what this
+ * product has already used from it (material_use_v1, as MMS takes it off; shared/engine/stock.ts). Checked while MMS
+ * answers for a lot pulled from it; a lot typed by hand (MMS absent or down) is not compared. The step's own earlier
+ * quantity is not counted twice. What the other TrueBatch product used from the same lot is not read here.
+ */
+async function stockProblem(app: FastifyInstance, tx: Tx, l: LoadedBatch, v: StepView, values: Record<string, Value>, results: Record<string, Stored>,
+  source: Record<string, Source>): Promise<string | null> {
+  const st = l.doc.stages[v.key.stage]!.steps[v.key.step]!;
+  const lot = values.lot;
+  if (!MATERIAL_USE.includes(st.block.id) || typeof lot !== 'string' || !source.lot || isHand(source.lot)) return null;
+  const q = usedQuantity(l.doc, st, values, results, openSteps(l.doc, l.events, l.now).steps);
+  if (!q) return null;
+  const r = await app.links.mms.lot(lot);
+  if (r.state !== 'ok' || !r.value?.stock || !r.value.unit) return null;
+  const unit = r.value.unit;
+  const want = inLotUnit(q, unit);
+  if (!want) return null;
+  let used = new Dec(0);
+  const ids = await tx<{ id: number }[]>`select distinct batch_id::int as id from step_events
+    where kind in ('value', 'corrected') and lower(payload->'values'->>'lot') = lower(${lot})`;
+  for (const { id } of ids) {
+    const b = id === l.batch.id ? l : (await loadBatch(tx, id))!;
+    for (const u of usesOfLot(b.doc, openSteps(b.doc, b.events, b.now).steps, lot)) {
+      if (id === l.batch.id && u.step.id === v.id) continue;
+      used = used.plus(inLotUnit(u.quantity, unit) ?? 0);
+    }
+  }
+  const stock = new Dec(r.value.stock);
+  const available = Dec.max(stock.minus(used), 0);
+  if (want.lte(available)) return null;
+  return `Lot ${lot} has ${available} ${unit} available in MMS (${stock} ${unit} in stock less ${used} ${unit} already used in ${app.product.name}): `
+    + `${want} ${unit} cannot be taken from it. ${available.gt(0) ? `Take at most ${available} ${unit}, or another lot.` : 'Take another lot.'}`;
 }
 
 /**
@@ -521,7 +555,10 @@ export function batchRoutes(app: FastifyInstance, sql: Sql) {
             const typed = await readValues(app, l.doc, key, b.values, l.now, v, l.batch.batchNo);
             payload = { values: typed.values, results: evaluate(l.doc, l.events, key, { ...v.values, ...typed.values }, uses), uses,
               ...(Object.keys(typed.source).length ? { source: typed.source } : {}) };
+            const no = await stockProblem(app, tx, l, v, { ...v.values, ...typed.values }, payload.results as Record<string, Stored>, { ...v.source, ...typed.source });
+            if (no) throw new StepError(409, 'not_in_stock', [no]);
           }
+          if (action === 'done') { const no = await stockProblem(app, tx, l, v, v.values, v.results, v.source); if (no) throw new StepError(409, 'not_in_stock', [no]); }
           // Signed again after an input changed: the results worked out again, as shown, are stored with the signature.
           if (action === 'done' && v.inputChanged.length) payload = { results: evaluate(l.doc, l.events, key, v.values, uses), uses };
           if (b.reason) payload.reason = b.reason;

@@ -38,7 +38,12 @@ answering) or **ok**.
   clean, cleaned on and cleaned by from it. By hand: the status-label questions, each answered yes.
 - **MMS** (`lot_v1`, `lot_test_v1`, planned, with numbers): the lot must exist, be the line's material, released, in
   date and not past retest; assay, water, LOD and content come as numbers in %, the assay on the master's basis. By
-  hand: the lot label's status and date, the certificate values and their report number.
+  hand: the lot label's status and date, the certificate values and their report number. A quantity taken from a lot
+  pulled from MMS (a net weight, a packing material issued) may not be more than MMS shows available (owner, 16 Nov
+  2026): MMS's balance of the lot (`lot_v1.stock`, in `lot_v1.unit`, MMS D-61) less what this product already used from it as
+  its `material_use_v1` gives it (`shared/engine/stock.ts`), checked when it is recorded or corrected and when the
+  step is signed done. An MMS whose `lot_v1` has no stock yet, or a lot typed by hand, is not compared. What the other
+  TrueBatch product used from the same lot is not read (each product uses its own kind of material).
 - **Published** (`db/migrations/0006_report_views.sql`): `batch_fact_v1` and `equipment_use_v1` with Batchwright's
   names and columns, so the Logbook and Deviations read TrueBatch as they read Batchwright, and `deviation_note_v1`
   for Deviations to file notes later. `batch_fact_v1` has one more column at its end (`0007`): `manufactured_on`, the

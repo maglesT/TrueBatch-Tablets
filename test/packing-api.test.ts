@@ -10,6 +10,7 @@ import { PACKING } from '../packing/product.js';
 import { PACKING_APP_ROLE } from '../packing/migrate.js';
 import { call, freshApp, handLabels, login, proofFor, seedUser, TEST_DATABASE_URL, type TestApp } from './helpers.js';
 import { packing } from './packing-fixture.js';
+import { openSteps, usesOfLot } from '../shared/engine/index.js';
 
 // TrueBatch Tablets Packing through its own server: its own permission codes, a packing batch issued from a RELEASED
 // bulk batch read from TrueBatch Tablets' batch_fact_v1 (a fake provider schema, read with packing's restricted login),
@@ -288,6 +289,10 @@ describe('a packing batch from a released bulk batch', () => {
     expect(used).toEqual([['CARTON-1', 'PM-103', 'pm-ctn', '990', 'nos', 'issue/issue-carton'], ['FOIL-1', 'PM-101', 'pm-foil', '1196', 'm', 'issue/issue-foil'],
       ['LEAFLET-1', 'PM-104', 'pm-lft', '980', 'nos', 'issue/issue-leaflet'], ['PVC-1', 'PM-102', 'pm-pvc', '1250', 'm', 'issue/issue-pvc']]
       .map(([lot_number, material_code, material_master_id, quantity, unit, step]) => ({ lot_number, material_code, material_master_id, quantity, unit, step, status: 'dispensed' })));
+    // The app works out the same quantities when it compares a lot with MMS's stock (shared/engine/stock.ts).
+    const done = (await loadBatch(t.sql, id))!;
+    const steps = openSteps(done.doc, done.events, done.now).steps;
+    for (const u of used as unknown as { lot_number: string; quantity: string }[]) expect(usesOfLot(done.doc, steps, u.lot_number).map((x) => x.quantity.value)).toEqual([u.quantity]);
     const cols = async (v: string) => (await t.owner.unsafe(`select string_agg(column_name || ' ' || data_type, ', ' order by ordinal_position) as c from information_schema.columns
       where table_schema = $1 and table_name = $2`, [`${t.schema}_report`, v]))[0]!.c as string;
     expect(await cols('material_use_v1')).toBe('batch_number text, lot_number text, material_code text, material_master_id text, quantity numeric, unit text, '
