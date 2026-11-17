@@ -661,9 +661,10 @@ describe('the views TrueBatch publishes', () => {
     await e(b1, 0, 1, 0, 'started', { where: 'Binder solution › Weigh a material: Povidone K30' }, '2026-11-15 08:00+00');
     await e(b1, 0, 1, 0, 'value', { values: { room, balance: bal } }, '2026-11-15 08:01+00');
     await e(b1, 0, 1, 0, 'done', {}, '2026-11-15 08:05+00');
-    // The balance the weighing names is no use (shared by the batches weighing on it); the room is.
+    // The balance the weighing names is no use (shared by the batches weighing on it); the room is, from the time it was
+    // recorded on the step, not the step's start (whole-suite run, S17: a room refused until its cleaning was done).
     expect(await rows('EQ-USE-1')).toEqual([
-      { equipment_code: 'RM-104', step: 'binder/weigh-pvp', step_name: 'Binder solution › Weigh a material: Povidone K30', started_at: new Date('2026-11-15T08:00:00Z'), ended_at: null }]);
+      { equipment_code: 'RM-104', step: 'binder/weigh-pvp', step_name: 'Binder solution › Weigh a material: Povidone K30', started_at: new Date('2026-11-15T08:01:00Z'), ended_at: null }]);
     // The binder preparation closes: the granulation, still to run, may run in RM-104 (its area), so the room stays in use by the
     // batch, not dirty.
     await closed(b1, 0, '2026-11-15 08:30+00');
@@ -677,7 +678,7 @@ describe('the views TrueBatch publishes', () => {
     // Its step is the one that named it last (17 Nov 2026 run, F41): the Logbook's "last used by … (stage › step)".
     const last = `${doc.stages[1]!.key}/${doc.stages[1]!.steps[1]!.key}`;
     expect(await rows('EQ-USE-1')).toMatchObject([{ equipment_code: 'RM-104', step: last, step_name: `${doc.stages[1]!.name} › ${doc.stages[1]!.steps[1]!.key}`,
-      started_at: new Date('2026-11-15T08:00:00Z'), ended_at: null }]);
+      started_at: new Date('2026-11-15T08:01:00Z'), ended_at: null }]);
     // Dirty after the last stage that names it.
     await closed(b1, 1, '2026-11-15 10:00+00');
     expect(await ends('EQ-USE-1')).toEqual([['RM-104', new Date('2026-11-15T10:00:00Z')]]);
@@ -685,7 +686,7 @@ describe('the views TrueBatch publishes', () => {
     // Another batch in the same room is another use; rejected before its stages closed, its use ends then.
     await e(b2, 0, 1, 0, 'started', {}, '2026-11-15 11:00+00');
     await e(b2, 0, 1, 0, 'value', { values: { room, balance: bal } }, '2026-11-15 11:01+00');
-    expect(await rows('EQ-USE-2')).toMatchObject([{ equipment_code: 'RM-104', started_at: new Date('2026-11-15T11:00:00Z'), ended_at: null }]);
+    expect(await rows('EQ-USE-2')).toMatchObject([{ equipment_code: 'RM-104', started_at: new Date('2026-11-15T11:01:00Z'), ended_at: null }]);
     expect(await ends('EQ-USE-1')).toEqual([['RM-104', new Date('2026-11-15T10:00:00Z')]]);
     await t.owner`insert into batch_events (batch_id, kind, payload, person_id, at) values (${b2}, 'rejected', '{}', ${u!.id}, '2026-11-15 12:00+00')`;
     expect(await ends('EQ-USE-2')).toEqual([['RM-104', new Date('2026-11-15T12:00:00Z')]]);

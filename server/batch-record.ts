@@ -4,7 +4,7 @@
 import type { Content, TDocumentDefinitions } from 'pdfmake/interfaces.js';
 import { findBlock, type Block } from '../shared/blocks/index.js';
 import { materialLines, type Step } from '../shared/master/schema.js';
-import { batchView, deviations, deviationNumber, deviationText, fieldLabel, handFields, lateItems, lineQuantity, notYetText, cutShort, terminatedText, TERMINATED_STATE, openSteps, PROVIDER_NAME, deviationStatusWords, stepTitle, unitName, headline, limitOf, withoutVerdict, statusWords, CERTIFICATE, perPackText, trainingOf, trainingText, trainingTyped, skillText, type DeviationStatus, type EventKind, type Source, type Stored, type StepView, type Value } from '../shared/engine/index.js';
+import { batchView, deviations, deviationNumber, deviationText, fieldLabel, handFields, lateItems, lineQuantity, notYetText, cutShort, terminatedText, TERMINATED_STATE, openSteps, PROVIDER_NAME, deviationStatusWords, stepTitle, unitName, headline, limitOf, withoutVerdict, statusWords, CERTIFICATE, perPackText, trainingOf, trainingText, trainingTyped, skillText, bulkCheckedText, bulkNotCheckedText, bulkOpenText, type BulkDeviations, type DeviationStatus, type EventKind, type Source, type Stored, type StepView, type Value } from '../shared/engine/index.js';
 import type { LoadedBatch } from './routes/batches.js';
 import { pageFrame, plant, runs } from './pdf.js';
 import { plantText } from '../shared/plant-time.js';
@@ -13,8 +13,9 @@ import { plantText } from '../shared/plant-time.js';
 export interface Signature { objectType: string; objectId: number; printedName: string; meaning: string; signedAt: Date; step: string | null }
 // deviationsRead: the deviations as the Deviations system has them now (null without the link). units: master data's
 // units of the materials by item id, a quantity named as master data names the same unit (nos for units), as on screen.
+// bulk: packing (whole-suite run, S24), the bulk batch's open deviations as read now (server/routes/batches.ts bulkDeviations).
 export interface RecordInput extends LoadedBatch { versionNo: number; issuedByName: string; signatures: Signature[]; deviationsRead?: ReadonlyMap<string, DeviationStatus> | null;
-  units?: ReadonlyMap<string, string> }
+  units?: ReadonlyMap<string, string>; bulk?: BulkDeviations | null }
 
 const MEANING: Record<string, string> = {
   issued: 'Issued', performed: 'Performed', verified: 'Verified (second person)', released: 'Released', rejected: 'Rejected',
@@ -178,6 +179,15 @@ export function batchRecordDoc(r: RecordInput, by: string, printedAt = new Date(
       small(!d ? 'note (no deviation number)' : d.status ? `${d.open ? 'OPEN: ' : ''}${deviationStatusWords(d.status)} in the Deviations system${d.closedAt ? `, ${plant(d.closedAt)}` : ''}` : d.open ? 'OPEN' : `closed by ${closed?.personName ?? ''}, ${plant(closed?.at)}: ${closed?.payload.reason ?? ''}`, d?.open ? { color: RED } : {})];
   })));
 
+  // Packing (whole-suite run, S24): the bulk batch's deviations still open, as read now; release waits for them. A link
+  // that did not answer: not checked, QA confirms by hand at release (the release decision below says what QA typed).
+  if (r.bulk) {
+    content.push(heading(`Open deviations of the bulk batch ${r.bulk.bulk}`));
+    content.push(r.bulk.state !== 'ok' ? small(`${bulkNotCheckedText(r.bulk)}: QA confirms by hand at release.`, { color: RED })
+      : r.bulk.open.length ? { stack: r.bulk.open.map((d) => small(`${bulkOpenText(r.bulk!.bulk, d)}${d.title ? ` · ${d.title}` : ''}`, { color: RED })) }
+      : small('None: every deviation of the bulk batch is closed in the Deviations system.'));
+  }
+
   // Signatures whose training was typed by hand because Recruitment was not reachable, for QA (owner, 17 Nov 2026);
   // only when the master names a training.
   if (doc.stages.some((s) => s.steps.some((t) => t.training))) {
@@ -199,7 +209,7 @@ export function batchRecordDoc(r: RecordInput, by: string, printedAt = new Date(
   content.push(heading('Release decision'));
   const decisions = batchEvents.filter((b) => b.kind !== 'deviation_closed');
   content.push(decisions.length ? { stack: decisions.map((b) => small(b === ended ? endedText! :
-    `${MEANING[b.kind] ?? b.kind}: ${b.personName}, ${plant(b.at)}${b.payload.reportNo ? ` · QC report ${b.payload.reportNo}` : ''}${b.payload.reason ? ` · reason: ${b.payload.reason}` : ''}`,
+    `${MEANING[b.kind] ?? b.kind}: ${b.personName}, ${plant(b.at)}${b.payload.reportNo ? ` · QC report ${b.payload.reportNo}` : ''}${b.payload.reason ? ` · reason: ${b.payload.reason}` : ''}${b.payload.bulk ? ` · ${bulkCheckedText(b.payload.bulk)}` : ''}`,
     { fontSize: 9, bold: b.kind === 'released' || b.kind === 'rejected', color: b.kind === 'rejected' ? RED : undefined, margin: [0, 0, 0, 2] })) }
     : { text: `No decision yet: the batch is ${statusWords(view.status, !!doc.pack)}.`, italics: true, fontSize: 9 });
   if (view.status !== 'released' && view.status !== 'rejected') content.push(small(`This copy was made while the batch is ${statusWords(view.status, !!doc.pack)}: it is not a released record.`, { color: RED, margin: [0, 4, 0, 0] }));

@@ -15,9 +15,9 @@ import { blocking, masterChecks } from '../../shared/master/checks.js';
 import type { MasterDoc } from '../../shared/master/schema.js';
 import { Dec } from '../../shared/templates/index.js';
 import {
-  ACTIONS, BATCH_ACTIONS, CERTIFICATE, LINK_OF, MATERIAL_USE, batchRefusal, filedKey, inLotUnit, issuedLots, returnProblems, returnsOf, usedQuantity, usesOfLot, stepLabel, stepPlace, stepTitle, handFields, isHand, batchView, doneProblems, evaluate, lateItems, openSteps, parseKey, readValue, refusal, review, timers,
+  ACTIONS, BATCH_ACTIONS, CERTIFICATE, DEVIATION_DONE, LINK_OF, bulkRefusal, MATERIAL_USE, batchRefusal, filedKey, inLotUnit, issuedLots, returnProblems, returnsOf, usedQuantity, usesOfLot, stepLabel, stepPlace, stepTitle, handFields, isHand, batchView, doneProblems, evaluate, lateItems, openSteps, parseKey, readValue, refusal, review, timers,
   trainingCheck, trainingTyped, type Training,
-  type Action, type BatchAction, type BatchEvent, type DeviationStatus, type LinkState, type Source, type StageView, type Stored, type StepEvent, type StepKey, type StepView, type Timer, type Value,
+  type Action, type BatchAction, type BatchEvent, type BulkChecked, type BulkDeviation, type BulkDeviations, type DeviationStatus, type LinkState, type Source, type StageView, type Stored, type StepEvent, type StepKey, type StepView, type Timer, type Value,
 } from '../../shared/engine/index.js';
 
 // Plant time zone: the batch number's year is the plant's year.
@@ -101,6 +101,38 @@ async function deviationsRead(app: FastifyInstance, l: LoadedBatch): Promise<{ r
     if (d) read.set(filedKey(e.id), { status: d.status, closedAt: d.closedAt, number: d.number });
   }
   return { read, link: 'ok' };
+}
+
+/**
+ * Packing (whole-suite run, S24): the open deviations of the bulk batch packed, read through TrueBatch Tablets' deviation
+ * notes of that batch (their number, or the deviation Deviations filed from a note without one) and the Deviations
+ * system (their status, and the deviations naming the bulk batch there). null for a manufacturing batch or before the
+ * bulk batch is recorded; a link that does not answer: state absent or down, and QA confirms by hand at release.
+ */
+export async function bulkDeviations(app: FastifyInstance, l: LoadedBatch): Promise<BulkDeviations | null> {
+  const bulk = l.doc.pack ? l.events.map((e) => e.payload.values?.bulk).filter((x): x is string => typeof x === 'string').at(-1) : undefined;
+  if (!bulk) return null;
+  const notes = await app.links.truebatch.notes(bulk);
+  if (notes.state !== 'ok') return { bulk, state: notes.state, link: 'truebatch', open: [] };
+  const numbered = notes.value.filter((n) => n.reference);
+  const bare = notes.value.filter((n) => !n.reference);
+  const dv = app.links.deviations;
+  const [byNo, filed, named] = await Promise.all([dv.byNumbers(numbered.map((n) => n.reference!)), dv.bySourceRefs(bare.map((n) => n.sourceRef)), dv.byBatch(bulk)]);
+  if (byNo.state !== 'ok' || filed.state !== 'ok' || named.state !== 'ok') {
+    return { bulk, state: [byNo, filed, named].find((r) => r.state !== 'ok')!.state, link: 'deviations', open: [] };
+  }
+  const all = new Map<string, BulkDeviation>();
+  for (const n of numbered) {
+    const d = byNo.value.get(n.reference!);
+    // A number typed in TrueBatch Tablets that Deviations does not know: its status is TrueBatch Tablets' (closed by QA there).
+    all.set(n.reference!, { number: n.reference!, status: d?.status ?? n.status ?? 'open', title: d?.title ?? n.note, step: n.step });
+  }
+  for (const n of bare) {
+    const d = filed.value.get(n.sourceRef);
+    if (d && !all.has(d.number)) all.set(d.number, { number: d.number, status: d.status, title: d.title ?? n.note, step: n.step });
+  }
+  for (const d of named.value) if (!all.has(d.number)) all.set(d.number, { number: d.number, status: d.status, title: d.title, step: null });
+  return { bulk, state: 'ok', open: [...all.values()].filter((d) => !DEVIATION_DONE.includes(d.status)) };
 }
 
 // What a signer is shown of a step, and its hash: the signature is refused if the step changed since (PL-05).
@@ -195,7 +227,8 @@ const BODIES: Record<Action, z.ZodTypeAny> = {
 const BATCH_BODIES: Record<BatchAction, z.ZodTypeAny> = {
   'production-approve': signBody,
   'qc-approve': signBody.extend({ reportNo: z.string().trim().min(1).max(60) }),
-  release: signBody,
+  // Packing (S24): what QA checked of the bulk batch's deviations, typed, when a link did not answer.
+  release: signBody.extend({ bulkChecked: z.string().trim().max(500).optional() }),
   reject: signBody.extend({ reason }),
   // Per lot the batch used: how much went back to stores unused (stock.ts issuedLots, returnProblems).
   terminate: signBody.extend({ reason, returns: z.array(z.object({ lot: z.string().max(60), value: z.string().trim().regex(/^\d+(\.\d+)?$/, 'a quantity, 0 or more'), unit: z.string().max(20) })).max(200).optional() }),
@@ -484,7 +517,7 @@ export function batchRoutes(app: FastifyInstance, sql: Sql) {
     // Deviations that name this batch in the Deviations system but no note of the record links.
     const named = await app.links.deviations.byBatch(l.batch.batchNo);
     const unlinked = named.state === 'ok' ? named.value.filter((d) => !r.deviations.some((x) => x.reference === d.number)) : [];
-    return { status: view(l, dv.read).status, ...r, deviationsLink: dv.link, unlinked, signatures,
+    return { status: view(l, dv.read).status, ...r, deviationsLink: dv.link, unlinked, bulk: await bulkDeviations(app, l), signatures,
       corrections: r.corrections.map((c) => ({ ...c, personName: names.get(c.person) ?? null })),
       hand: r.hand.map((h) => ({ ...h, personName: names.get(h.person) ?? null })),
       trainingTyped: r.trainingTyped.map((h) => ({ ...h, personName: names.get(h.person) ?? null })) };
@@ -558,7 +591,7 @@ export function batchRoutes(app: FastifyInstance, sql: Sql) {
     const id = parseId(req.params.id);
     const l = id === null ? null : await loadBatch(sql, id);
     if (!l) return reply.code(404).send({ error: 'not_found' });
-    const def = batchRecordDoc({ ...await recordInput(sql, l, app.master), deviationsRead: (await deviationsRead(app, l)).read }, req.user!.fullName, new Date(), app.demo);
+    const def = batchRecordDoc({ ...await recordInput(sql, l, app.master), deviationsRead: (await deviationsRead(app, l)).read, bulk: await bulkDeviations(app, l) }, req.user!.fullName, new Date(), app.demo);
     return sendPdf(reply, `${l.doc.pack ? 'packing' : 'batch'}-record-${l.batch.batchNo}`, await render(def));
   });
 
@@ -570,7 +603,7 @@ export function batchRoutes(app: FastifyInstance, sql: Sql) {
       const id = parseId(req.params.id);
       const body = BATCH_BODIES[action].safeParse(req.body);
       if (id === null || !body.success) return reply.code(400).send({ error: 'invalid', problems: body.error?.issues.map((i) => `${i.path.join('.')}: ${i.message}`) ?? [] });
-      const b = body.data as { proof?: string; contentHash?: string; reportNo?: string; reason?: string; note?: number; returns?: { lot: string; value: string; unit: string }[] };
+      const b = body.data as { proof?: string; contentHash?: string; reportNo?: string; reason?: string; note?: number; bulkChecked?: string; returns?: { lot: string; value: string; unit: string }[] };
       const user = req.user!;
       try {
         const signer = rule.meaning ? await authenticateSigner(sql, app.proofKey, user, { proof: b.proof! }, { objectType: 'batch', objectId: id, meaning: rule.meaning }) : null;
@@ -580,13 +613,18 @@ export function batchRoutes(app: FastifyInstance, sql: Sql) {
           if (!l) throw new StepError(404, 'not_found');
           const no = batchRefusal(action, view(l, (await deviationsRead(app, l)).read), user, b.note);
           if (no) throw new StepError(no.status, no.error, no.problems);
+          // Packing (S24): the bulk batch's deviations, all closed in the Deviations system, or confirmed by QA by hand.
+          const bulk = action === 'release' ? await bulkDeviations(app, l) : null;
+          const held = bulkRefusal(bulk, b.bulkChecked);
+          if (held.length) throw new StepError(409, 'not_ready', held);
+          const checked: BulkChecked | null = bulk && { bulk: bulk.bulk, state: bulk.state, ...(bulk.link && bulk.state !== 'ok' ? { link: bulk.link, typed: b.bulkChecked!.trim() } : {}) };
           if (signer && b.contentHash !== batchHash(l)) throw new StepError(409, 'content_changed', ['The batch record changed since you opened it.']);
           // Terminate: what went back to stores unused of each lot the batch used; material_use_v1 gives it back to MMS.
           const issued = action === 'terminate' ? issuedLots(l.doc, openSteps(l.doc, l.events, l.now).steps) : [];
           const wrong = returnProblems(issued, b.returns ?? []);
           if (wrong.length) throw new StepError(400, 'invalid_values', wrong);
           const returns = issued.map((x) => ({ ...x, value: b.returns!.find((r) => r.lot.toLowerCase() === x.lot.toLowerCase() && r.unit === x.unit)!.value }));
-          const payload = { ...(action === 'terminate' ? { terminated: true } : {}), ...(returns.length ? { returns } : {}), ...(b.reportNo ? { reportNo: b.reportNo } : {}), ...(b.reason ? { reason: b.reason } : {}), ...(b.note ? { note: b.note } : {}) };
+          const payload = { ...(action === 'terminate' ? { terminated: true } : {}), ...(returns.length ? { returns } : {}), ...(b.reportNo ? { reportNo: b.reportNo } : {}), ...(b.reason ? { reason: b.reason } : {}), ...(b.note ? { note: b.note } : {}), ...(checked ? { bulk: checked } : {}) };
           const [ev] = await tx<{ id: number }[]>`
             insert into batch_events (batch_id, kind, payload, person_id) values (${id}, ${rule.event}, ${tx.json(payload)}, ${user.id}) returning id::int`;
           if (signer && rule.meaning) {

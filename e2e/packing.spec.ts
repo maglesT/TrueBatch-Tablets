@@ -218,9 +218,16 @@ test('TB-P2 packing journey: packing master from the skeleton, approved; a packi
   await qa.page.getByRole('button', { name: 'To review' }).click();
   await qa.page.getByRole('region', { name: 'Waiting for QA release' }).getByRole('button', { name: new RegExp(batch.batchNo) }).click();
   await expect(qa.page.getByRole('region', { name: 'Review of the record and its audit trail' })).toContainText('Bulk tablets issued to the line');
+  // Whole-suite run, S24: TrueBatch Tablets publishes no deviation notes here (the link does not answer), so the bulk
+  // batch's deviations are not checked: QA checks them in the Deviations system and types what was found.
+  await expect(qa.page.getByRole('region', { name: 'Review of the record and its audit trail' })).toContainText('Bulk deviations not checked (TrueBatch Tablets link down): bulk batch TB260001');
+  await expect(qa.page.getByRole('button', { name: 'Sign: released' })).toBeDisabled();
+  await qa.page.getByLabel(/Bulk deviations not checked/).fill('Checked in the Deviations system: none open for TB260001');
   await qa.page.getByRole('button', { name: 'Sign: released' }).click();
+  await expect(qa.page.getByRole('dialog')).toContainText('Bulk deviations, typed by hand: Checked in the Deviations system: none open for TB260001');
   await sign(qa.page);
   await expect(qa.page.getByRole('status')).toContainText('The batch is released.');
+  await expect(qa.page.getByRole('region', { name: 'Decision' })).toContainText('QA confirmed by hand (typed): Checked in the Deviations system: none open for TB260001');
   const [download] = await Promise.all([qa.page.waitForEvent('download'), qa.page.getByRole('link', { name: 'Packing record (PDF)' }).last().click()]);
   expect(download.suggestedFilename()).toBe(`packing-record-${batch.batchNo}.pdf`);
   const { readFileSync } = await import('node:fs');

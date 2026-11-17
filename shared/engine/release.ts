@@ -8,7 +8,7 @@ import type { MasterDoc } from '../master/schema.js';
 import { openSteps, outOfLimits, stepLabel, timers, type StepView, type Timer } from './batch.js';
 import { keyId, parseKey, type State, type StepEvent } from './state.js';
 import { failed } from './values.js';
-import { isHand, type Source } from './links.js';
+import { isHand, PROVIDER_NAME, type LinkState, type Source } from './links.js';
 import type { Returned } from './stock.js';
 import { trainingTyped } from './training.js';
 
@@ -16,7 +16,7 @@ export const BATCH_EVENT_KINDS = ['production_approved', 'qc_approved', 'release
 export type BatchEventKind = (typeof BATCH_EVENT_KINDS)[number];
 // A batch QA terminated (stopped, not finished) is a rejection with `terminated` (owner, 16 Nov 2026): the record is kept.
 // `returns`: what went back to stores unused of each lot the batch used (stock.ts returnsOf).
-export interface BatchEvent { id: number; kind: BatchEventKind; payload: { reportNo?: string; note?: number; reason?: string; terminated?: boolean; returns?: Returned[] }; person: number; at: Date }
+export interface BatchEvent { id: number; kind: BatchEventKind; payload: { reportNo?: string; note?: number; reason?: string; terminated?: boolean; returns?: Returned[]; bulk?: BulkChecked }; person: number; at: Date }
 
 export const BATCH_STATUSES = ['in production', 'manufacturing complete', 'production approved', 'QC approved', 'released', 'rejected'] as const;
 export type BatchStatus = (typeof BATCH_STATUSES)[number];
@@ -79,6 +79,31 @@ export function deviationText(d: Pick<Deviation, 'reference' | 'open' | 'status'
 /** The number, and where it came from when it was not picked from Deviations: typed by hand, or filed there from the note. */
 export const deviationNumber = (d: Pick<Deviation, 'reference' | 'filed' | 'typed'>) =>
   `${d.reference}${d.typed ? ' (typed by hand)' : ''}${d.filed ? ' (filed in Deviations from this note)' : ''}`;
+
+/**
+ * Packing (whole-suite run, S24): the deviations of the bulk batch packed that are still open, read for QA's review
+ * through two links: TrueBatch Tablets' deviation notes of the bulk batch (deviation_note_v1) and, for their numbers
+ * and status, the Deviations system (with the deviations that name the bulk batch there). `state` is the first link
+ * that did not answer (`link`); then nothing was checked and QA confirms by hand at release, typed.
+ */
+export interface BulkDeviation { number: string; status: string; title: string | null; step: string | null }
+export interface BulkDeviations { bulk: string; state: LinkState; link?: 'truebatch' | 'deviations'; open: BulkDeviation[] }
+/** What release recorded of the bulk batch's deviations: checked through the links, or QA's typed confirmation. */
+export type BulkChecked = { bulk: string; state: LinkState; link?: 'truebatch' | 'deviations'; typed?: string };
+export const bulkOpenText = (bulk: string, d: BulkDeviation) =>
+  `Deviation ${d.number} of the bulk batch ${bulk}${d.step ? ` (${d.step})` : ''} is still open in the Deviations system (${deviationStatusWords(d.status)}): it is closed there first`;
+export const bulkNotCheckedText = (b: { bulk: string; state: LinkState; link?: 'truebatch' | 'deviations' }) =>
+  `Bulk deviations not checked (${PROVIDER_NAME[b.link ?? 'deviations']} link ${b.state === 'down' ? 'down' : 'off'}): bulk batch ${b.bulk}`;
+/** The release line of the bulk batch's deviations, on screen and in the PDF. */
+export const bulkCheckedText = (c: BulkChecked) => (c.typed !== undefined
+  ? `${bulkNotCheckedText(c)}; QA confirmed by hand (typed): ${c.typed}`
+  : `Bulk batch ${c.bulk}: no deviation open in the Deviations system`);
+/** Why QA may not release the packing batch for its bulk batch's deviations: one still open, or not checked and not confirmed. */
+export function bulkRefusal(b: BulkDeviations | null, typed?: string): string[] {
+  if (!b) return [];
+  if (b.state !== 'ok') return typed?.trim() ? [] : [`${bulkNotCheckedText(b)}. Check them in the Deviations system and type what you found.`];
+  return b.open.map((d) => bulkOpenText(b.bulk, d));
+}
 
 /** Every timer that ran over, with the deviation notes made after it (a hold: in the using stage; a check: on it). */
 export function lateItems(doc: MasterDoc, events: readonly StepEvent[], now: Date): { timer: Timer; notes: StepEvent[] }[] {

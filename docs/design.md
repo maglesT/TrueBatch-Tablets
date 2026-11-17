@@ -91,7 +91,9 @@ answering) or **ok**.
   `step_name` are the step that names it **last** (the latest started), so the Logbook's "last used by … (stage ›
   step)" names where it was last used. `0014`: a machine or room named only in line clearance steps (a room, the
   packing line) was used by the stage, so its `step_name` is the stage's name ("Blending"); a machine operated in a
-  process step keeps that step. `material_use_v1` gives the quantity in the
+  process step keeps that step. `0016` (whole-suite run, S17): a use starts when the machine or room was first
+  recorded on a step, not at that step's start, so a room refused until its changeover cleaning was done does not
+  overlap that cleaning in the Logbook. `material_use_v1` gives the quantity in the
   material's unit in master data, read when the step is signed done (g and mg exactly in kg for a kg material).
 - **QA terminates a batch** (owner, 16 Nov 2026): a batch still in production (before production approval) that
   cannot be finished is terminated by QA (`qa.release`) from the batch screen or the "To review" list, with a reason
