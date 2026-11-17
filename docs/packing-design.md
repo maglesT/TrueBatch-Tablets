@@ -62,7 +62,8 @@ QA release of the packed batch. Built the Logbook way, as TrueBatch Tablets is.
 - **Published**: `packing_batch_v1` (packing order, coded batch number, products, pack, dates, packs and cartons,
   status, and at its end `shippers`, the shippers counted at the finished goods step or null, `0108`; then
   `good_quantity`, `good_unit` 'packs' and `yield_percent`, the good packs and the yield in packs of the finished goods
-  step, null until it is done, `0109`, for OEE) for MMS finished goods; the line named only in the line clearance has the stage as its `step_name` ("Packing", `0107`); `equipment_use_v1` (the line and rooms used, for the Logbook) and
+  step, null until it is done, `0109`, for OEE; then `released_at` and `released_by`, the time of QA's release event
+  and the name printed on its e-signature, null until released, `0111`, so MMS shows who released the FG lot and when) for MMS finished goods; the line named only in the line clearance has the stage as its `step_name` ("Packing", `0107`); `equipment_use_v1` (the line and rooms used, for the Logbook) and
   `material_use_v1` (per signed issue step its lot, packing material and quantity issued in the material's unit, for
   MMS to reduce the lot's stock) with TrueBatch Tablets' names and columns
   (`packing/migrations/0102_packing_equipment_and_material_use.sql`). `0103`: one use of the line per packing batch:
