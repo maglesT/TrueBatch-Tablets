@@ -125,9 +125,13 @@ describe('designer findings of the 17 Nov 2026 run', () => {
   });
 
   it('pick lists offer this product\'s products and the relevant rooms first, by name (F04, F05, F09)', () => {
-    const p = (code: string, dosageForm: string | null) => ({ code, dosageForm });
-    expect(ownProducts([p('FG-PCM500', 'Tablet'), p('FG-ATV20', 'Film-coated tablet'), p('FG-INJ', 'Solution for injection'), p('EXZ', null)]).map((x) => x.code))
+    const p = (code: string, dosageForm: string | null, kind?: 'bulk' | 'pack' | null) => ({ code, dosageForm, kind });
+    expect(ownProducts([p('FG-PCM500', 'Tablet'), p('FG-ATV20', 'Film-coated tablet'), p('FG-INJ', 'Solution for injection'), p('EXZ', null)], 'bulk').map((x) => x.code))
       .toEqual(['FG-PCM500', 'FG-ATV20']);
+    // Master data's kind: a tablet master offers the bulk products, a packing master the packs; no kind yet: both, as before.
+    const all = [p('FG-PCM500', 'Tablet', 'bulk'), p('PK-PCM500-B10', 'Tablet', 'pack'), p('FG-AML5', 'Tablet', null), p('FG-INJ', 'Solution for injection', 'bulk')];
+    expect(ownProducts(all, 'bulk').map((x) => x.code)).toEqual(['FG-PCM500', 'FG-AML5']);
+    expect(ownProducts(all, 'pack').map((x) => x.code)).toEqual(['PK-PCM500-B10', 'FG-AML5']);
     // Dispensing: the rooms with a weighing balance first (never a QC lab's), each by code, name and area.
     const disp = dispensingRoomChoices(MD);
     expect(disp.groups).toEqual([{ label: 'Rooms with a weighing balance', options: ['RM-101'] }, { label: 'Other rooms', options: ['RM-105', 'RM-110', 'RM-501', 'RM-932'] }]);

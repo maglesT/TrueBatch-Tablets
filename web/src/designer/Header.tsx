@@ -32,7 +32,7 @@ export function HeaderFields({ header, onChange, md }: { header: Header; onChang
             <div><dt /><dd><button type="button" className="link dark" onClick={() => setPicking(true)}>Change product</button></dd></div>
           </dl>
         ) : (
-          <Picker label="Product" items={ownProducts(md.products).map((p) => ({ id: p.itemId, code: p.code, name: p.name, note: [p.strength, p.dosageForm].filter(Boolean).join(' · '), off: p.active ? undefined : 'inactive' }))}
+          <Picker label="Product" items={ownProducts(md.products, 'bulk').map((p) => ({ id: p.itemId, code: p.code, name: p.name, note: [p.strength, p.dosageForm].filter(Boolean).join(' · '), off: p.active ? undefined : 'inactive' }))}
             onPick={(i) => { onChange({ ...header, productItemId: i.id, productCode: i.code, productName: i.name }); setPicking(false); }} />
         )}
       </div>
@@ -126,7 +126,7 @@ export function NewMaster({ md, masters, copyOf, onCreated, onCancel }: {
     <div className="overlay" role="dialog" aria-modal="true" aria-label={copyOf ? 'Copy a master' : 'New master'}>
       <form className="card dialog wide" onSubmit={submit}>
         <h2>{copyOf ? `Copy ${copyOf.header.productCode} version ${copyOf.versionNo}` : 'New master'}</h2>
-        {pack ? <PackFields header={header} pack={pack} products={ownProducts(md.products)} onChange={(h, p) => { setHeader(h); setPack(p); }} />
+        {pack ? <PackFields header={header} pack={pack} products={md.products} onChange={(h, p) => { setHeader(h); setPack(p); }} />
           : <HeaderFields header={header} onChange={setHeader} md={md} />}
         <fieldset className="checklist">
           <legend>Start from</legend>
