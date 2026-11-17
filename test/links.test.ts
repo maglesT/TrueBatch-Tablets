@@ -235,6 +235,32 @@ describe('TB-11 Logbook: equipment and rooms fit for use', () => {
     const r = (await as('meera', 'GET', `/api/batches/${c.id}/review`)).json() as { hand: { step: string; field: string; link: string; state: string; personName: string }[] };
     expect(r.hand).toMatchObject([{ step: '0.1.0.1', field: 'machine', link: 'logbook', state: 'down', personName: 'ASHA' }, { field: 'machine', state: 'down' }]);
   });
+
+  it('TB-11 after an antibiotic only that product may follow until the Logbook verifies a product-changeover cleaning (its only_product); a view without the column reads as any product', async () => {
+    // The stand-in view has no only_product yet (as the Logbook's before it was appended): read as null.
+    expect(await t.app.links.logbook.status('eq-str')).toMatchObject({ state: 'ok', value: { code: 'STR-01', onlyProduct: null } });
+    await t.owner.unsafe(`alter table ${S.lb}.equipment_status_v1 add column only_product text`);
+    try {
+      await t.owner.unsafe(`update ${S.lb}.equipment_status_v1 set only_product = 'FG-PWD-EXC1' where master_id = 'eq-str'`);
+      const c = await issue(small([{ machineTypes: ['stirrer'], steps: [{ block: { id: 'mix', version: 1 }, settings: {} }, yieldStep] }]));
+      await act('asha', c.id, '0.1.0.1', 'start');
+      expect(await problems(record(c.id, '0.1.0.1', { machine: 'eq-str' }))).toEqual(
+        ['STR-01 was last used for an antibiotic (FG-PWD-EXC1): a product-changeover cleaning is needed in the Logbook before P.']);
+      // The same product follows: allowed, pulled.
+      await t.owner.unsafe(`update ${S.lb}.equipment_status_v1 set only_product = 'P' where master_id = 'eq-str'`);
+      expect((await record(c.id, '0.1.0.1', { machine: 'eq-str', speed: '300' })).statusCode).toBe(200);
+      expect((await stepOf(c.id, '0.1.0.1')).source.machine).toMatchObject({ from: 'logbook' });
+      // Logbook down: by hand, as before.
+      await t.owner.unsafe(`update ${S.lb}.equipment_status_v1 set only_product = 'FG-PWD-EXC1' where master_id = 'eq-str'`);
+      await cut(S.lb);
+      try {
+        expect((await record(c.id, '0.1.0.1', { machine: 'eq-str' })).statusCode).toBe(200);
+      } finally { await restore(S.lb); }
+      expect((await stepOf(c.id, '0.1.0.1')).source.machine).toEqual({ from: 'hand', link: 'logbook', state: 'down' });
+    } finally {
+      await t.owner.unsafe(`alter table ${S.lb}.equipment_status_v1 drop column only_product`);
+    }
+  });
 });
 
 describe('TB-12 MMS: only released, in-date lots of the material; certificate values pulled', () => {

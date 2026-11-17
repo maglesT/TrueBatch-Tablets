@@ -31,7 +31,12 @@ answering) or **ok**.
 - **QMS** (`change_v1`, planned): the change control at approval must exist and be QA-approved, in a step of
   `CHANGE_STEPS`, and its products must name the master's product (code or name, without case); one that names no
   product is taken with a warning to QA. By hand: another person makes the version effective.
-- **Logbook** (`equipment_status_v1`, planned): a machine or room must be fit for use and not in use by another batch;
+- **Logbook** (`equipment_status_v1`, planned): a machine or room must be fit for use and not in use by another batch,
+  and not kept for another product: after an antibiotic the Logbook names in `only_product` (its last column, read
+  null-safely through `to_jsonb`, so a view without it means any product) the one product that may follow until a
+  product-changeover cleaning is verified there; any other product is refused in plain words, the same product goes on
+  (owner, 17 Nov 2026). The product compared is the one the batch publishes (`batch_fact_v1` / `packing_batch_v1`
+  `product_code`, the master's header);
   the Logbook's reasons are shown word for word (each without its own closing stop inside our sentence); a status
   older than 5 minutes counts as down. While the link answers, the machine and room pickers offer only what the
   Logbook has and name the ones left out (`shared/engine/picks.ts`, `inLogbook`); absent or down, every one is offered. Line clearance takes
