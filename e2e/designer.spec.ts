@@ -30,6 +30,9 @@ test('TB-02 build a master from a skeleton, fix a master-check problem, then che
   await author.getByRole('button', { name: /PRD-001/ }).click();
   await author.getByLabel('Batch size (tablets)').fill('100000');
   await author.getByLabel('Theoretical core weight (mg per tablet)').fill('250.0');
+  // A new master names no dispensing rooms; the rooms with a weighing balance are listed first, by name.
+  await expect(author.getByText('None chosen yet: choose the rooms of master data where the materials are weighed')).toBeVisible();
+  await author.getByLabel('Add to dispensing rooms (where the materials are weighed)').selectOption({ label: 'DSP-01 · Dispensing booth 1 (Dispensing)' });
   await author.getByText('Process skeleton: Direct compression, uncoated').click();
   await author.getByRole('button', { name: 'Create draft' }).click();
   await expect(author.getByRole('heading', { name: 'PRD-001 · Examplol 100 mg tablets' })).toBeVisible();
@@ -74,6 +77,10 @@ test('TB-02 build a master from a skeleton, fix a master-check problem, then che
   await author.getByLabel('Hardness limits: highest').fill('120');
   await author.getByLabel('Thickness limits: lowest').fill('3.8');
   await author.getByLabel('Thickness limits: highest').fill('4.2');
+  // The disintegration medium's temperature is recorded: the check asks for its limits.
+  await check.getByRole('button', { name: /Medium temperature is recorded but not checked/ }).click();
+  await author.getByLabel('Medium temperature limits: lowest').fill('35');
+  await author.getByLabel('Medium temperature limits: highest').fill('39');
   // TB-11: blending names no rooms in the skeleton; the check opens its stage settings, where the rooms are picked.
   await check.getByRole('button', { name: /Stage Blending: choose the rooms/ }).click();
   await author.getByLabel('Add to rooms this stage may run in (an area, or a room)').selectOption('Blending');

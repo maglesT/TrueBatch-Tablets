@@ -18,6 +18,10 @@ export function seedMasterData(m: FakeMaster) {
     { ...item('eq-bal', 'BAL-01', 'Balance 60 kg'), kind: 'instrument', type: 'balance', room: 'DSP-01' },
     { ...item('eq-bln', 'BLN-01', 'Bin blender 200 L'), kind: 'equipment', type: 'blender', room: 'BLN-01' },
     { ...item('eq-prs', 'PRS-01', 'Rotary tablet press'), kind: 'equipment', type: 'tablet press', room: 'CMP-01' },
+    // The skeleton's sifting and in-process tests stand in the rooms of their stages (the master check warns otherwise).
+    { ...item('eq-sft', 'SFT-01', 'Vibro sifter'), kind: 'equipment', type: 'sifter', room: 'BLN-01' },
+    { ...item('eq-frb', 'FRB-01', 'Friability tester'), kind: 'instrument', type: 'friability tester', room: 'CMP-01' },
+    { ...item('eq-dit', 'DIT-01', 'Disintegration tester'), kind: 'instrument', type: 'disintegration tester', room: 'CMP-01' },
   );
   // These rooms only, not the fixtures' rooms of the server tests.
   m.rooms_.splice(0);

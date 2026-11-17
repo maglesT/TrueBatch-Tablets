@@ -16,6 +16,15 @@ import { isBalance } from '../engine/picks.js';
 export interface Question { key: string; options: string[]; needsReason: boolean; answer?: Answer }
 export interface Problem { level: 'error' | 'warning'; path: string; message: string; rule?: string; question?: Question }
 
+/**
+ * A message in plain words for the people who read it: without the internal codes of the rules (TB-11), templates
+ * (T9) and failure cases (F0204) the code comments use. The rule stays in `rule` for the tests.
+ */
+export const plainWords = (m: string) => m
+  .replace(/\s*\((?:TB-P?\d+|T\d+)\)/g, '')
+  .replace(/\bF0\d{3}:\s*/g, '')
+  .replace(/\s*\(F0\d{3}\)/g, '');
+
 /** What stops "Send for review" and approval: an error, or a warning that needs an answer and has none. */
 export const blocking = (p: Problem) => p.level === 'error' || (p.question !== undefined && !p.question.answer);
 
@@ -44,6 +53,8 @@ export function masterChecks(doc: MasterDoc): Problem[] {
     twice(s.steps.map((t) => t.key), `${path}.steps`);
     if (s.kind === 'sub-batch' && !s.count) error(path, 'A sub-batch stage needs the number of sub-batches');
     if (s.produces && !s.produces.holdHours) error(`${path}.produces`, `The intermediate ${s.produces.name} has no hold time`, 'TB-01');
+    // Everything the plain view would show as "(not set)" is reported here (the plain view's sentences, describe.ts).
+    if (!s.role.trim()) warn(path, `Stage ${s.name} names no responsible role`);
     if (!doc.pack && s.kind !== 'preparation' && !s.steps.some((t) => findBlock(t.block)?.gmp === 'yield')) error(path, `Stage ${s.name} has no yield step`);
     if (s.kind === 'preparation' && !doc.stages.some((x) => x.uses.includes(s.key))) warn(path, `No stage uses the preparation ${s.name}`);
     // TB-10: a stage worked in a room starts with line clearance.
@@ -78,6 +89,23 @@ export function masterChecks(doc: MasterDoc): Problem[] {
         const wrong = !why && unit !== undefined ? unitKindProblem(block, name, st.settings, unit) : null;
         if (wrong) error(`${p}.settings.${name}`, wrong, 'TB-01');
       }
+      // A temperature recorded with optional limits left empty is recorded without a check (the disintegration
+      // medium at 37 ± 2 °C, an inlet or forming temperature): a warning, so the author sets them or leaves them knowingly.
+      for (const c of block.calcs) {
+        const a = c.args as { value?: unknown; limit?: unknown };
+        const lim = c.template === 'C1' && typeof a.limit === 'string' ? block.settings.find((x) => x.name === a.limit!.toString().slice(1) && x.optional) : undefined;
+        const f = typeof a.value === 'string' ? block.fields.find((x) => x.name === (a.value as string).slice(1)) : undefined;
+        if (lim && f && findUnit(f.unit ?? '')?.kind === 'temperature' && st.settings[lim.name] === undefined) warn(`${p}.settings.${lim.name}`, `${f.label} is recorded but not checked: set the ${lim.label.toLowerCase()}`);
+      }
+      // A stage's yield (by mass) on an earlier stage's output while this stage adds formula materials (extragranular materials,
+      // the lubricant): the base leaves out what the stage adds, so the yield reads above 100 %.
+      const base = block.id === 'stage-yield' ? st.settings.theoretical : undefined;
+      const from = base && typeof base === 'object' && 'ref' in base ? doc.stages.find((x) => x.key === base.ref.split('/')[0]) : undefined;
+      if (from && from !== s && !doc.pack) {
+        const added = [...new Set(s.steps.flatMap((x) => Object.values(x.settings)).flatMap((v) => (typeof v === 'object' && 'formula' in v ? [v.formula] : [])))]
+          .map((k) => doc.formula.find((l) => l.key === k)?.name).filter((n): n is string => !!n);
+        if (added.length) error(`${p}.settings.theoretical`, `The yield of ${s.name} is worked out on the output of ${from.name} only, but ${s.name} adds ${added.join(' and ')}: the yield would read above 100 %. Take the theoretical core batch weight (or a quantity that includes what this stage adds) as the theoretical quantity`);
+      }
       // A calculation that needs no recorded value is worked out now (e.g. a liquid make-up, T17): a refusal must be fixed.
       const now = evaluate(doc, [], { stage: si, sub: 1, step: ti, round: 1 }, {});
       for (const c of block.calcs) { const r = now[c.name]; if (r && !r.ok) error(p, `${c.label}: ${r.message}`); }
@@ -105,7 +133,7 @@ export function masterChecks(doc: MasterDoc): Problem[] {
       }
     });
   });
-  return out;
+  return out.map((p) => ({ ...p, message: plainWords(p.message) }));
 }
 
 /** The formula: the core materials (not coating, not a solvent removed in processing) make the core weight. */
@@ -196,7 +224,7 @@ const RATIO = /\d+(\.\d+)?\s*(:\s*\d+(\.\d+)?|%(\s*w\/w)?)/;
 function calculationChecks(doc: MasterDoc, out: Problem[]): void {
   const ask = (path: string, key: string, message: string, options: string[], needsReason = false) => {
     const a = doc.answers?.[key];
-    const ok = a && a.about === message && options.includes(a.choice) && (!needsReason || a.reason.trim() !== '');
+    const ok = a && (a.about === message || a.about === plainWords(message)) && options.includes(a.choice) && (!needsReason || a.reason.trim() !== '');
     out.push({ level: 'warning', path, message, question: { key, options, needsReason, ...(ok ? { answer: a } : {}) } });
     return ok ? a.choice : undefined;
   };
@@ -226,7 +254,7 @@ function calculationChecks(doc: MasterDoc, out: Problem[]): void {
     // A solvent-wet API weighed as if dry (F0204: about 23 % too little); answered, or corrected with the lot's solvent.
     const corrected = l.adjust?.potency?.basis === 'dried' || l.adjust?.potency?.basis === 'anhydrous and solvent-free' || l.adjust?.content?.formulaQuantityIs === 'wet';
     if (l.role === 'api' && WET.test(l.name) && !corrected) {
-      ask(`formula[${i}]`, `solvent-wet/${l.key}`, `${l.name} looks solvent-wet: its quantity needs the lot's measured solvent content (T9 on the dried or solvent-free basis, or T12). Weighed as dry API it gives too little drug (F0204: about 23 %). Is it weighed dry?`, ['weighed dry'], true);
+      ask(`formula[${i}]`, `solvent-wet/${l.key}`, `${l.name} looks solvent-wet: its quantity needs the lot's measured solvent content (an assay adjustment on the dried or solvent-free basis, or a content adjustment). Weighed as dry API it gives too little drug (F0204: about 23 %). Is it weighed dry?`, ['weighed dry'], true);
     }
     // A processing aid that is removed (rinsed out, sublimed) but counted in the tablet (F0476: about 12.5 % too much drug).
     if (l.role !== 'solvent' && AID.test(l.name)) {

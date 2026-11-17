@@ -42,21 +42,27 @@ export function Order({ index, count, onMove, onRemove, what }: { index: number;
   );
 }
 
-/** A set of values picked from a list (machine types, room areas): chips with a remove button, and "Add…". */
-export function ChipSet({ label, values, options, onChange, empty }: { label: string; values: string[]; options: string[]; onChange: (v: string[]) => void; empty: string }) {
-  const left = options.filter((o) => !values.includes(o));
+/** A set of values picked from a list (machine types, room areas): chips with a remove button, and "Add…". `text`
+ *  gives an option's shown text (a room's code, name and area); the value stays the option itself. `groups` splits
+ *  the list (e.g. the rooms where the stage's machines stand first); without them the options are one list. */
+export function ChipSet({ label, values, options, groups, text = (o) => o, onChange, empty }: {
+  label: string; values: string[]; options: string[]; groups?: { label: string; options: string[] }[]; text?: (o: string) => string; onChange: (v: string[]) => void; empty: string;
+}) {
+  const left = (list: string[]) => list.filter((o) => !values.includes(o));
+  const shown = (groups ?? [{ label: '', options }]).map((g) => ({ ...g, options: left(g.options) })).filter((g) => g.options.length);
+  const option = (o: string) => <option key={o} value={o}>{text(o)}</option>;
   return (
     <div className="chipset">
       <span className="chipset-label">{label}</span>
       <div className="chipset-row">
         {values.length === 0 && <span className="muted small">{empty}</span>}
         {values.map((v) => (
-          <span key={v} className="vchip">{v}<button type="button" aria-label={`Remove ${v}`} onClick={() => onChange(values.filter((x) => x !== v))}>✕</button></span>
+          <span key={v} className="vchip" title={text(v)}>{v}<button type="button" aria-label={`Remove ${v}`} onClick={() => onChange(values.filter((x) => x !== v))}>✕</button></span>
         ))}
-        {left.length > 0 && (
+        {shown.length > 0 && (
           <select aria-label={`Add to ${label.toLowerCase()}`} value="" onChange={(e) => e.target.value && onChange([...values, e.target.value])}>
             <option value="">Add…</option>
-            {left.map((o) => <option key={o}>{o}</option>)}
+            {groups ? shown.map((g) => <optgroup key={g.label} label={g.label}>{g.options.map(option)}</optgroup>) : shown[0]!.options.map(option)}
           </select>
         )}
       </div>
