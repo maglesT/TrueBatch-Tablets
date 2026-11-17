@@ -15,9 +15,9 @@ import { blocking, masterChecks } from '../../shared/master/checks.js';
 import type { MasterDoc } from '../../shared/master/schema.js';
 import { Dec } from '../../shared/templates/index.js';
 import {
-  ACTIONS, BATCH_ACTIONS, CERTIFICATE, DEVIATION_DONE, LINK_OF, bulkRefusal, MATERIAL_USE, batchRefusal, filedKey, inLotUnit, issuedLots, returnProblems, returnsOf, usedQuantity, usesOfLot, stepLabel, stepPlace, stepTitle, handFields, isHand, batchView, doneProblems, evaluate, lateItems, openSteps, parseKey, readValue, refusal, review, timers,
+  ACTIONS, BATCH_ACTIONS, CERTIFICATE, DEVIATION_DONE, LINK_OF, bulkRefusal, MATERIAL_USE, batchRefusal, filedKey, inLotUnit, issuedLots, bulkLeft, returnProblems, returnsOf, usedQuantity, usesOfLot, stepLabel, stepPlace, stepTitle, handFields, isHand, batchView, doneProblems, evaluate, lateItems, openSteps, parseKey, readValue, refusal, review, timers,
   trainingCheck, trainingTyped, type Training,
-  type Action, type BatchAction, type BatchEvent, type BulkChecked, type BulkDeviation, type BulkDeviations, type DeviationStatus, type LinkState, type Source, type StageView, type Stored, type StepEvent, type StepKey, type StepView, type Timer, type Value,
+  type Action, type BatchAction, type BatchEvent, type BulkChecked, type BulkDeviation, type BulkIssue, type BulkDeviations, type DeviationStatus, type LinkState, type Source, type StageView, type Stored, type StepEvent, type StepKey, type StepView, type Timer, type Value,
 } from '../../shared/engine/index.js';
 
 // Plant time zone: the batch number's year is the plant's year.
@@ -135,6 +135,26 @@ export async function bulkDeviations(app: FastifyInstance, l: LoadedBatch): Prom
   return { bulk, state: 'ok', open: [...all.values()].filter((d) => !DEVIATION_DONE.includes(d.status)) };
 }
 
+/**
+ * Packing (bug fix, 17 Nov 2026): the issues of a bulk batch to the OTHER packing batches of this product (all but
+ * `except`): the tablets each was issued (its first step's current values) less what went back unused when QA
+ * terminated it (the terminate event's returns, stock.ts bulkIssued). Locked per bulk batch for the transaction, so
+ * two issues at once cannot both take what is left.
+ */
+export async function bulkIssues(tx: Tx | Sql, bulk: string, except = '', lock = false): Promise<BulkIssue[]> {
+  if (lock) await tx`select pg_advisory_xact_lock(hashtext(${`bulk:${bulk.toLowerCase()}`}))`;
+  return await tx<BulkIssue[]>`
+    select b.batch_no as "batchNo", t.tablets, r.returned
+    from batches b
+    cross join lateral (select e.payload->'values'->>'bulk' as bulk from step_events e where e.batch_id = b.id and e.stage = 0 and e.step = 0 and e.round = 1
+      and e.kind in ('value', 'corrected') and e.payload->'values' ? 'bulk' order by e.id desc limit 1) k
+    cross join lateral (select e.payload->'values'->'tablets'->>'value' as tablets from step_events e where e.batch_id = b.id and e.stage = 0 and e.step = 0 and e.round = 1
+      and e.kind in ('value', 'corrected') and e.payload->'values' ? 'tablets' order by e.id desc limit 1) t
+    left join lateral (select x->>'value' as returned from batch_events e cross join jsonb_array_elements(e.payload->'returns') x
+      where e.batch_id = b.id and e.kind = 'rejected' and e.payload ? 'returns' and lower(x->>'lot') = lower(k.bulk) and x->>'unit' = 'tablets' limit 1) r on true
+    where lower(k.bulk) = ${bulk.toLowerCase()} and b.batch_no <> ${except} and t.tablets is not null`;
+}
+
 // What a signer is shown of a step, and its hash: the signature is refused if the step changed since (PL-05).
 const stepContent = (batchId: number, v: StepView) => ({ batch: batchId, step: v.id, values: v.values, results: v.results });
 const stepHash = (batchId: number, v: StepView) => contentHash('batch_step', batchId, stepContent(batchId, v));
@@ -144,10 +164,18 @@ const stepHash = (batchId: number, v: StepView) => contentHash('batch_step', bat
  * like lots, through their link (Logbook, MMS): pulled when it answers, else typed by hand with the label questions
  * (server/pull.ts). A pulled value cannot be typed over; certificate values come with the lot.
  */
-async function readValues(app: FastifyInstance, doc: MasterDoc, key: StepKey, raw: Record<string, unknown>, now: Date, current: StepView, batchNo: string) {
+async function readValues(app: FastifyInstance, tx: Tx, doc: MasterDoc, key: StepKey, raw: Record<string, unknown>, now: Date, current: StepView, batchNo: string) {
   const stage = doc.stages[key.stage]!;
   const step = stage.steps[key.step]!;
   const block = findBlock(step.block)!;
+  // Packing: tablets typed while the bulk batch's good tablets come from TrueBatch Tablets (a part issue) are read
+  // with the bulk batch again, up to what is left of it (pullBulk).
+  const bulkField = block.fields.find((f) => f.kind === 'bulk');
+  const tabletsPulled = (s?: Source) => !!s && !isHand(s);
+  const taken = new Set<string>();
+  if (bulkField && 'tablets' in raw && !(bulkField.name in raw) && tabletsPulled(current.source.tablets) && typeof current.values[bulkField.name] === 'string') {
+    raw = { [bulkField.name]: current.values[bulkField.name], ...raw };
+  }
   const out: Record<string, Value> = {};
   const source: Record<string, Source> = {};
   const problems: string[] = [];
@@ -171,9 +199,10 @@ async function readValues(app: FastifyInstance, doc: MasterDoc, key: StepKey, ra
       const v = readValue(f, x, '');
       if (typeof v !== 'string') { problems.push((v as { error: string }).error); continue; }
       out[name] = v;
-      pulled = f.kind === 'bulk' ? await pullBulk(app, doc, block, v) : await pullLot(app, doc, step, block, v, current.values, now, PLANT_TZ);
+      pulled = f.kind === 'bulk' ? await pullBulk(app, doc, block, v, raw.tablets, () => bulkIssues(tx, v, batchNo, true)) : await pullLot(app, doc, step, block, v, current.values, now, PLANT_TZ);
     }
     problems.push(...pulled.problems);
+    for (const n of pulled.taken ?? []) taken.add(n);
     source[name] = pulled.source;
     Object.assign(out, pulled.values);
     Object.assign(source, pulled.sources);
@@ -186,6 +215,8 @@ async function readValues(app: FastifyInstance, doc: MasterDoc, key: StepKey, ra
     const f = fields.find((y) => y.name === name);
     if (!f) { problems.push(`There is no field ${name}`); continue; }
     if (LINK_OF[f.kind]) continue;
+    // The tablets issued, read with the bulk batch above (a part issue, up to what is left).
+    if (taken.has(name)) continue;
     const was = source[name] ?? current.source[name];
     // While the step's lot is typed by hand (its link off or down), the lot's date and certificate values are typed from
     // its label, whatever an earlier lot from MMS gave (they are never signed with this lot: doneProblems).
@@ -250,7 +281,7 @@ const FIRST: StepKey = { stage: 0, sub: 1, step: 0, round: 1 };
 async function issueValues(app: FastifyInstance, tx: Tx, doc: MasterDoc, raw: Record<string, unknown> | undefined, now: Date) {
   const block = findBlock(doc.stages[0]!.steps[0]!.block)!;
   const current = openSteps(doc, [], now).steps[0]!;
-  const typed = await readValues(app, doc, FIRST, raw ?? {}, now, current, '');
+  const typed = await readValues(app, tx, doc, FIRST, raw ?? {}, now, current, '');
   const needed = [...block.atIssue!.map((n) => block.fields.find((f) => f.name === n)!), ...handFields(block.fields, typed.source)];
   const missing = needed.filter((f) => !f.optional && typed.values[f.name] === undefined).map((f) => `${f.label} is not recorded`);
   const results = evaluate(doc, [], FIRST, typed.values);
@@ -583,7 +614,10 @@ export function batchRoutes(app: FastifyInstance, sql: Sql) {
   // Packing: the bulk batches TrueBatch Tablets has released of a product, for the issue's pick list (pull, don't type).
   app.get<{ Querystring: { product?: string } }>('/api/bulk-batches', { preHandler: requirePermission('truebatch.batch.issue') }, async (req) => {
     const r = await app.links.truebatch.released(String(req.query.product ?? ''));
-    return { link: r.state, batches: r.state === 'ok' ? r.value.map((b) => ({ batchNo: b.batchNo, mfgDate: b.mfgDate, goodQuantity: b.goodQuantity })) : [] };
+    // With the good tablets: what the other packing batches were already issued of each, and what is left to issue.
+    const batches = r.state !== 'ok' ? [] : await Promise.all(r.value.map(async (b) => ({ batchNo: b.batchNo, mfgDate: b.mfgDate, goodQuantity: b.goodQuantity,
+      ...(b.goodQuantity ? bulkLeft(b.goodQuantity, await bulkIssues(sql, b.batchNo)) : {}) })));
+    return { link: r.state, batches };
   });
 
   // TB-22: the batch record as a PDF: a complete copy with its values, calculations, changes, notes and signatures.
@@ -674,7 +708,7 @@ export function batchRoutes(app: FastifyInstance, sql: Sql) {
           let payload: Record<string, unknown> = {};
           const uses: number[] = [];
           if (b.values) {
-            const typed = await readValues(app, l.doc, key, b.values, l.now, v, l.batch.batchNo);
+            const typed = await readValues(app, tx, l.doc, key, b.values, l.now, v, l.batch.batchNo);
             payload = { values: typed.values, results: evaluate(l.doc, l.events, key, { ...v.values, ...typed.values }, uses), uses,
               ...(Object.keys(typed.source).length ? { source: typed.source } : {}) };
             const no = await stockProblem(app, tx, l, v, { ...v.values, ...typed.values }, payload.results as Record<string, Stored>, { ...v.source, ...typed.source });

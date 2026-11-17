@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import type { MasterEquipment, MasterRoom } from './master.js';
 import type { Block, BlockField } from '../shared/blocks/index.js';
 import { materialLines, type FormulaLine, type MasterDoc, type PackMaterial, type Step } from '../shared/master/schema.js';
-import { CERTIFICATE, PROVIDER_NAME, clauses, type Provider, type Source, type Value } from '../shared/engine/index.js';
+import { CERTIFICATE, PROVIDER_NAME, bulkIssueProblem, bulkLeft, clauses, readValue, type BulkIssue, type Provider, type Source, type Value } from '../shared/engine/index.js';
 import { LOT_USABLE } from './links.js';
 import { plantDate } from '../shared/plant-time.js';
 
@@ -10,7 +10,8 @@ import { plantDate } from '../shared/plant-time.js';
 // refusal in plain words; when the link is absent or down, the value is typed by hand (its questions in
 // shared/engine/links.ts). Nothing read is kept but what the record keeps (PL-07).
 
-export interface Pulled { source: Source; values: Record<string, Value>; sources: Record<string, Source>; problems: string[] }
+// taken: typed fields the pull has read itself (the tablets of a part issue), not read again as typed.
+export interface Pulled { source: Source; values: Record<string, Value>; sources: Record<string, Source>; problems: string[]; taken?: string[] }
 const hand = (link: Provider, state: 'absent' | 'down'): Pulled => ({ source: { from: 'hand', link, state }, values: {}, sources: {}, problems: [] });
 // A refusal: nothing is stored, so its source is never used.
 const refused = (...problems: string[]): Pulled => ({ source: { from: 'hand', link: 'mms', state: 'absent' }, values: {}, sources: {}, problems });
@@ -94,8 +95,11 @@ export async function pullLot(app: FastifyInstance, doc: MasterDoc, st: Step, bl
  * its first processing step started, batch_fact_v1.manufactured_on) comes with it, and so do the tablets issued (its
  * good tablets, batch_fact_v1.good_quantity; owner 17 Nov 2026: pull, don't type). Without a good quantity (not given
  * by its view) the tablets are typed.
+ * Bug fix (17 Nov 2026): the tablets offered are what is LEFT of the bulk batch: its good tablets less what the other
+ * packing batches of it were issued (`others`, net of what a terminated one gave back; shared/engine/stock.ts bulkLeft).
+ * `typed`: a part issue, more than 0 and up to what is left; none issues all that is left.
  */
-export async function pullBulk(app: FastifyInstance, doc: MasterDoc, block: Block, batchNo: string): Promise<Pulled> {
+export async function pullBulk(app: FastifyInstance, doc: MasterDoc, block: Block, batchNo: string, typed: unknown, others: () => Promise<BulkIssue[]>): Promise<Pulled> {
   const r = await app.links.truebatch.batch(batchNo);
   if (r.state !== 'ok') return hand('truebatch', r.state);
   const b = r.value;
@@ -108,7 +112,18 @@ export async function pullBulk(app: FastifyInstance, doc: MasterDoc, block: Bloc
   const out: Pulled = { source, values: {}, sources: {}, problems };
   if (b.mfgDate && block.fields.some((x) => x.name === 'mfgDate')) { out.values.mfgDate = b.mfgDate; out.sources.mfgDate = source; }
   const tablets = block.fields.find((x) => x.name === 'tablets');
-  if (b.goodQuantity && tablets) { out.values.tablets = { value: b.goodQuantity, unit: tablets.unit ?? 'tablets' }; out.sources.tablets = { ...source, shown: `${source.shown}, ${b.goodQuantity} good tablets` }; }
+  if (b.goodQuantity && tablets) {
+    const unit = tablets.unit ?? 'tablets';
+    out.taken = ['tablets'];
+    const left = bulkLeft(b.goodQuantity, await others());
+    const part = typed === undefined || typed === null || (typeof typed === 'string' && !typed.trim()) ? null : readValue(tablets, typed, unit);
+    if (part && typeof part === 'object' && 'error' in part) { problems.push(part.error); return out; }
+    const value = part && typeof part === 'object' && 'value' in part ? part.value : left.left;
+    const no = bulkIssueProblem(batchNo, part ? value : null, b.goodQuantity, left);
+    if (no) { problems.push(no); return out; }
+    out.values.tablets = { value, unit };
+    out.sources.tablets = { ...source, shown: `${source.shown}, ${b.goodQuantity} good tablets, ${left.issued} issued to other packing batches, ${left.left} left${part ? `, ${value} issued (typed, a part issue)` : ''}` };
+  }
   return out;
 }
 
