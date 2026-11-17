@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { findBlock } from '../shared/blocks/index.js';
-import { dispensingRooms, machineRefusal, untypedNote } from '../shared/engine/picks.js';
+import { dispensingRooms, emptyNote, machineRefusal, untypedNote } from '../shared/engine/picks.js';
 import { SKELETON_LIST, packingStages, skeletonStages } from '../web/src/designer/skeletons.js';
 import { pack } from './packing-fixture.js';
 
@@ -77,6 +77,15 @@ describe('machine pickers on the demo master-data types', () => {
       { code: 'CFORM-01', type: 'Blister packer', room: null }, { code: 'CFORM-BL-01', type: null, room: 'RM-108' }];
     expect(lines.map((m) => machineRefusal(stage, line, m, ROOMS))).toEqual([null, 'EQ-X stands in RM-107, not in a room this stage allows (Packing)',
       'CFORM-01 stands in no room in master data, so it is not in a room this stage allows (Packing)', 'CFORM-BL-01 has no type in master data, so it is not offered as a packing line']);
-    expect(untypedNote(line, lines)).toBe('Not offered, because master data gives no type: CFORM-BL-01. Engineering sets the type (and the room) in master data.');
+    expect(untypedNote(line, lines)).toBe('1 machine has no type in master data, so it is not offered.');
+  });
+
+  it('TB-11 an empty machine picker says why: where the machines of its type stand, or that master data has none (17 Nov 2026 run, F17)', () => {
+    const stage = { ...stages[0]!, roomTypes: ['RM-105'] };
+    const tester = field('disintegration', 'machine');
+    const all = [{ code: 'IN-DT-01', type: 'Disintegration tester', room: 'RM-110' }, { code: 'BAL-X', type: null, room: null }, { code: 'EQ-CMP-01', type: 'Tablet press', room: 'RM-105' }];
+    expect(emptyNote(stage, tester, all, ROOMS)).toBe('No disintegration tester can be used here: IN-DT-01 stands in RM-110, not in a room this stage allows (RM-105). '
+      + '1 machine has no type in master data, so it is not offered. Engineering moves one into a room this stage allows, or adds one, in master data (the Logbook shows where each stands).');
+    expect(emptyNote(stage, tester, all.slice(1), ROOMS)).toBe('Master data has no active disintegration tester. 1 machine has no type in master data, so it is not offered. Engineering adds it in master data.');
   });
 });

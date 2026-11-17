@@ -36,7 +36,7 @@ describe('master designer', () => {
       expect(text, `${b.id} v${b.version}`).not.toMatch(/\[object Object\]|undefined|NaN/);
     }
     const punch = block('punch-die-check');
-    expect(sentenceText(d, punch, {}, sentence(punch, punch.calcs[1]!))).toBe('The punches or dies damaged must be at most 0 units.');
+    expect(sentenceText(d, punch, {}, sentence(punch, punch.calcs[1]!))).toBe('The punches or dies damaged must be at most 0 nos.');
     // Any other shape written into a block reads in words too.
     const said = (limit: unknown) => sentenceText(d, punch, {}, sentence(punch, { name: 'x', label: 'x', template: 'C1', args: { value: '$damaged', limit } }));
     expect(said({ max: 0 })).toBe('The punches or dies damaged must be at most 0.');
