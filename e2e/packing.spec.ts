@@ -120,7 +120,9 @@ test('TB-P2 packing journey: packing master from the skeleton, approved; a packi
     await expect(issue.getByText(/Not offered, because the Logbook does not have/)).toHaveCount(0);
     await issue.getByRole('group', { name: 'Packing line' }).getByRole('button', { name: /BL-01/ }).click();
     await issue.getByLabel('Bulk batch no.').fill('TB260001');
-    await issue.getByLabel('Bulk tablets issued').fill('100000');
+    // Pull, don't type: the tablets issued are the bulk batch's good tablets, from TrueBatch Tablets.
+    await expect(issue.getByLabel('Bulk tablets issued')).toHaveCount(0);
+    await expect(issue.getByText('Bulk tablets issued: 1,00,000 tablets, the good tablets of TB260001 in TrueBatch Tablets.')).toBeVisible();
     await issue.getByRole('button', { name: 'Next: sign' }).click();
     await iss.page.getByRole('dialog').last().getByRole('button', { name: 'Sign', exact: true }).click();
     await expect(issue.getByRole('alert')).toHaveText('BL-01 is not fit for use (Logbook): Dirty: clean and verify before the next use.');
@@ -135,7 +137,6 @@ test('TB-P2 packing journey: packing master from the skeleton, approved; a packi
   await issue.getByRole('group', { name: 'Packing line' }).getByRole('button', { name: /BL-01/ }).click();
   await expect(issue.locator('datalist option[value="TB260001"]')).toHaveCount(1);
   await issue.getByLabel('Bulk batch no.').fill('TB260001');
-  await issue.getByLabel('Bulk tablets issued').fill('100000');
   await issue.getByRole('button', { name: 'Next: sign' }).click();
   await iss.page.getByRole('dialog').last().getByRole('button', { name: 'Sign', exact: true }).click();
   await expect(issue.getByRole('alert')).toContainText('the status label says clean, within its clean hold is not recorded');
@@ -233,7 +234,7 @@ test('TB-21 QA terminates a packing batch after materials were issued: the windo
   const iss = await person(browser, 'piss');
   const mv = ((await (await iss.page.request.get('/api/masters')).json()) as { id: number; state: string }[]).find((v) => v.state === 'effective')!.id;
   const labels = { 'line.clean': 'yes', 'line.calibrated': 'yes', 'line.inService': 'yes', 'line.qualified': 'yes' };
-  const res = await iss.page.request.post('/api/batches', { data: { masterVersionId: mv, proof: await iss.proof('issued'), values: { line: 'ln-1', ...labels, bulk: 'TB260001', tablets: '60000' } } });
+  const res = await iss.page.request.post('/api/batches', { data: { masterVersionId: mv, proof: await iss.proof('issued'), values: { line: 'ln-1', ...labels, bulk: 'TB260002' } } });
   expect(res.ok(), await res.text()).toBe(true);
   const batch = await res.json() as { id: number; batchNo: string };
   await iss.ctx.close();
