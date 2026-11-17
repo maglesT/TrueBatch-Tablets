@@ -75,7 +75,8 @@ answering) or **ok**.
   Tablets Packing reads; readers of Batchwright's columns select them by name and are not affected. `0008` adds
   `product_name` and `master_version` at the end (family_code is the master version's number); `0015` adds the
   output counts for OEE and packing: `good_quantity` (the good tablets of the tablet reconciliation, whole),
-  `good_unit` ('tablets') and `yield_percent`, null until that step is done; it publishes
+  `good_unit` ('tablets') and `yield_percent`, null until that step is done; `0017` adds `released_at` (the time of
+  QA's release event) and `released_by` (the name printed on its e-signature), null until released, as packing; it publishes
   `material_use_v1`: per signed weighing step its lot, material and net quantity (status dispensed, or corrected with
   the corrected quantity); MMS reduces the lot's stock by reading it (owner decision), nothing is sent. `0011`: a
   machine or room is in use by its **batch**, not its step or stage (cleaning is due between batches, not between the

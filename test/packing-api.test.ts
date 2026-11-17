@@ -373,6 +373,10 @@ describe('a packing batch from a released bulk batch', () => {
     // The output counts (for OEE): the good packs and the yield in packs of the finished goods step.
     expect(row).toMatchObject({ coded_batch_number: 'TB260001', product_code: 'PK-001', bulk_product_code: 'PRD-001', pack_type: 'blister', units_per_pack: 10, mfg_date: '2026-11-03',
       expiry_month: '2028-10', packs: '9800', cartons: '980', status: 'RELEASED', released: true, shippers: '20', good_quantity: '9800', good_unit: 'packs', yield_percent: '98.00' });
+    // For MMS (GMP traceability of the FG lot it receives): who released the batch, as signed, and when.
+    const [relAt] = await t.owner<{ at: Date }[]>`select at from batch_events where batch_id = ${id} and kind = 'released'`;
+    expect(await t.owner.unsafe(`select released_at, released_by from ${t.schema}_report.packing_batch_v1 where coded_batch_number = 'TB260001'`))
+      .toEqual([{ released_at: relAt!.at, released_by: 'QA1' }]);
     // For the Logbook: the line used, as TrueBatch Tablets publishes its machines. For MMS: the packing materials issued,
     // per lot, in the material's unit, as TrueBatch Tablets publishes what it dispensed.
     const batchNo = (await loadBatch(t.sql, id))!.batch.batchNo;
@@ -412,7 +416,11 @@ describe('a packing batch from a released bulk batch', () => {
     // Nor its output: null until the finished goods step is done.
     expect(await t.owner.unsafe(`select distinct good_quantity, good_unit, yield_percent from ${t.schema}_report.packing_batch_v1 where coded_batch_number = 'TB260004'`))
       .toEqual([{ good_quantity: null, good_unit: 'packs', yield_percent: null }]);
-    expect((await cols('packing_batch_v1')).split(', ').slice(-4)).toEqual(['shippers numeric', 'good_quantity numeric', 'good_unit text', 'yield_percent numeric']);
+    // Nor who released it: null until QA releases.
+    expect(await t.owner.unsafe(`select distinct released_at, released_by from ${t.schema}_report.packing_batch_v1 where coded_batch_number = 'TB260004'`))
+      .toEqual([{ released_at: null, released_by: null }]);
+    expect((await cols('packing_batch_v1')).split(', ').slice(-6)).toEqual(['shippers numeric', 'good_quantity numeric', 'good_unit text', 'yield_percent numeric',
+      'released_at timestamp with time zone', 'released_by text']);
   });
 
   it('pull, don\'t type: the tablets issued are the bulk batch\'s good tablets (batch_fact_v1.good_quantity), when TrueBatch Tablets gives them; typed while its view does not', async () => {
