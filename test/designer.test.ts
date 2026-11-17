@@ -3,6 +3,7 @@ import { BLOCKS, findBlock } from '../shared/blocks/index.js';
 import { blocking, masterChecks } from '../shared/master/checks.js';
 import { masterSchema } from '../shared/master/schema.js';
 import { stepTitle } from '../shared/engine/batch.js';
+import { perPackText } from '../shared/engine/stock.js';
 import { describeMaster, diffMasters, stepText } from '../web/src/designer/describe.js';
 import { dispensing, workedExample } from '../web/src/designer/example.js';
 import { answerDoc, earlierRefs, neededKind, scaleDoc, stepFrom } from '../web/src/designer/model.js';
@@ -150,10 +151,15 @@ describe('master designer', () => {
     const sections = describeMaster(packing(), units);
     const all = sections.flatMap((s) => s.lines.map((l) => l.text)).join(' ');
     expect(all).not.toMatch(/the batch quantity of/);
-    expect(sections[1]!.lines.find((l) => l.key === 'carton')!.text).toBe('Carton (PM-103), carton: 0.1 nos per pack; printed, issued with a second person and reconciled; coded with the batch details.');
+    expect(sections[1]!.lines.find((l) => l.key === 'carton')!.text).toBe('Carton (PM-103), carton: 1 carton per 10 packs; printed, issued with a second person and reconciled; coded with the batch details.');
     // Without master data, as the master has it; a material master data counts in another unit keeps the master's.
-    expect(describeMaster(packing()).flatMap((s) => s.lines).find((l) => l.key === 'carton')!.text).toMatch(/: 0\.1 units per pack/);
-    expect(all).toMatch(/Leaflet \(PM-104\), leaflet: 0\.1 units per pack/);
+    expect(describeMaster(packing()).flatMap((s) => s.lines).find((l) => l.key === 'carton')!.text).toMatch(/: 1 carton per 10 packs/);
+    expect(all).toMatch(/Leaflet \(PM-104\), leaflet: 1 leaflet per 10 packs/);
+    // A count used once or more per pack, or a length, per pack (17 Nov 2026 run, F6).
+    expect(all).toMatch(/Printed aluminium foil \(PM-101\), foil: 0\.120 m per pack/);
+    expect(perPackText({ perPack: '0.002', unit: 'units', kind: 'shipper' })).toBe('1 shipper per 500 packs');
+    expect(perPackText({ perPack: '2', unit: 'units', kind: 'desiccant' }, 'nos')).toBe('2 nos per pack');
+    expect(perPackText({ perPack: '0.3', unit: 'units', kind: 'other' }, 'nos')).toBe('0.3 nos per pack');
     const steps = sections.flatMap((s) => s.lines).filter((l) => /^\d+\. (Issue|Reconcile) /.test(l.text)).map((l) => l.text);
     expect(steps.find((x) => /^\d+\. Issue Carton \(PM-103\): /.test(x))).toMatch(/Packing material: Carton \(PM-103\)\. Unit: nos\./);
     expect(steps.find((x) => /^\d+\. Reconcile Printed aluminium foil \(PM-101\): /.test(x))).toMatch(/Printed material: Printed aluminium foil \(PM-101\)\. Unit: m\./);

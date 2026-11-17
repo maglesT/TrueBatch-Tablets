@@ -80,7 +80,7 @@ test('TB-P2 packing journey: packing master from the skeleton, approved; a packi
   await expect(author.page.getByRole('status')).toHaveText('All changes saved');
   await author.page.getByRole('button', { name: 'Review and approval' }).click();
   // The plain view names each step's packing material by its name and code, and a count as master data names it (nos).
-  await expect(author.page.locator('.review')).toContainText(/Carton \(PM-103\), carton: [\d.]+ nos per pack/);
+  await expect(author.page.locator('.review')).toContainText(/Carton \(PM-103\), carton: (1 carton per \d+ packs|[\d.]+ nos per pack)/);
   await expect(author.page.locator('.review')).toContainText('Packing material: Carton (PM-103). Unit: nos.');
   await expect(author.page.locator('.review')).toContainText('Packing material: Printed aluminium foil (PM-101). Unit: m.');
   await expect(author.page.locator('.review')).not.toContainText('the batch quantity of');
@@ -265,7 +265,7 @@ test('TB-21 QA terminates a packing batch after materials were issued: the windo
   const quantity = op.page.locator('.fl-field', { hasText: 'Quantity issued' });
   await expect(quantity.locator('.unit')).toHaveText('nos');
   // The step's header says the material's unit as master data names it too.
-  await expect(op.page.getByRole('region', { name: 'Instruction' })).toContainText(/PM-103 · Carton \(carton, [\d.]+ nos per pack\)/);
+  await expect(op.page.getByRole('region', { name: 'Instruction' })).toContainText(/PM-103 · Carton \(carton, (1 carton per \d+ packs|[\d.]+ nos per pack)\)/);
   const refused = async () => {
     await justAboveActionBar(quantity.getByRole('textbox'));
     await quantity.getByRole('textbox').fill('105 cartons');

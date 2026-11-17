@@ -297,9 +297,9 @@ describe('a packing batch from a released bulk batch', () => {
     // TB-22 for packing: the packing record PDF, with the pack, the bulk and the packing materials.
     const pdf = JSON.stringify(batchRecordDoc(await recordInput(t.sql, (await loadBatch(t.sql, id))!, t.app.master), 'QA'));
     for (const text of ['Packing record TP', 'TrueBatch Tablets Packing', 'batch TB260001', 'expiry 10/2028', 'QC report QC-26-0101', 'Packing materials', 'Lot FOIL-1: 1250 m', '1176 m used']) expect(pdf).toContain(text);
-    // A count in master data's name for it (cartons in nos), as on screen and in MMS: per pack, the lots issued, the values.
-    for (const text of ['"0.1 nos"', 'Lot CARTON-1: 1000 nos', 'Quantity issued: 1000 nos', 'Used in good packs: 980 nos']) expect(pdf).toContain(text);
-    for (const text of ['"0.1 units"', 'Lot CARTON-1: 1000 units', 'Quantity issued: 1000 units']) expect(pdf).not.toContain(text);
+    // A count in master data's name for it (cartons in nos), as on screen and in MMS: per pack (1 carton per 10 packs, not 0.1 nos), the lots issued, the values.
+    for (const text of ['"1 carton per 10 packs"', 'Lot CARTON-1: 1000 nos', 'Quantity issued: 1000 nos', 'Used in good packs: 980 nos']) expect(pdf).toContain(text);
+    for (const text of ['"0.1 units"', '"0.1 nos"', 'Lot CARTON-1: 1000 units', 'Quantity issued: 1000 units']) expect(pdf).not.toContain(text);
     // The reconciliation's worked line counts as its fields do, in the steps and in the packing materials table.
     expect(pdf).toMatch(/\(980 nos used \+ \d+ nos destroyed \+ \d+ nos returned\) ÷ 1000 nos/);
     expect(pdf).not.toMatch(/\d+ units (used|destroyed|returned)|÷ 1000 units/);

@@ -15,7 +15,7 @@ import { lineQuantity } from '../../../shared/engine/values.js';
 import { plantText } from '../../../shared/plant-time.js';
 import { dispensingRooms, emptyNote, inLogbook, machineRefusal, roomRefusal } from '../../../shared/engine/picks.js';
 import { materialLines } from '../../../shared/master/schema.js';
-import { unitName } from '../../../shared/engine/stock.js';
+import { perPackText, unitName } from '../../../shared/engine/stock.js';
 
 type Dialog = { kind: 'done' | 'repeat' | 'check' | 'na' | 'send-back' | 'note' } | { kind: 'na-sign'; reason: string } | { kind: 'correct'; field: BlockField };
 const INVOLVING = ['started', 'value', 'done', 'corrected', 'not_applicable'];
@@ -32,7 +32,7 @@ function settingsText(doc: BatchDetail['master']['doc'], block: Block, st: Step,
   return block.settings.flatMap((s): [string, string][] => {
     const v = st.settings[s.name];
     const m = v && typeof v === 'object' && 'formula' in v ? materialLines(doc).find((l) => l.key === v.formula) : undefined;
-    const what = m && `${m.code} · ${m.name}${'perPack' in m ? ` (${m.kind}, ${m.perPack} ${unitName(m.unit, mdUnit)} per pack)` : ''}`;
+    const what = m && `${m.code} · ${m.name}${'perPack' in m ? ` (${m.kind}, ${perPackText(m, mdUnit)})` : ''}`;
     if (m && s.kind === 'quantity' && 'mgPerTablet' in m && typeof v === 'object' && 'formula' in v) {
       // Worked out by the server once a value is recorded; before that, the batch quantity (an adjusted one needs the lot).
       const r = row.results[s.name] ?? (v.adjusted ? undefined : lineQuantity(doc, [], row.key, m, false, {}));
