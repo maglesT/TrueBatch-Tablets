@@ -55,6 +55,19 @@ answering) or **ok**.
   its `material_use_v1` gives it (`shared/engine/stock.ts`), checked when it is recorded or corrected and when the
   step is signed done. An MMS whose `lot_v1` has no stock yet, or a lot typed by hand, is not compared. What the other
   TrueBatch product used from the same lot is not read (each product uses its own kind of material).
+- **Recruitment** (`training_v1`, owner 17 Nov 2026: only trained people sign): one row per person and skill
+  (`person_login`, `skill_code`, `skill_title`, `trained_on`, `valid_until`, `qualified`, already false when expired),
+  read through `RECRUITMENT_DATABASE_URL`. A master step may name the training it needs (`step.training`: the skill's
+  code and title, picked in the designer's Signatures section from the skills `training_v1` lists; typed only while
+  the link is off or down; none by default, so existing masters do not change). The plain view says "Done by a
+  person trained in SOP-… (Recruitment)". When a person signs such a step as performed or checked, the server reads
+  their row by their login and the skill now (`shared/engine/training.ts`, `trainingCheck`): qualified, the signing
+  event records `training` (code, title, trained on, valid until, as read) and the signed content includes it; not
+  qualified, expired or missing, the signature is refused in plain words ("<name> has no valid training in <skill>
+  (Recruitment): ask QA, or another trained person signs."). Link off or down: the sign dialog asks the signer to
+  tick "I am trained in <skill>", and the signature records `training` from `hand` ("training typed by hand
+  (Recruitment not reachable)"), shown on the step, listed in QA's release review and in the PDF (TB-23). A step
+  marked not applicable, a QA hold release and the batch-level signatures do not read training.
 - **Published** (`db/migrations/0006_report_views.sql`): `batch_fact_v1` and `equipment_use_v1` with Batchwright's
   names and columns, so the Logbook and Deviations read TrueBatch as they read Batchwright, and `deviation_note_v1`
   for Deviations to file notes later. `batch_fact_v1` has one more column at its end (`0007`): `manufactured_on`, the
