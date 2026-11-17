@@ -87,6 +87,9 @@ const ALIASES: Record<string, string> = {
   'kg/cm²': 'kgf/cm²', 'N/mm2': 'N/mm²', 'g/m3': 'g/m³', 'ft³/min': 'cfm', 'ft3/min': 'cfm', meq: 'mEq', mEQ: 'mEq', 'US gallon': 'US gal', 'imperial gallon': 'imp gal', 'kg/cm2': 'kgf/cm²', 'g/cm3': 'g/cm³', 'm3/h': 'm³/h', tablet: 'tablets', unit: 'units',
 };
 
+/** Every unit symbol with its kind, in table order (the designer's unit pick lists). */
+export const UNIT_LIST: readonly { symbol: string; kind: Kind }[] = TABLE.map(([symbol, kind]) => ({ symbol, kind }));
+
 const UNITS = new Map<string, Unit>(TABLE.map(([symbol, kind, factor, offset]) => [symbol, { symbol, kind, factor: d(factor.toString()), offset: d(offset ?? '0') }]));
 
 export function findUnit(symbol: string): Unit | undefined {

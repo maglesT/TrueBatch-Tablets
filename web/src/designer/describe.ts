@@ -5,7 +5,7 @@ import { masterChecks } from '../../../shared/master/checks.js';
 import { materialLines, type FormulaLine, type MasterDoc, type Stage, type Step } from '../../../shared/master/schema.js';
 import { unitName } from '../../../shared/engine/stock.js';
 import { stepTitle } from '../../../shared/engine/batch.js';
-import { placeLabel } from './model.js';
+import { grouped, placeLabel } from './model.js';
 import { sentence, sentenceText, settingText, slotsOf } from './sentences.js';
 
 export interface Line { key: string; text: string }
@@ -26,13 +26,16 @@ function adjustText(doc: MasterDoc, l: FormulaLine): string {
   return `; at dispensing ${out.join(', then ')}`;
 }
 
+/** A hold time in hours, and in days when it is whole days of two or more: "720 hours (30 days)". */
+const holdText = (h: number | undefined) => (h === undefined ? '(not set)' : `${h} hours${h >= 48 && h % 24 === 0 ? ` (${h / 24} days)` : ''}`);
+
 function stageText(doc: MasterDoc, s: Stage): string {
   const kind = s.kind === 'preparation' ? 'A preparation' : s.kind === 'sub-batch' ? `Done in ${s.count ?? '?'} sub-batches` : 'A stage';
   const uses = s.uses.map((k) => doc.stages.find((x) => x.key === k)).filter(Boolean).map((x) => `${x!.produces?.name ?? x!.name} from ${x!.name}`);
   return [`${kind}, the responsibility of the ${s.role || '(role not set)'}.`,
     `Machine types: ${s.machineTypes.join(', ') || 'any'}. Rooms: ${s.roomTypes.join(', ') || 'any'}.`,
     uses.length ? `Uses ${uses.join(' and ')}.` : '',
-    s.produces ? `Produces ${s.produces.name}, to be used within ${s.produces.holdHours ?? '(not set)'} hours.` : 'Produces no intermediate.'].filter(Boolean).join(' ');
+    s.produces ? `Produces ${s.produces.name}, to be used within ${holdText(s.produces.holdHours)}.` : 'Produces no intermediate.'].filter(Boolean).join(' ');
 }
 
 /** Master data's units of the materials, by item id: a unit is named as master data names it when the same (nos for units). */
@@ -44,8 +47,14 @@ export function stepText(doc: MasterDoc, t: Step, j: number, units?: Units): str
   const slots = slotsOf(b);
   const m = Object.values(t.settings).find((v): v is { formula: string } => typeof v === 'object' && 'formula' in v);
   const stock = m && units?.get(materialLines(doc).find((l) => l.key === m.formula)?.materialItemId ?? '');
-  const shown = (name: string) => { const v = t.settings[name]; return name === 'unit' && typeof v === 'string' && v ? unitName(v, stock) : settingText(doc, v); };
-  const loose = b.settings.filter((s) => !slots.has(s.name) && t.settings[s.name] !== undefined).map((s) => `${s.label}: ${shown(s.name)}.`);
+  const shown = (name: string) => {
+    const v = t.settings[name];
+    if (name === 'unit' && typeof v === 'string' && v) return unitName(v, stock);
+    // A material picked from the formula by its name and code, as the floor names it (not "the batch quantity of").
+    const line = b.settings.find((x) => x.name === name)?.kind === 'material' && typeof v === 'object' && 'formula' in v ? materialLines(doc).find((l) => l.key === v.formula) : undefined;
+    return line ? `${line.name} (${line.code})` : settingText(doc, v);
+  };
+  const loose = b.settings.filter((s) => !slots.has(s.name) && t.settings[s.name] !== undefined).map((s) => `${s.label.replace(/ \(formula line\)$/, '')}: ${shown(s.name)}.`);
   const calcs = b.calcs.map((c) => sentenceText(doc, b, t.settings, sentence(b, c)));
   const flow = t.flow.kind === 'repeat-until' ? `Repeated until the check "${b.calcs.find((c) => c.name === ((t.flow.kind === 'repeat-until' && t.flow.stop) || b.stop))?.label ?? '(not chosen)'}" passes, at most ${t.flow.maxRounds ?? '?'} rounds${t.everyMinutes ? `, a round every ${t.everyMinutes} minutes` : ''}.`
     : t.flow.kind === 'optional-with-reason' ? 'Optional: it may be skipped with a reason.' : t.flow.kind === 'qa-hold' ? 'QA hold: QA releases it before the next step.' : '';
@@ -69,7 +78,7 @@ export function describeMaster(doc: MasterDoc, units?: Units): Section[] {
     { key: 'header', title: 'Pack', lines: [
       { key: 'product', text: `Pack product ${h.productCode}, ${h.productName}.` },
       { key: 'bulk', text: `Packs the bulk tablets ${p.bulkCode}, ${p.bulkName}; tablet weight ${h.coreWeightMg} mg (for counts by weight).` },
-      { key: 'batch', text: `Standard packing batch ${h.batchSize} tablets.` },
+      { key: 'batch', text: `Standard packing batch ${grouped(h.batchSize)} tablets.` },
       { key: 'pack', text: `${p.type[0]!.toUpperCase()}${p.type.slice(1)} of ${p.unitsPerPack} tablets; ${p.packsPerCarton} packs per carton.` },
       { key: 'expiry', text: `Approved shelf life ${p.shelfLifeMonths} months; expiry ${p.expiryRule === 'same month' ? 'month of manufacture + shelf life' : 'month of manufacture + shelf life − 1'}.` },
       { key: 'market', text: `For ${p.destination}${p.mrp ? `; MRP Rs. ${p.mrp} per pack` : ''}.` },
@@ -80,7 +89,7 @@ export function describeMaster(doc: MasterDoc, units?: Units): Section[] {
   ] : [
     { key: 'header', title: 'Header', lines: [
       { key: 'product', text: `Product ${h.productCode}, ${h.productName}.` },
-      { key: 'batch', text: `Batch size ${h.batchSize} tablets.` },
+      { key: 'batch', text: `Batch size ${grouped(h.batchSize)} tablets.` },
       { key: 'weights', text: `Theoretical core weight ${h.coreWeightMg} mg per tablet${h.coatedWeightMg ? `; coated weight ${h.coatedWeightMg} mg` : '; uncoated'}${h.dieAreaMm2 ? `; die bore area ${h.dieAreaMm2} mm²` : ''}.` },
       ...(h.dispensingRooms?.length ? [{ key: 'dispensing', text: `Weighed in the dispensing rooms ${h.dispensingRooms.join(', ')}.` }] : []),
       ...(h.otherStrengths ?? []).map((x, n) => ({ key: `strength:${n}`, text: `Also compressed from the same blend: ${x.name}, label claim ${x.labelClaim}, core weight ${x.coreWeightMg} mg.` })),

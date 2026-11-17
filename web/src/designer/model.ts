@@ -3,20 +3,32 @@
 import { BLOCKS, blocksFor, findBlock, type Block } from '../../../shared/blocks/index.js';
 import { product } from '../product.js';
 import { stepTitle as title } from '../../../shared/engine/batch.js';
-import { Dec, findUnit, type Kind } from '../../../shared/templates/index.js';
+import { Dec, UNIT_LIST, type Kind } from '../../../shared/templates/index.js';
+import type { Stored } from '../../../shared/engine/index.js';
 import { kindOf, kindOfUnit } from '../../../shared/master/kinds.js';
 import type { Problem } from '../../../shared/master/checks.js';
+import { isBalance, machineRefusal } from '../../../shared/engine/picks.js';
+import type { BlockField } from '../../../shared/blocks/format.js';
+import type { MasterData } from '../api-designer.js';
 import type { HEADER_VALUES, MasterDoc, SettingValue, Stage, Step } from '../../../shared/master/schema.js';
 
-// The unit list as offered in pick lists (shared/templates/units.ts holds the same symbols with their kinds).
-const SYMBOLS = ['', 'units', 'tablets', 'µg', 'mg', 'g', 'kg', 'µL', 'mL', 'L', 'm³', 'µm', 'mm', 'cm', 'm', 'mm²', 'cm²', 's', 'min', 'h', 'd',
-  '°C', 'K', 'Δ°C', 'N', 'kN', 'kp', 'Pa', 'hPa', 'kPa', 'MPa', 'bar', 'mbar', 'psi', 'mmHg', '%', '%w/w', 'ppm', 'µg/mg', 'mg/g', '%w/v', 'mg/mL',
-  'g/L', 'g/mL', 'g/cm³', 'rpm', '°', 'mg/cm²', 'g/h', 'g/min', 'kg/h', 'mL/min', 'L/min', 'm³/h', 'tablets/min', 'mA', 'A', 'W', 'kW', 'kWh/kg',
-  '%RH', 'g/kg', 'IU', 'CFU', 'U', 'IU/g', 'IU/mg', 'CFU/g', 'U/mg'];
-export const UNITS = SYMBOLS.filter((s) => findUnit(s)).map((s) => ({ symbol: s, kind: findUnit(s)!.kind }));
+// The unit list as offered in pick lists: every unit of the templates' unit table (shared/templates/units.ts).
+export const UNITS = UNIT_LIST;
 export const unitsOf = (kind?: Kind) => UNITS.filter((u) => !kind || u.kind === kind);
 export { kindOf, kindOfUnit, neededKind } from '../../../shared/master/kinds.js';
 export const unitLabel = (s: string) => (s === '' ? 'no unit' : s);
+
+/** A worked-out quantity as shown in the formula and the preview: 3 decimals; a mass under 0.01 kg in g, so a small
+ *  excipient reads right (2.500 g, not 0.003 kg). Display only: the stored value is not changed. */
+export function qtyText(r: Stored | undefined): string {
+  if (!r?.ok) return '—';
+  const v = new Dec(r.value);
+  return r.unit === 'kg' && !v.isZero() && v.abs().lt('0.01') ? `${v.times(1000).toFixed(3)} g` : `${v.toFixed(3)} ${r.unit}`;
+}
+
+/** Whole numbers of five digits or more with Indian thousands separators, as the lists show them ("50,000 tablets");
+ *  a number with decimals, or part of a code or date, stays as written. */
+export const grouped = (text: string) => text.replace(/(?<![\w.,/-])\d{5,}(?![\w.,/-]|\.\d)/g, (n) => Number(n).toLocaleString('en-IN'));
 
 /** A new key, unique among the given ones: "weigh", "weigh-2" … */
 export function newKey(base: string, taken: string[]): string {
@@ -133,3 +145,47 @@ export function answerDoc(doc: MasterDoc, p: Problem, choice: string, reason: st
   if (!p.question) return doc;
   return { ...doc, answers: { ...doc.answers, [p.question.key]: { about: p.message, choice, reason: reason.trim() } } };
 }
+
+// ---- Rooms to pick from: the relevant ones first, from master data (where the machines stand), never a fixed list ----
+
+export interface Choices { options: string[]; groups: { label: string; options: string[] }[]; text: (o: string) => string }
+const sortBy = (list: string[]) => [...new Set(list)].sort((a, b) => a.localeCompare(b));
+const roomText = (md: Pick<MasterData, 'rooms'>) => (o: string) => {
+  const r = md.rooms.find((x) => x.code === o);
+  return r ? `${r.code} · ${r.name}${r.area ? ` (${r.area})` : ''}` : o;
+};
+/** The active rooms where an active machine that fits one of the fields stands (type only, wherever it is). */
+function roomsOfMachines(md: Pick<MasterData, 'rooms' | 'equipment'>, fields: BlockField[], machineTypes: string[] = []): string[] {
+  const any = { key: 'x', name: '', kind: 'normal' as const, roomTypes: [], machineTypes, role: '', uses: [], steps: [] };
+  const rooms = md.rooms.filter((r) => r.active);
+  return sortBy(md.equipment.filter((m) => m.active && m.room && rooms.some((r) => r.code === m.room) && fields.some((f) => machineRefusal(any, f, m, rooms) === null)).map((m) => m.room!));
+}
+
+/** The rooms a stage may run in, by area or by room: first those where the stage's machines stand (its process
+ *  machines, not balances), then every other area and room. */
+export function stageRoomChoices(stage: Stage, md: Pick<MasterData, 'rooms' | 'equipment'>): Choices {
+  const rooms = md.rooms.filter((r) => r.active);
+  const areas = sortBy(rooms.flatMap((r) => (r.area ? [r.area] : [])));
+  const codes = sortBy(rooms.map((r) => r.code));
+  const fields = stage.steps.flatMap((t) => findBlock(t.block)?.fields.filter((f) => f.kind === 'machine' && !isBalance(f)) ?? []);
+  const near = roomsOfMachines(md, fields, stage.machineTypes);
+  const nearAreas = sortBy(near.flatMap((c) => { const a = rooms.find((r) => r.code === c)?.area; return a ? [a] : []; }));
+  const text = roomText(md);
+  return { options: [...areas, ...codes], text,
+    groups: [{ label: "Where this stage's machines stand", options: [...nearAreas, ...near] },
+      { label: 'Other areas', options: areas.filter((a) => !nearAreas.includes(a)) }, { label: 'Other rooms', options: codes.filter((c) => !near.includes(c)) }] };
+}
+
+/** The dispensing rooms of a master: first the rooms where a weighing balance stands (as the floor offers balances),
+ *  then the other rooms. */
+export function dispensingRoomChoices(md: Pick<MasterData, 'rooms' | 'equipment'>): Choices {
+  const codes = sortBy(md.rooms.filter((r) => r.active).map((r) => r.code));
+  const balance = findBlock({ id: 'weigh', version: 1 })?.fields.filter((f) => f.kind === 'machine' && isBalance(f)) ?? [];
+  const near = roomsOfMachines(md, balance);
+  return { options: codes, text: roomText(md),
+    groups: [{ label: 'Rooms with a weighing balance', options: near }, { label: 'Other rooms', options: codes.filter((c) => !near.includes(c)) }] };
+}
+
+/** The products of master data this product makes: those whose dosage form names it (tablets), and none without one. */
+export const ownProducts = <P extends { dosageForm: string | null }>(products: readonly P[]): P[] =>
+  products.filter((p) => p.dosageForm?.toLowerCase().includes(product.dosageForm));

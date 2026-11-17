@@ -33,7 +33,7 @@ const NEW: [string, Record<string, unknown>, object?][] = [
   ['disintegration', { maxTime: '15', temperatureLimit: { low: '35', high: '39', unit: '°C' } }],
   ['uniformity-by-weight', { coating: 'film-coated', labelClaim: '50 mg' }],
   ['content-uniformity', { coating: 'sugar-coated' }],
-  ['spray-coat', { coreWeight: { header: 'coreWeight' }, base: 'start', gainLimit: pct('2.8', '3.2') }, { everyMinutes: 15, flow: { kind: 'repeat-until', maxRounds: 20 } }],
+  ['spray-coat', { coreWeight: { header: 'coreWeight' }, base: 'start', gainLimit: pct('2.8', '3.2'), inletLimit: { low: '50', high: '70', unit: '°C' }, bedLimit: { low: '38', high: '45', unit: '°C' } }, { everyMinutes: 15, flow: { kind: 'repeat-until', maxRounds: 20 } }],
   ['polish-print', { print: 'Logo in black' }],
   ['qa-sample', { sampleLimit: { low: '50', high: '60', unit: 'tablets' } }, { flow: { kind: 'qa-hold' } }],
   ['tablet-reconciliation', { theoretical: { header: 'batchSize' }, meanWeight: '100.0 mg', yieldLimit: pct('97.0', '100.5'), accountabilityLimit: pct('99.0', '100.5') }],
@@ -41,7 +41,7 @@ const NEW: [string, Record<string, unknown>, object?][] = [
 const using = (id: string, settings: object, options: object = {}): MasterDoc => {
   const b = findBlock({ id, version: 1 })!;
   const step = { key: id, block: { id, version: 1 }, checker: b.checker, settings, ...options };
-  return small([{ steps: b.gmp === 'yield' ? [step] : [step, yieldStep] }]);
+  return small([{ role: 'Production operator', steps: b.gmp === 'yield' ? [step] : [step, yieldStep] }]);
 };
 
 describe('the standard tablet blocks', () => {
@@ -89,12 +89,12 @@ describe('the engine runs the new blocks like any other', () => {
   // before and after, sets up the press, releases it and reconciles the tablets.
   const tooling = { key: 'tooling-before', block: { id: 'punch-die-check', version: 1 }, checker: true, settings: {} };
   const doc = small([
-    { key: 'granulation', steps: [{ ...yieldStep, settings: { ...yieldStep.settings, accountabilityLimit: pct('99.0', '100.5') } }] },
-    { key: 'blending', steps: [
+    { key: 'granulation', role: 'Granulation operator', steps: [{ ...yieldStep, settings: { ...yieldStep.settings, accountabilityLimit: pct('99.0', '100.5') } }] },
+    { key: 'blending', role: 'Granulation operator', steps: [
       { key: 'lubricate', block: { id: 'lubricate', version: 1 }, checker: true, settings: { ...NEW[4]![1], granuleWeight: { ref: 'granulation/yield/output' } } },
       { key: 'blend', block: { id: 'dry-mix', version: 1 }, checker: false, settings: { mixTimeLimit: { low: '3', high: '5', unit: 'min' } } },
       { ...yieldStep, settings: { ...yieldStep.settings, theoretical: '0.098 kg' } }] },
-    { key: 'compression', steps: [tooling,
+    { key: 'compression', role: 'Compression operator', steps: [tooling,
       { key: 'press-setup', block: { id: 'press-setup', version: 1 }, checker: true, settings: NEW[10]![1] },
       { key: 'release', block: { id: 'compression-release', version: 1 }, checker: true, settings: NEW[11]![1] },
       { ...tooling, key: 'tooling-after' },
