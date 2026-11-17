@@ -634,6 +634,30 @@ describe('the views TrueBatch publishes', () => {
     expect(await ends('EQ-USE-2')).toEqual([['RM-104', new Date('2026-11-15T12:00:00Z')]]);
   });
 
+  it('equipment_use_v1: a room or machine named only in line clearance steps was used by the stage: its step_name is the stage (17 Nov 2026 run, F3)', async () => {
+    const [u] = await t.owner<{ id: number }[]>`select id::int from users order by id limit 1`;
+    // Every stage starts with a line clearance (step 0); the binder preparation weighs in step 1.
+    const doc = placed(tablet());
+    const [v] = await t.owner<{ id: number }[]>`insert into master_versions (version_no, doc, created_by) values (1, ${t.owner.json(doc as never)}, ${u!.id}) returning id::int`;
+    const [b] = await t.owner<{ id: number }[]>`insert into batches (batch_no, master_version_id, issued_by) values ('EQ-USE-3', ${v!.id}, ${u!.id}) returning id::int`;
+    const e = (stage: number, step: number, kind: string, payload: object, at: string) => t.owner`
+      insert into step_events (batch_id, stage, sub, step, round, kind, payload, person_id, at)
+      values (${b!.id}, ${stage}, 1, ${step}, 1, ${kind}, ${t.owner.json(payload as never)}, ${u!.id}, ${at})`;
+    const room = { itemId: 'rm-105', code: 'RM-105', name: 'Granulation room 5', version: 1, type: 'Binder solution', room: 'RM-105', area: 'Binder solution' };
+    const stirrer = { itemId: 'eq-str', code: 'STR-01', name: 'Stirrer', version: 1, type: 'stirrer', room: 'RM-105', area: 'Binder solution' };
+    // The room in the clearance of the binder stage only; the stirrer in its clearance and then in a process step.
+    await e(0, 0, 'started', {}, '2026-11-16 08:00+00');
+    await e(0, 0, 'value', { values: { room, machine: stirrer } }, '2026-11-16 08:01+00');
+    await e(0, 2, 'started', {}, '2026-11-16 08:10+00');
+    await e(0, 2, 'value', { values: { machine: stirrer } }, '2026-11-16 08:11+00');
+    const rows = await t.owner.unsafe(`select equipment_code, step, step_name from ${rep()}.equipment_use_v1 where batch_number = 'EQ-USE-3' order by equipment_code`);
+    const st = doc.stages[0]!;
+    expect(st.steps[0]!.block.id).toBe('line-clearance');
+    expect(rows).toEqual([
+      { equipment_code: 'RM-105', step: `${st.key}/${st.steps[0]!.key}`, step_name: st.name },
+      { equipment_code: 'STR-01', step: `${st.key}/${st.steps[2]!.key}`, step_name: `${st.name} › ${st.steps[2]!.key}` }]);
+  });
+
   it('nobody reads the views without a link: the app login itself has no grant', async () => {
     await expect(t.sql.unsafe(`select * from ${rep()}.batch_fact_v1`)).rejects.toMatchObject({ code: '42501' });
   });

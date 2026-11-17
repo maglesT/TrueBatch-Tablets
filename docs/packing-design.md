@@ -59,7 +59,8 @@ QA release of the packed batch. Built the Logbook way, as TrueBatch Tablets is.
   product was tested and complies), then QA release or rejection by e-signature. QA cannot release or reject before
   QC has approved. `packing_batch_v1` shows QC_APPROVED in between (`packing/migrations/0101_packing_qc_status.sql`).
 - **Published**: `packing_batch_v1` (packing order, coded batch number, products, pack, dates, packs and cartons,
-  status) for MMS finished goods later; `equipment_use_v1` (the line and rooms used, for the Logbook) and
+  status, and at its end `shippers`, the shippers counted at the finished goods step or null, `0108`) for MMS finished
+  goods; the line named only in the line clearance has the stage as its `step_name` ("Packing", `0107`); `equipment_use_v1` (the line and rooms used, for the Logbook) and
   `material_use_v1` (per signed issue step its lot, packing material and quantity issued in the material's unit, for
   MMS to reduce the lot's stock) with TrueBatch Tablets' names and columns
   (`packing/migrations/0102_packing_equipment_and_material_use.sql`). `0103`: one use of the line per packing batch:
