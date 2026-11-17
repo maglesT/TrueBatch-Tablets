@@ -308,8 +308,39 @@ describe('TB-12 MMS: only released, in-date lots of the material; certificate va
     } finally { await restore(S.mms); }
     const s = await stepOf(c.id, '0.1.0.1');
     expect(s.source.lot).toEqual({ from: 'hand', link: 'mms', state: 'down' });
-    expect(s.source.assay).toMatchObject({ from: 'hand' });
+    expect(s.source.assay).toBeUndefined();   // typed from the label, no longer MMS's
     expect(s.values).toMatchObject({ assay: { value: '98.5', unit: '%' } });
+  });
+
+  it('TB-12 the previous lot\'s certificate value is never signed with a new lot: the step waits until it is recorded for it', async () => {
+    const c = await issue(granulation());
+    await act('asha', c.id, '0.1.0.1', 'start');
+    expect((await record(c.id, '0.1.0.1', { lot: 'API-OK', balance: 'eq-bal', gross: '1.000', tare: '0.850' })).statusCode).toBe(200);
+    await cut(S.mms);
+    try {
+      // Only the new lot typed, with its label: the step still holds API-OK's assay and LOD from MMS.
+      expect((await record(c.id, '0.1.0.1', { lot: 'API-NEW', ...handLabels('lot', 'lot') })).statusCode).toBe(200);
+      const stale = JSON.stringify((await sign('asha', c.id, '0.1.0.1', 'done')).json());
+      expect(stale).toMatch(/Assay \(certificate\) is the previous lot's: record it for lot API-NEW/);
+      // Typed from the new lot's label (allowed while the lot is typed by hand); the same lot picked again is not a new lot.
+      { const r = await record(c.id, '0.1.0.1', { assay: '98.5', lod: '0.5' }); expect(r.statusCode, r.body).toBe(200); }
+      expect((await record(c.id, '0.1.0.1', { lot: 'API-NEW' })).statusCode).toBe(200);
+      expect(JSON.stringify((await sign('asha', c.id, '0.1.0.1', 'done')).json())).not.toMatch(/previous lot/);
+    } finally { await restore(S.mms); }
+    const s = await stepOf(c.id, '0.1.0.1');
+    expect(s.source.lot).toEqual({ from: 'hand', link: 'mms', state: 'down' });
+    expect(s.values).toMatchObject({ lot: 'API-NEW', assay: { value: '98.5', unit: '%' } });
+  });
+
+  it('TB-12 a second lot typed by hand after a first one: its label date is the first lot\'s until recorded again', async () => {
+    const c = await issue(granulation());
+    await act('asha', c.id, '0.1.0.1', 'start');
+    await cut(S.mms);
+    try {
+      expect((await record(c.id, '0.1.0.1', { lot: 'API-A', ...handLabels('lot', 'lot'), assay: '99.0', lod: '0.4', balance: 'eq-bal', gross: '1.000', tare: '0.850' })).statusCode).toBe(200);
+      expect((await record(c.id, '0.1.0.1', { lot: 'API-B' })).statusCode).toBe(200);
+      expect(JSON.stringify((await sign('asha', c.id, '0.1.0.1', 'done')).json())).toMatch(/is the previous lot's: record it for lot API-B/);
+    } finally { await restore(S.mms); }
   });
 
   it('TB-11 a balance is shared by the batches weighing on it: it is no use in equipment_use_v1, so the next weighing on it is not refused', async () => {
