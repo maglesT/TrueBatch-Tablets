@@ -7,7 +7,7 @@ import {
 } from '../api-floor.js';
 import { fieldLabel as labelOf, PROVIDER_NAME } from '../../../shared/engine/links.js';
 import { stepLabel } from '../../../shared/engine/batch.js';
-import { deviationNumber, deviationStatusWords } from '../../../shared/engine/release.js';
+import { bulkCheckedText, bulkNotCheckedText, bulkOpenText, deviationNumber, deviationStatusWords, type BulkChecked, type BulkDeviations } from '../../../shared/engine/release.js';
 import { skillText } from '../../../shared/engine/training.js';
 import { BatchHeader } from '../floor/BatchScreen.js';
 import { ReasonDialog } from '../floor/ReasonDialog.js';
@@ -31,11 +31,14 @@ interface Review {
   unlinked: { number: string; status: string; title: string | null }[];
   // Owner 17 Nov 2026: signatures whose training was ticked by the signer because Recruitment was not reachable.
   trainingTyped: { step: string; event: number; kind: string; code: string; title?: string; state: 'absent' | 'down'; personName: string | null; at: string }[];
+  // Packing (whole-suite run, S24): the bulk batch's open deviations (null for a manufacturing batch); a link that did not
+  // answer: not checked, and QA types what was checked at release.
+  bulk: BulkDeviations | null;
   deviationsLink: string;
   notApplicable: FloorEvent[];
   // Demo installations only: the waits ended at once (server/demo.ts).
   demoSkips: FloorEvent[];
-  batchEvents: { id: number; kind: string; payload: { reportNo?: string; reason?: string; terminated?: boolean }; personName: string; at: string }[];
+  batchEvents: { id: number; kind: string; payload: { reportNo?: string; reason?: string; terminated?: boolean; bulk?: BulkChecked }; personName: string; at: string }[];
   signatures: { objectType: string; printedName: string; meaning: string; signedAt: string; step: string | null }[];
 }
 type Signing = { meaning: 'qc_approved' | 'released' | 'rejected'; action: 'qc-approve' | 'release' | 'reject' };
@@ -48,6 +51,7 @@ export function ReleaseScreen({ me, id }: { me: Me; id: number }) {
   const [notice, setNotice] = useState('');
   const [reportNo, setReportNo] = useState('');
   const [rejectWhy, setRejectWhy] = useState('');
+  const [bulkTyped, setBulkTyped] = useState('');
   const [signing, setSigning] = useState<Signing | null>(null);
   const [closing, setClosing] = useState<Review['deviations'][number] | null>(null);
   const blocks = useBlocks();
@@ -77,14 +81,18 @@ export function ReleaseScreen({ me, id }: { me: Me; id: number }) {
   const decided = d.batch.status === 'released' || d.batch.status === 'rejected';
   const yields = d.steps.filter((s) => s.results.yield?.ok);
   const openDevs = r.deviations.filter((x) => x.open);
+  const bulkOpen = r.bulk?.state === 'ok' ? r.bulk.open : [];
+  const bulkUnchecked = r.bulk && r.bulk.state !== 'ok' ? r.bulk : null;
   const qcTurn = d.batch.status === 'production approved';
   const qaTurn = d.batch.status === 'QC approved';
-  const blockers = [...openDevs.map((x) => `Deviation ${x.reference} (${name(x.step)}) is ${x.status ? `still open in the Deviations system (${deviationStatusWords(x.status)}): it is closed there first.` : 'open: close it first.'}`), ...d.batch.yieldOut.map(plain)];
+  const blockers = [...openDevs.map((x) => `Deviation ${x.reference} (${name(x.step)}) is ${x.status ? `still open in the Deviations system (${deviationStatusWords(x.status)}): it is closed there first.` : 'open: close it first.'}`),
+    ...bulkOpen.map((x) => `${bulkOpenText(r.bulk!.bulk, x)}.`), ...d.batch.yieldOut.map(plain)];
   const handLabel = (step: string, field: string) => field === 'reference' ? 'deviation number' : fieldLabel(step, field);
 
   const sign = async ({ proof }: { proof: string }) => {
     if (!signing) return;
-    const extra = signing.action === 'qc-approve' ? { reportNo: reportNo.trim() } : signing.action === 'reject' ? { reason: rejectWhy.trim() } : {};
+    const extra = signing.action === 'qc-approve' ? { reportNo: reportNo.trim() } : signing.action === 'reject' ? { reason: rejectWhy.trim() }
+      : bulkUnchecked ? { bulkChecked: bulkTyped.trim() } : {};
     try {
       await api('POST', `/api/batches/${id}/${signing.action}`, { proof, contentHash: d.batch.contentHash, ...extra });
       setSigning(null);
@@ -108,7 +116,7 @@ export function ReleaseScreen({ me, id }: { me: Me; id: number }) {
         <Kpi n={r.sentBack.length} label="Sent back by the checker" tone="warn" />
         <Kpi n={r.late.length} label="Late (timers ran over)" tone="bad" />
         <Kpi n={r.outOfLimits.length} label="Out of limits" tone="bad" />
-        <Kpi n={openDevs.length} label={r.deviations.length ? `Open deviations (${r.deviations.length} in all)` : 'Open deviations'} tone="bad" />
+        <Kpi n={openDevs.length + bulkOpen.length} label={r.deviations.length ? `Open deviations (${r.deviations.length} in all)` : 'Open deviations'} tone="bad" />
         <Kpi n={r.hand.length} label="Typed by hand, not pulled through a link" tone="warn" />
       </div>
       {r.deviationsLink === 'down' && <p className="notice warn">The Deviations link is down: the deviation statuses shown are TrueBatch's own (closed by hand).</p>}
@@ -138,6 +146,10 @@ export function ReleaseScreen({ me, id }: { me: Me; id: number }) {
             {x.open && !x.status && !decided && can(me, 'qa.release') && <button onClick={() => setClosing(x)}>Close the deviation…</button>}</li>))}</Group>
         {r.unlinked.length > 0 && <Group title="Deviations naming this batch that no note links" empty="">{r.unlinked.map((x) => (
           <li key={x.number} className="bad"><b>{x.number}</b><span>{x.title}</span><small>{deviationStatusWords(x.status)} in the Deviations system</small></li>))}</Group>}
+        {r.bulk && (bulkUnchecked ? <Group title={`Open deviations of the bulk batch ${r.bulk.bulk}`} empty="">{[
+          <li key="unchecked" className="bad"><b>{bulkNotCheckedText(bulkUnchecked)}</b><span>QA checks them in the Deviations system and types what was found before release.</span></li>]}</Group>
+          : <Group title={`Open deviations of the bulk batch ${r.bulk.bulk}`} empty="None: every deviation of the bulk batch is closed in the Deviations system.">{bulkOpen.map((x) => (
+            <li key={x.number} className="bad"><b>{x.number}{x.step ? ` · ${x.step}` : ''}</b><span>{x.title}</span><small>{deviationStatusWords(x.status)} in the Deviations system: closed there before release</small></li>))}</Group>)}
         <Group title="Typed by hand (a link was off or down)" empty="Every linked value came through its link.">{r.hand.map((h, i) => (
           <li key={i}><b>{name(h.step)} · {handLabel(h.step, h.field)}</b><span>{PROVIDER_NAME[h.link]} {h.state === 'down' ? 'link was down' : 'not linked'}</span>
             <small>{h.personName}, {plainClock(h.at)}</small></li>))}</Group>
@@ -159,7 +171,7 @@ export function ReleaseScreen({ me, id }: { me: Me; id: number }) {
         {notice && <p className="notice info" role="status">{notice}</p>}
         {r.batchEvents.filter((b) => b.kind !== 'deviation_closed').map((b) => (
           <p key={b.id} className={b.kind === 'rejected' ? 'notice bad' : 'all-good'}><span aria-hidden="true">{b.kind === 'rejected' ? '✕' : '✓'}</span>
-            {b.payload.terminated ? terminatedText(b, plainClock) : <>{MEANING_LABEL[b.kind] ?? b.kind} by {b.personName}, {plainClock(b.at)}{b.payload.reportNo ? ` · QC report ${b.payload.reportNo}` : ''}{b.payload.reason ? ` · ${b.payload.reason}` : ''}</>}</p>))}
+            {b.payload.terminated ? terminatedText(b, plainClock) : <>{MEANING_LABEL[b.kind] ?? b.kind} by {b.personName}, {plainClock(b.at)}{b.payload.reportNo ? ` · QC report ${b.payload.reportNo}` : ''}{b.payload.reason ? ` · ${b.payload.reason}` : ''}{b.payload.bulk ? ` · ${bulkCheckedText(b.payload.bulk)}` : ''}</>}</p>))}
         {qcTurn && (can(me, 'qc.approve') ? (
           <div className="decide">
             <label>QC report number<input value={reportNo} onChange={(e) => setReportNo(e.target.value)} maxLength={60} placeholder="e.g. QC-26-0042" /></label>
@@ -170,9 +182,11 @@ export function ReleaseScreen({ me, id }: { me: Me; id: number }) {
         {qaTurn && (can(me, 'qa.release') ? (<>
           {blockers.length > 0 && <div className="notice bad" role="note"><p><b>Release is not possible yet:</b></p><ul>{blockers.map((t, i) => <li key={i}>{t}</li>)}</ul></div>}
           <div className="decide">
+            {bulkUnchecked && <label>{bulkNotCheckedText(bulkUnchecked)}. Check them in the Deviations system and type what you found (typed by hand)
+              <textarea value={bulkTyped} onChange={(e) => setBulkTyped(e.target.value)} maxLength={500} placeholder="e.g. Checked in the Deviations system: no open deviation of this bulk batch" /></label>}
             <p className="why">Your signature means: you reviewed the record and its audit trail above ({count(r.corrections.length, 'correction')}, {count(r.sentBack.length, 'step')} sent back,
               {' '}{count(r.late.length, 'late timer')}, {count(r.outOfLimits.length, 'value')} out of limits, {count(r.deviations.length, 'deviation')}) and the batch is released.</p>
-            <button className="big ok" disabled={blockers.length > 0} onClick={() => setSigning({ meaning: 'released', action: 'release' })}>Sign: released</button>
+            <button className="big ok" disabled={blockers.length > 0 || (!!bulkUnchecked && !bulkTyped.trim())} onClick={() => setSigning({ meaning: 'released', action: 'release' })}>Sign: released</button>
           </div>
           <div className="decide reject">
             <label>Reason for rejection<textarea value={rejectWhy} onChange={(e) => setRejectWhy(e.target.value)} maxLength={1000} /></label>
@@ -187,6 +201,7 @@ export function ReleaseScreen({ me, id }: { me: Me; id: number }) {
           <div className="summary-box">
             {signing.action === 'qc-approve' && <p>QC report <b>{reportNo.trim()}</b></p>}
             {signing.action === 'reject' && <p>Reason: <b>{rejectWhy.trim()}</b></p>}
+            {signing.action === 'release' && bulkUnchecked && <p>Bulk deviations, typed by hand: <b>{bulkTyped.trim()}</b></p>}
             {signing.action !== 'qc-approve' && <p>This signature also records your review of the batch's audit trail: {count(r.corrections.length, 'correction')}, {count(r.sentBack.length, 'step')} sent back,
               {' '}{count(r.late.length, 'late timer')}, {count(r.outOfLimits.length, 'value')} out of limits, {count(r.deviations.length, 'deviation')}, {count(r.notApplicable.length, 'step')} not applicable.</p>}
           </div>

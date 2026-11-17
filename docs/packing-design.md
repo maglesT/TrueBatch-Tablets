@@ -71,6 +71,16 @@ QA release of the packed batch. Built the Logbook way, as TrueBatch Tablets is.
   that clearance is not refused because the line is dirty), `step_name` at the end of both, quantities in the material's
   master-data unit (a count in e.g. nos), and `deviation_note_v1` with TrueBatch Tablets' columns (source_ref
   `truebatch_packing:note:<id>`), so the Deviations system files packing's notes too (late periodic checks).
+  `0110` (whole-suite run, S17): a use of the line or a room starts when it was first recorded on a step, not at that
+  step's start (as TrueBatch Tablets' `0016`).
+  **The bulk batch's open deviations** (whole-suite run, S24): QA's review and the packing record PDF list the
+  deviations of the bulk batch packed that are still open, read through TrueBatch Tablets' `deviation_note_v1` of the
+  bulk batch (a note's number, or the deviation Deviations filed from a note without one) and the Deviations system's
+  `deviation_v1` (their status, and the deviations that name the bulk batch there); release waits until they are closed
+  there (`server/routes/batches.ts` bulkDeviations, `shared/engine/release.ts` bulkRefusal). When either link is off
+  or down they are shown as "Bulk deviations not checked (link off)": QA checks them in the Deviations system and types
+  what was found; release keeps that text (`released` event `bulk`), shown in the review and the PDF. Packing reads
+  `truebatch` `deviation_note_v1` (manifest `reads`).
   `0104` (owner, 16 Nov 2026): `material_use_v1.quantity` is what the batch used of the lot: the quantity issued less
   what the reconciliation of the same material returned to stores uncoded, once that reconciliation is signed done
   (before it, the quantity issued). Destroyed and batch-coded material stays used. MMS takes the quantity off the lot,

@@ -143,7 +143,7 @@ export const mmsClient = (l: Link) => ({
     order by expiry_date nulls last, lot_number limit 100`).map((r) => lotOf(r))),
 });
 
-// ---- TrueBatch Tablets: report.batch_fact_v1 (published), read by TrueBatch Tablets Packing for its bulk batch. The
+// ---- TrueBatch Tablets: report.batch_fact_v1 and deviation_note_v1 (published), read by TrueBatch Tablets Packing for its bulk batch. The
 // date of manufacture is its manufactured_on (owner, 15 Nov 2026): the plant-time date the bulk batch's first
 // processing step started (db/migrations/0007_batch_fact_manufactured_on.sql); null until a step has started.
 // goodQuantity (owner, 17 Nov 2026: pull, don't type): its good_quantity, the good tablets of its reconciliation
@@ -160,6 +160,11 @@ export const truebatchClient = (l: Link) => ({
     const [r] = await q<BulkRow[]>`select ${q.unsafe(BULK_COLS)} from ${v('batch_fact_v1')} f where batch_number = ${batchNo} limit 1`;
     return r ? bulkOf(r) : null;
   }),
+  // Packing (whole-suite run, S24): the deviation notes of the bulk batch (deviation_note_v1): their number, or the
+  // source_ref the Deviations system files a note without one under; step is where the note was written, in words.
+  notes: (batchNo: string) => l.read(async (q, v) => (await q<{ source_ref: string; step: string | null; note: string | null; reference: string | null; status: string | null }[]>`
+    select source_ref, step, note, reference, status from ${v('deviation_note_v1')} where batch_number = ${batchNo} order by note_id`)
+    .map((r) => ({ sourceRef: r.source_ref, step: r.step, note: r.note, reference: r.reference, status: r.status }))),
   // The released bulk batches of a product, for a pick list.
   released: (productCode: string) => l.read(async (q, v) => (await q<BulkRow[]>`
     select ${q.unsafe(BULK_COLS)} from ${v('batch_fact_v1')} f where product_code = ${productCode} and released order by issued_at desc limit 100`).map(bulkOf)),
