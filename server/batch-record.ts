@@ -37,7 +37,7 @@ export function valueText(v: Value | undefined, stockUnit?: string): string {
   // Master data's version of a machine or room stays in the event; the record names the item (owner, 17 Nov 2026).
   if (isItem(v)) return `${v.code} · ${v.name}`;
   if (typeof v === 'object') return `${v.value}${v.unit ? ` ${unitName(v.unit, stockUnit)}` : ''}`;
-  return plantText(v);
+  return plantText(v, true);
 }
 /** The value at the end of a worked line ("… = 10.152 kg"). */
 const endOf = (r: Stored) => (r.ok ? (/=\s*([^=;]+)$/.exec(r.shown)?.[1]?.trim() ?? `${r.value} ${r.unit}`) : '');
@@ -206,7 +206,7 @@ function valueLines(block: Block, v: StepView, who: (id: number | null) => strin
 }
 
 // Where a value came from: pulled through a link (as read), or typed by hand while the link was off or down.
-const sourceText = (s: Source | undefined) => (!s ? '' : s.from === 'hand' ? ` (BY HAND: ${PROVIDER_NAME[s.link]} ${s.state === 'down' ? 'link down' : 'not linked'})` : ` (${plantText(s.shown)})`);
+const sourceText = (s: Source | undefined) => (!s ? '' : s.from === 'hand' ? ` (BY HAND: ${PROVIDER_NAME[s.link]} ${s.state === 'down' ? 'link down' : 'not linked'})` : ` (${plantText(s.shown, true)})`);
 
 // A certificate value from MMS: its basis and report, without the value said again ("· as is, MMS report QC/RM/26/1171").
 function certificateText(s: Source | undefined): string {
@@ -224,7 +224,7 @@ function resultLines(block: Block, st: Step, v: StepView, who: (id: number | nul
     // A round whose stop check is not reached yet is not out of limits: the rounds go on.
     const notYet = name === v.notYet;
     const counted = (t: string) => t.replace(/\bunits\b/g, unitName('units', stockUnit));
-    const text = (t: string) => counted(plantText(notYet ? notYetText(t, terminated) : t));
+    const text = (t: string) => counted(plantText(notYet ? notYetText(t, terminated) : t, true));
     // A check's worked line may start with its own question ("Packing finished: no", "Line clear after packing: …"):
     // the label is not said twice.
     // A figure leads, with its limit (owner, 17 Nov 2026); the worked lines follow without their verdict, which the
