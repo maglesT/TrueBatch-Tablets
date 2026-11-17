@@ -38,7 +38,10 @@ QA release of the packed batch. Built the Logbook way, as TrueBatch Tablets is.
   batch without one is refused. Without the link the bulk and its date of manufacture are typed from the bulk labels
   ("RELEASED", the product) with a second-person check, and QA's review lists them; a typed date in the future is
   refused. The tablets issued come with the bulk batch too (owner, 17 November 2026: pull, don't type): its good
-  tablets, `batch_fact_v1.good_quantity` (`0015`); typed only while TrueBatch Tablets does not give them.
+  tablets, `batch_fact_v1.good_quantity` (`0015`); typed only while TrueBatch Tablets does not give them. Offered is
+  what is LEFT of them (bug fix, 17 November 2026): the good tablets less the tablets issued to the other packing
+  batches of the same bulk batch, net of what went back unused when QA terminated one (the terminate window asks for
+  the bulk tablets too). Less may be typed (a part issue), more is refused; `shared/engine/stock.ts` `bulkLeft`.
 - **One active packing order per line** (TB-P7): a line with a batch still being packed takes no other.
 - **Batch facts and pack facts**: block calculations read the issue values (`$batch.bulk`, `$batch.mfgDate`,
   `$batch.tablets`, `$batch.packs`) and the master's pack (`$pack.shelfLifeMonths`, `$pack.mrp` …), so the coding
