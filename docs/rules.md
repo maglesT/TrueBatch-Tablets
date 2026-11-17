@@ -1,11 +1,11 @@
 # TrueBatch rules
 
-The 22 TrueBatch rules. Each is checked once, in the app. Each test that proves a rule starts its name with the rule
+The 23 TrueBatch rules. Each is checked once, in the app. Each test that proves a rule starts its name with the rule
 ID, e.g. `TB-08 the person who performed a step cannot check it`. `npm run traceability` prints the rule-to-test list;
 CI (`npm run traceability -- --check`) fails when a rule has no test, unless its feature comes later (marked
 "later" in the Tests column, with the feature it waits for).
 
-Clauses: the binding clauses each rule rests on (US: 21 CFR 211 and Part 11; EU: EudraLex Vol 4 Part I chapters C4, C5 and Annexes A11, A16; IN: Revised Schedule M Part I (SCHM) and Part VIII oral solids (SCHM-VIII)), checked against the official texts when the minimum register was made. QA should confirm them before validation.
+Clauses: the binding clauses each rule rests on (US: 21 CFR 211 and Part 11; EU: EudraLex Vol 4 Part I chapters C2, C4, C5 and Annexes A11, A16; IN: Revised Schedule M Part I (SCHM) and Part VIII oral solids (SCHM-VIII)), checked against the official texts when the minimum register was made. QA should confirm them before validation.
 
 | Rule | Requirement | Clauses | Tests |
 |------|-------------|---------|-------|
@@ -31,6 +31,7 @@ Clauses: the binding clauses each rule rests on (US: 21 CFR 211 and Part 11; EU:
 | TB-20 | The record is complete before production signs | US 211.188(b); EU C4 4.20(i); IN SCHM 17.3.8.3 (lead-in, (d)); 18.5.12 | `test/release.test.ts`, `test/batches.test.ts` |
 | TB-21 | QC approval, then QA review and release or rejection by e-signature; all changes and deviations shown; release blocked until linked deviations are closed | US 211.22(a); 211.192; 211.165(a); EU C4 4.27; A11 9, 15 (only if certifying here); IN SCHM 1 PQS (i); 11.3.6-11.3.9; 18.5.12; 19.8.1 | `test/release.test.ts`, `test/batches.test.ts`, `test/links.test.ts` (Deviations status), `test/packing.test.ts` and `test/packing-api.test.ts` (packing: QC before QA) |
 | TB-22 | A complete copy (PDF) with its signatures and changes | US 11.10(b); 211.180(c); EU A11 8.1, 8.2; C4 4.27; IN SCHM 17.2.8 ("readily available") | `test/batches.test.ts`, `e2e/release.spec.ts` |
+| TB-23 | A step that names a training is signed (performed or checked) only by a person Recruitment shows trained in it; while Recruitment cannot be reached the signer confirms it and QA sees it | US 211.25(a); 11.10(i); EU C2 2.11 | `test/training.test.ts`, `e2e/floor.spec.ts` |
 
 ## Packing rules (TrueBatch Tablets Packing)
 
