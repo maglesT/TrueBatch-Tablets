@@ -2,7 +2,9 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { connect, type Sql } from '../server/db.js';
 import { links, namesProduct, type Links } from '../server/links.js';
 import { findBlock } from '../shared/blocks/index.js';
-import { batchRefusal, batchView, fieldLabel, handFields, type BatchEvent } from '../shared/engine/index.js';
+import { batchRefusal, batchView, deviationText, fieldLabel, filedKey, handFields, type BatchEvent } from '../shared/engine/index.js';
+import { batchRecordDoc } from '../server/batch-record.js';
+import { loadBatch, recordInput } from '../server/routes/batches.js';
 import { call, freshApp, handLabels, login, proofFor, seedUser, TEST_DATABASE_URL, type TestApp } from './helpers.js';
 import { at, ev, small, tablet, placed } from './engine-fixture.js';
 import { inLogbook } from '../shared/engine/picks.js';
@@ -516,7 +518,8 @@ describe('the views TrueBatch publishes', () => {
     const batchwright = ['batch_id uuid', 'batch_number text', 'product_code text', 'strength text', 'mbr_version_id uuid', 'family_code text',
       'record_kind text', 'status text', 'issued_at timestamp with time zone', 'completed_at timestamp with time zone', 'released boolean',
       'read_at timestamp with time zone', 'data_as_of timestamp with time zone'];
-    expect(await columns('batch_fact_v1')).toEqual([...batchwright, 'manufactured_on date', 'product_name text', 'master_version integer']);
+    expect(await columns('batch_fact_v1')).toEqual([...batchwright, 'manufactured_on date', 'product_name text', 'master_version integer',
+      'good_quantity numeric', 'good_unit text', 'yield_percent numeric']);
     expect(await columns('equipment_use_v1')).toEqual(['batch_number text', 'equipment_code text', 'equipment_type text', 'room_code text', 'step text',
       'started_at timestamp with time zone', 'ended_at timestamp with time zone', 'read_at timestamp with time zone', 'data_as_of timestamp with time zone', 'step_name text']);
     expect(await columns('deviation_note_v1')).toEqual(['note_id bigint', 'source_ref text', 'batch_number text', 'product_code text', 'step text', 'note text',
@@ -561,6 +564,34 @@ describe('the views TrueBatch publishes', () => {
       (${started}, 0, 1, 0, 1, 'value', '{}', ${b!.by}, '2026-11-02 21:00+00')`;
     const rows = await t.owner.unsafe(`select batch_number, issued_at::date::text as issued, manufactured_on::text from ${rep()}.batch_fact_v1 where batch_number like 'MFG-%' order by batch_number`);
     expect(rows).toEqual([{ batch_number: 'MFG-NOT-STARTED', issued: '2026-10-30', manufactured_on: null }, { batch_number: 'MFG-STARTED', issued: '2026-10-30', manufactured_on: '2026-11-03' }]);
+  });
+
+  it('batch_fact_v1 gives the batch\'s output (for OEE and packing): the good tablets and the yield of its tablet reconciliation, once that step is done; null before', async () => {
+    const [u] = await t.owner<{ id: number }[]>`select id::int from users order by id limit 1`;
+    // Only what the view reads of a master: a stage yield, then the tablet reconciliation (the batch's).
+    const doc = { header: { productCode: 'OUT', productName: 'Output' }, stages: [{ key: 'c', steps: [{ key: 'y', block: { id: 'stage-yield', version: 1 } },
+      { key: 'r', block: { id: 'tablet-reconciliation', version: 1 } }] }] };
+    const [v] = await t.owner<{ id: number }[]>`insert into master_versions (version_no, doc, created_by) values (1, ${t.owner.json(doc as never)}, ${u!.id}) returning id::int`;
+    const [b] = await t.owner<{ id: number }[]>`insert into batches (batch_no, master_version_id, issued_by) values ('OUT-1', ${v!.id}, ${u!.id}) returning id::int`;
+    const res = (good: string, y: string) => ({ results: { goodTablets: { ok: true, value: good, unit: 'tablets', shown: '' }, yield: { ok: true, value: y, unit: '%', shown: '' },
+      accountability: { ok: false, message: 'not yet' } } });
+    const add = (step: number, kind: string, payload: object) => t.owner`insert into step_events (batch_id, stage, sub, step, round, kind, payload, person_id)
+      values (${b!.id}, 0, 1, ${step}, 1, ${kind}, ${t.owner.json(payload as never)}, ${u!.id})`;
+    const out = async () => (await t.owner.unsafe(`select good_quantity::text, good_unit, yield_percent::text from ${rep()}.batch_fact_v1 where batch_number = 'OUT-1'`))[0];
+    await add(0, 'value', { results: { yield: { ok: true, value: '99', unit: '%', shown: '' } } });
+    await add(0, 'done', {});
+    await add(1, 'value', res('198765.4', '99.382716'));
+    // Recorded but not signed: not yet the batch's output.
+    expect(await out()).toEqual({ good_quantity: null, good_unit: 'tablets', yield_percent: null });
+    await add(1, 'done', {});
+    expect(await out()).toEqual({ good_quantity: '198765', good_unit: 'tablets', yield_percent: '99.38' });
+    // Sent back: null again until signed again; a correction after that gives the corrected figures.
+    await add(1, 'sent_back', { reason: 'recount' });
+    expect((await out())!.good_quantity).toBeNull();
+    await add(1, 'value', res('197000', '98.5'));
+    await add(1, 'done', {});
+    await add(1, 'corrected', res('197500', '98.75'));
+    expect(await out()).toEqual({ good_quantity: '197500', good_unit: 'tablets', yield_percent: '98.75' });
   });
 
   it('batch_fact_v1 names the product and gives the master version as its number', async () => {
@@ -686,5 +717,52 @@ describe('the views TrueBatch publishes', () => {
 
   it('nobody reads the views without a link: the app login itself has no grant', async () => {
     await expect(t.sql.unsafe(`select * from ${rep()}.batch_fact_v1`)).rejects.toMatchObject({ code: '42501' });
+  });
+});
+
+describe('the deviation number flows back to the batch record (owner, 17 Nov 2026)', () => {
+  type Dev = { note: number; step: string; reference: string; open: boolean; status?: string; filed?: boolean; typed?: boolean };
+  let b: { id: number; batchNo: string };
+  const devs = async () => ((await as('meera', 'GET', `/api/batches/${b.id}`)).json() as { batch: { deviations: Dev[]; deviationsLink: string } }).batch;
+  beforeAll(async () => { b = await issue(small([{ steps: [{ checker: true }, yieldStep] }])); });
+
+  it('a note written without a number takes the number of the deviation Deviations filed from it (deviation_v1.source_ref), with its status, read live', async () => {
+    expect((await act('asha', b.id, '0.1.0.1', 'note', { text: 'Torn label on the drum' })).statusCode).toBe(200);
+    // Not filed yet: a note, no deviation.
+    expect(await devs()).toMatchObject({ deviationsLink: 'ok', deviations: [] });
+    const [n] = await t.owner.unsafe(`select note_id::int as id, source_ref from ${t.schema}_report.deviation_note_v1 where batch_number = $1`, [b.batchNo]);
+    await t.owner.unsafe(`insert into ${S.dv}.deviation_v1 (number, status, batch, batch_norm, title, source_ref) values
+      ('DEV-26-0123', 'investigation', '${b.batchNo}', '${b.batchNo.toLowerCase()}', 'Torn label', '${n!.source_ref as string}')`);
+    const d = await devs();
+    expect(d.deviations).toEqual([expect.objectContaining({ note: n!.id, step: '0.1.0.1', reference: 'DEV-26-0123', open: true, status: 'investigation', filed: true })]);
+    expect(deviationText(d.deviations[0]!)).toBe('DEV-26-0123 (filed in Deviations from this note) · under investigation (Deviations)');
+    // Open in Deviations: QA cannot close it by hand; the review lists it as linked, not as a deviation no note links.
+    expect((await as('meera', 'POST', `/api/batches/${b.id}/close-deviation`, { note: n!.id, reason: 'Closed' })).json())
+      .toMatchObject({ problems: ['The status of DEV-26-0123 comes from the Deviations system (now under investigation): it is closed there.'] });
+    const r = (await as('meera', 'GET', `/api/batches/${b.id}/review`)).json() as { deviations: Dev[]; unlinked: { number: string }[] };
+    expect([r.deviations.map((x) => x.reference), r.unlinked]).toEqual([['DEV-26-0123'], []]);
+    await t.owner.unsafe(`update ${S.dv}.deviation_v1 set status = 'closed', closed_at = now() where number = 'DEV-26-0123'`);
+    expect((await devs()).deviations).toMatchObject([{ reference: 'DEV-26-0123', open: false, status: 'closed' }]);
+  });
+
+  it('Deviations down: a number typed with the note says "typed by hand"; the filed number is not shown (never stale)', async () => {
+    await cut(S.dv);
+    try {
+      expect((await act('mona', b.id, '0.1.0.1', 'note', { text: 'Second label torn', reference: 'DEV-PAPER-9' })).statusCode).toBe(200);
+      const d = await devs();
+      expect(d).toMatchObject({ deviationsLink: 'down', deviations: [{ reference: 'DEV-PAPER-9', open: true, typed: true }] });
+      expect(d.deviations[0]!.filed).toBeUndefined();
+      expect(deviationText(d.deviations[0]!)).toBe('DEV-PAPER-9 (typed by hand) · open');
+    } finally { await restore(S.dv); }
+  });
+
+  it('the batch record PDF shows the number and status on the step where the note was written, and in its deviation notes', async () => {
+    const l = (await loadBatch(t.sql, b.id))!;
+    const note = l.events.find((e) => e.kind === 'note' && !e.payload.reference)!;
+    const pdf = JSON.stringify(batchRecordDoc({ ...await recordInput(t.sql, l), deviationsRead: new Map([[filedKey(note.id), { status: 'capa', closedAt: null, number: 'DEV-26-0123' }]]) }, 'QA'));
+    expect(pdf).toContain('deviation DEV-26-0123 (filed in Deviations from this note) · waiting for its CAPA (Deviations): Torn label on the drum');
+    expect(pdf).toContain('deviation DEV-PAPER-9 (typed by hand) · open: Second label torn');
+    expect(pdf).toContain('"DEV-26-0123 (filed in Deviations from this note)"');
+    expect(pdf).toContain('OPEN: waiting for its CAPA in the Deviations system');
   });
 });

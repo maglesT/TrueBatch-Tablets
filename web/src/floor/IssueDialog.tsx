@@ -10,7 +10,7 @@ import { emptyNote, inLogbook, machineRefusal } from '../../../shared/engine/pic
 
 // TB-03: issue a batch from the effective master version, signed "issued". A packing master's first step is recorded
 // at issue: the line, the released bulk batch (picked from TrueBatch Tablets; typed from its labels without the link)
-// and the tablets issued. A value the server finds typed by hand (a link absent or down) asks its label questions.
+// and the tablets issued (its good tablets, pulled with it when TrueBatch Tablets gives them). A value the server finds typed by hand (a link absent or down) asks its label questions.
 export function IssueDialog({ row, onCancel }: { row: MasterRow; onCancel: () => void }) {
   const [v, setV] = useState<Version | null>(null);
   const [values, setValues] = useState<Record<string, unknown>>({});
@@ -19,7 +19,7 @@ export function IssueDialog({ row, onCancel }: { row: MasterRow; onCancel: () =>
   const [lines, setLines] = useState<PickItem[]>([]);
   const [machines, setMachines] = useState<PickItem[]>([]);
   const [rooms, setRooms] = useState<PickItem[]>([]);
-  const [bulk, setBulk] = useState<{ link: string; batches: { batchNo: string; mfgDate: string | null }[] } | null>(null);
+  const [bulk, setBulk] = useState<{ link: string; batches: { batchNo: string; mfgDate: string | null; goodQuantity?: string | null }[] } | null>(null);
   useEffect(() => { getVersion(row.id).then(setV, (e) => setProblems([plainError(e)])); }, [row.id]);
   const doc = v?.doc;
   const block = doc?.stages[0]?.steps[0] ? findBlock(doc.stages[0].steps[0].block) : undefined;
@@ -38,12 +38,15 @@ export function IssueDialog({ row, onCancel }: { row: MasterRow; onCancel: () =>
   // The label questions of a value the server found typed by hand ("… is not recorded").
   const asked = handFields(block?.fields ?? [], Object.fromEntries((block?.fields ?? []).map((f) => [f.name, { from: 'hand', link: 'mms', state: 'absent' } as Source])))
     .filter((f) => problems.some((p) => p.startsWith(`${f.label} is not recorded`)));
-  // The date of manufacture comes with the bulk batch while TrueBatch Tablets answers.
-  const fields = [...atIssue.filter((f) => f.name !== 'mfgDate' || (bulk && bulk.link !== 'ok')), ...asked];
+  // The date of manufacture comes with the bulk batch while TrueBatch Tablets answers, and so do the tablets issued
+  // (the bulk batch's good tablets) when it gives them (pull, don't type).
+  const picked = bulk?.link === 'ok' ? bulk.batches.find((x) => x.batchNo === String(values.bulk ?? '').trim()) : undefined;
+  const fields = [...atIssue.filter((f) => (f.name !== 'mfgDate' || (bulk && bulk.link !== 'ok')) && (f.name !== 'tablets' || !picked?.goodQuantity)), ...asked];
+  const sent = Object.fromEntries(Object.entries(values).filter(([k]) => fields.some((f) => f.name === k)));
   const set = (name: string) => (raw: unknown) => setValues((x) => ({ ...x, [name]: raw }));
   const issue = async ({ proof }: { proof: string }) => {
     try {
-      const b = await api<{ id: number }>('POST', '/api/batches', { masterVersionId: row.id, proof, ...(fields.length ? { values } : {}) });
+      const b = await api<{ id: number }>('POST', '/api/batches', { masterVersionId: row.id, proof, ...(fields.length ? { values: sent } : {}) });
       go(batchLink(b.id));
     } catch (e) {
       if (!(e instanceof ApiError && e.problems.length)) throw e;
@@ -60,6 +63,7 @@ export function IssueDialog({ row, onCancel }: { row: MasterRow; onCancel: () =>
           <FieldInput key={f.name} f={f} unit={f.unit ?? ''} picks={f.kind === 'machine' ? offer.offered : []} note={[f.kind === 'machine' && machines.length && !lines.length ? emptyNote(doc.stages[0]!, f, machines, rooms) : null, f.kind === 'machine' ? offer.note : null]} onChange={set(f.name)}
             options={f.kind === 'bulk' ? (bulk?.batches ?? []).map((x) => x.batchNo) : []} />
         ))}
+        {picked?.goodQuantity && <p className="notice">Bulk tablets issued: {Number(picked.goodQuantity).toLocaleString('en-IN')} tablets, the good tablets of {picked.batchNo} in TrueBatch Tablets.</p>}
         {doc.pack && bulk && bulk.link !== 'ok' && <p className="notice warn">TrueBatch Tablets is not linked or not answering: type the bulk batch from its container labels; a second person checks it.</p>}
         {problems.length > 0 && <div className="notice bad" role="alert">{problems.map((p, i) => <p key={i}>{p}</p>)}</div>}
         <div className="actions">

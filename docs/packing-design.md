@@ -37,7 +37,8 @@ QA release of the packed batch. Built the Logbook way, as TrueBatch Tablets is.
   `batch_fact_v1.manufactured_on` (`db/migrations/0007_batch_fact_manufactured_on.sql`), not its issue date; a bulk
   batch without one is refused. Without the link the bulk and its date of manufacture are typed from the bulk labels
   ("RELEASED", the product) with a second-person check, and QA's review lists them; a typed date in the future is
-  refused.
+  refused. The tablets issued come with the bulk batch too (owner, 17 November 2026: pull, don't type): its good
+  tablets, `batch_fact_v1.good_quantity` (`0015`); typed only while TrueBatch Tablets does not give them.
 - **One active packing order per line** (TB-P7): a line with a batch still being packed takes no other.
 - **Batch facts and pack facts**: block calculations read the issue values (`$batch.bulk`, `$batch.mfgDate`,
   `$batch.tablets`, `$batch.packs`) and the master's pack (`$pack.shelfLifeMonths`, `$pack.mrp` …), so the coding
@@ -59,8 +60,9 @@ QA release of the packed batch. Built the Logbook way, as TrueBatch Tablets is.
   product was tested and complies), then QA release or rejection by e-signature. QA cannot release or reject before
   QC has approved. `packing_batch_v1` shows QC_APPROVED in between (`packing/migrations/0101_packing_qc_status.sql`).
 - **Published**: `packing_batch_v1` (packing order, coded batch number, products, pack, dates, packs and cartons,
-  status, and at its end `shippers`, the shippers counted at the finished goods step or null, `0108`) for MMS finished
-  goods; the line named only in the line clearance has the stage as its `step_name` ("Packing", `0107`); `equipment_use_v1` (the line and rooms used, for the Logbook) and
+  status, and at its end `shippers`, the shippers counted at the finished goods step or null, `0108`; then
+  `good_quantity`, `good_unit` 'packs' and `yield_percent`, the good packs and the yield in packs of the finished goods
+  step, null until it is done, `0109`, for OEE) for MMS finished goods; the line named only in the line clearance has the stage as its `step_name` ("Packing", `0107`); `equipment_use_v1` (the line and rooms used, for the Logbook) and
   `material_use_v1` (per signed issue step its lot, packing material and quantity issued in the material's unit, for
   MMS to reduce the lot's stock) with TrueBatch Tablets' names and columns
   (`packing/migrations/0102_packing_equipment_and_material_use.sql`). `0103`: one use of the line per packing batch:

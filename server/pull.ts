@@ -91,7 +91,9 @@ export async function pullLot(app: FastifyInstance, doc: MasterDoc, st: Step, bl
 
 /**
  * Packing: a bulk batch TrueBatch Tablets has RELEASED, of this pack's bulk product; its date of manufacture (the date
- * its first processing step started, batch_fact_v1.manufactured_on) comes with it.
+ * its first processing step started, batch_fact_v1.manufactured_on) comes with it, and so do the tablets issued (its
+ * good tablets, batch_fact_v1.good_quantity; owner 17 Nov 2026: pull, don't type). Without a good quantity (not given
+ * by its view) the tablets are typed.
  */
 export async function pullBulk(app: FastifyInstance, doc: MasterDoc, block: Block, batchNo: string): Promise<Pulled> {
   const r = await app.links.truebatch.batch(batchNo);
@@ -105,6 +107,8 @@ export async function pullBulk(app: FastifyInstance, doc: MasterDoc, block: Bloc
   const source: Source = { from: 'truebatch', asOf: b.dataAsOf, shown: `TrueBatch Tablets batch ${batchNo}: ${b.status}, ${b.productCode ?? '—'}, manufactured ${b.mfgDate ?? '—'}` };
   const out: Pulled = { source, values: {}, sources: {}, problems };
   if (b.mfgDate && block.fields.some((x) => x.name === 'mfgDate')) { out.values.mfgDate = b.mfgDate; out.sources.mfgDate = source; }
+  const tablets = block.fields.find((x) => x.name === 'tablets');
+  if (b.goodQuantity && tablets) { out.values.tablets = { value: b.goodQuantity, unit: tablets.unit ?? 'tablets' }; out.sources.tablets = { ...source, shown: `${source.shown}, ${b.goodQuantity} good tablets` }; }
   return out;
 }
 

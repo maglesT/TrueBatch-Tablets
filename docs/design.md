@@ -27,7 +27,11 @@ answering) or **ok**.
   the value is stored with source `hand` (and whether the link was absent or down), and QA's review lists it.
 - **Deviations** (`deviation_v1`): a note's reference must exist; while the link answers its status is Deviations'
   (closed or rejected there counts as closed) and QA cannot close it by hand. By hand: a QA person other than the one
-  who typed the number closes it.
+  who typed the number closes it. The number flows back (owner, 17 November 2026): a note written without a number
+  that Deviations filed a deviation from (`deviation_v1.source_ref` = the note's `deviation_note_v1.source_ref`) is
+  that deviation, read live while the link answers: its number and status are shown on the step, the batch screen,
+  QA's review and the PDF, and it blocks release until closed there. A number typed while the link was off says
+  "typed by hand".
 - **QMS** (`change_v1`, planned): the change control at approval must exist and be QA-approved, in a step of
   `CHANGE_STEPS`, and its products must name the master's product (code or name, without case); one that names no
   product is taken with a warning to QA. By hand: another person makes the version effective.
@@ -56,7 +60,9 @@ answering) or **ok**.
   for Deviations to file notes later. `batch_fact_v1` has one more column at its end (`0007`): `manufactured_on`, the
   date of manufacture, the plant-time date the batch's first processing step started (null before), which TrueBatch
   Tablets Packing reads; readers of Batchwright's columns select them by name and are not affected. `0008` adds
-  `product_name` and `master_version` at the end (family_code is the master version's number) and publishes
+  `product_name` and `master_version` at the end (family_code is the master version's number); `0015` adds the
+  output counts for OEE and packing: `good_quantity` (the good tablets of the tablet reconciliation, whole),
+  `good_unit` ('tablets') and `yield_percent`, null until that step is done; it publishes
   `material_use_v1`: per signed weighing step its lot, material and net quantity (status dispensed, or corrected with
   the corrected quantity); MMS reduces the lot's stock by reading it (owner decision), nothing is sent. `0011`: a
   machine or room is in use by its **batch**, not its step or stage (cleaning is due between batches, not between the
