@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { headline } from '../shared/engine/plain.js';
-import { store } from '../shared/engine/values.js';
+import { store, type Stored } from '../shared/engine/values.js';
 import { t17LiquidMakeUp } from '../shared/templates/liquid.js';
 import { c1WithinLimits, c3AllIndividual } from '../shared/templates/series.js';
 import { c6StagedTest } from '../shared/templates/staged.js';
@@ -27,8 +27,9 @@ describe('headline', () => {
   });
 
   it('a stored line of before (a rounded-away minus) reads without a sign', () => {
-    expect(headline({ ok: true, value: '24.995', unit: 'kg', deviation: '-0.02', shown: '24.9950 kg is 0.0 % from 25.0000 kg (target); limit ± 0.5 %: within limits',
-      check: { pass: true, level: 'pass', rounded: '-0.020', shown: '' } })).toBe('0.0 %');
+    const before = { ok: true, value: '24.995', unit: 'kg', deviation: '-0.02', shown: '24.9950 kg is 0.0 % from 25.0000 kg (target); limit ± 0.5 %: within limits',
+      check: { pass: true, level: 'pass', rounded: '-0.020', shown: '' } } as Stored;
+    expect(headline(before)).toBe('0.0 %');
   });
 });
 
