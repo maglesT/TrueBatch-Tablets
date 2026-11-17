@@ -139,18 +139,23 @@ export const mmsClient = (l: Link) => ({
 // ---- TrueBatch Tablets: report.batch_fact_v1 (published), read by TrueBatch Tablets Packing for its bulk batch. The
 // date of manufacture is its manufactured_on (owner, 15 Nov 2026): the plant-time date the bulk batch's first
 // processing step started (db/migrations/0007_batch_fact_manufactured_on.sql); null until a step has started.
-export interface BulkRead { batchNo: string; productCode: string | null; status: string; released: boolean; mfgDate: string | null; dataAsOf: string | null }
-type BulkRow = { batch_number: string; product_code: string | null; status: string; released: boolean; mfg_date: string | null; data_as_of: string | null };
-const bulkOf = (r: BulkRow): BulkRead => ({ batchNo: r.batch_number, productCode: r.product_code, status: r.status, released: r.released, mfgDate: r.mfg_date, dataAsOf: r.data_as_of });
-const BULK_COLS = 'batch_number, product_code, status, released, manufactured_on::text as mfg_date, data_as_of::text';
+// goodQuantity (owner, 17 Nov 2026: pull, don't type): its good_quantity, the good tablets of its reconciliation
+// (db/migrations/0015_batch_fact_output.sql), what the packing batch is issued; read through to_jsonb, so a view from
+// before the column was appended reads as null (the tablets are then typed).
+export interface BulkRead { batchNo: string; productCode: string | null; status: string; released: boolean; mfgDate: string | null; dataAsOf: string | null; goodQuantity: string | null }
+type BulkRow = { batch_number: string; product_code: string | null; status: string; released: boolean; mfg_date: string | null; data_as_of: string | null; good_quantity: string | null };
+const bulkOf = (r: BulkRow): BulkRead => ({ batchNo: r.batch_number, productCode: r.product_code, status: r.status, released: r.released, mfgDate: r.mfg_date, dataAsOf: r.data_as_of,
+  goodQuantity: r.good_quantity });
+const BULK_COLS = `batch_number, product_code, status, released, manufactured_on::text as mfg_date, data_as_of::text,
+  nullif(to_jsonb(f) ->> 'good_quantity', '') as good_quantity`;
 export const truebatchClient = (l: Link) => ({
   batch: (batchNo: string) => l.read(async (q, v) => {
-    const [r] = await q<BulkRow[]>`select ${q.unsafe(BULK_COLS)} from ${v('batch_fact_v1')} where batch_number = ${batchNo} limit 1`;
+    const [r] = await q<BulkRow[]>`select ${q.unsafe(BULK_COLS)} from ${v('batch_fact_v1')} f where batch_number = ${batchNo} limit 1`;
     return r ? bulkOf(r) : null;
   }),
   // The released bulk batches of a product, for a pick list.
   released: (productCode: string) => l.read(async (q, v) => (await q<BulkRow[]>`
-    select ${q.unsafe(BULK_COLS)} from ${v('batch_fact_v1')} where product_code = ${productCode} and released order by issued_at desc limit 100`).map(bulkOf)),
+    select ${q.unsafe(BULK_COLS)} from ${v('batch_fact_v1')} f where product_code = ${productCode} and released order by issued_at desc limit 100`).map(bulkOf)),
 });
 
 export interface Links {

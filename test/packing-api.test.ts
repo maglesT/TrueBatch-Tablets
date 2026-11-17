@@ -48,7 +48,8 @@ beforeAll(async () => {
     { ...item('prd-1', 'PRD-001', 'Examplol 100 mg tablets'), strength: '100 mg', dosageForm: 'tablet' });
   for (const m of packing().pack!.materials) t.master.materials_.push({ ...item(m.materialItemId, m.code, m.name), category: 'packing', unit: m.unit === 'units' ? 'nos' : m.unit });
   t.master.equipment_.push({ ...item('ln-1', 'BL-01', 'Blister line 1'), kind: 'equipment', type: 'blister line', room: 'PK-01' },
-    { ...item('ln-2', 'BL-02', 'Blister line 2'), kind: 'equipment', type: 'blister line', room: 'PK-02' });
+    { ...item('ln-2', 'BL-02', 'Blister line 2'), kind: 'equipment', type: 'blister line', room: 'PK-02' },
+    { ...item('ln-3', 'BL-03', 'Blister line 3'), kind: 'equipment', type: 'blister line', room: 'PK-03' });
   const people = {
     author: P('master.author', 'view'), issuer: P('batch.issue'), op1: P('batch.operate'), chk1: P('batch.check'), sup1: P('batch.supervise'), qc1: P('qc.approve'), qa1: P('qa.release'),
   };
@@ -315,10 +316,12 @@ describe('a packing batch from a released bulk batch', () => {
     expect(res.headers['content-type']).toContain('application/pdf');
 
     // The published view, for MMS finished goods later.
-    const [row] = await t.owner.unsafe(`select batch_number, coded_batch_number, product_code, bulk_product_code, pack_type, units_per_pack, mfg_date, expiry_month, packs::text, cartons::text, status, released, shippers::text
+    const [row] = await t.owner.unsafe(`select batch_number, coded_batch_number, product_code, bulk_product_code, pack_type, units_per_pack, mfg_date, expiry_month, packs::text, cartons::text, status, released, shippers::text,
+        good_quantity::text, good_unit, yield_percent::text
       from ${t.schema}_report.packing_batch_v1 where coded_batch_number = 'TB260001'`);
+    // The output counts (for OEE): the good packs and the yield in packs of the finished goods step.
     expect(row).toMatchObject({ coded_batch_number: 'TB260001', product_code: 'PK-001', bulk_product_code: 'PRD-001', pack_type: 'blister', units_per_pack: 10, mfg_date: '2026-11-03',
-      expiry_month: '2028-10', packs: '9800', cartons: '980', status: 'RELEASED', released: true, shippers: '20' });
+      expiry_month: '2028-10', packs: '9800', cartons: '980', status: 'RELEASED', released: true, shippers: '20', good_quantity: '9800', good_unit: 'packs', yield_percent: '98.00' });
     // For the Logbook: the line used, as TrueBatch Tablets publishes its machines. For MMS: the packing materials issued,
     // per lot, in the material's unit, as TrueBatch Tablets publishes what it dispensed.
     const batchNo = (await loadBatch(t.sql, id))!.batch.batchNo;
@@ -351,6 +354,22 @@ describe('a packing batch from a released bulk batch', () => {
     expect((await issue({ line: 'ln-1', bulk: 'TB260004', tablets: '50000' })).statusCode).toBe(200);
     // Its shippers are not counted yet: null, so MMS asks for them (the last column, for MMS finished goods).
     expect(await t.owner.unsafe(`select distinct shippers from ${t.schema}_report.packing_batch_v1 where coded_batch_number = 'TB260004'`)).toEqual([{ shippers: null }]);
-    expect((await cols('packing_batch_v1')).split(', ').at(-1)).toBe('shippers numeric');
+    // Nor its output: null until the finished goods step is done.
+    expect(await t.owner.unsafe(`select distinct good_quantity, good_unit, yield_percent from ${t.schema}_report.packing_batch_v1 where coded_batch_number = 'TB260004'`))
+      .toEqual([{ good_quantity: null, good_unit: 'packs', yield_percent: null }]);
+    expect((await cols('packing_batch_v1')).split(', ').slice(-4)).toEqual(['shippers numeric', 'good_quantity numeric', 'good_unit text', 'yield_percent numeric']);
+  });
+
+  it('pull, don\'t type: the tablets issued are the bulk batch\'s good tablets (batch_fact_v1.good_quantity), when TrueBatch Tablets gives them; typed while its view does not', async () => {
+    await t.owner.unsafe(`alter table ${TB}.batch_fact_v1 add column good_quantity numeric; update ${TB}.batch_fact_v1 set good_quantity = 48000 where batch_number = 'TB260004'`);
+    expect(((await as('issuer', 'GET', '/api/bulk-batches?product=PRD-001')).json() as { batches: { batchNo: string; goodQuantity: string | null }[] }).batches
+      .map((b) => [b.batchNo, b.goodQuantity])).toEqual([['TB260005', null], ['TB260004', '48000'], ['TB260001', null]]);
+    // Pulled: typing it is refused.
+    expect((await issue({ line: 'ln-3', bulk: 'TB260004', tablets: '50000' })).json()).toMatchObject({ problems: ['Bulk tablets issued comes from TrueBatch Tablets and cannot be typed over'] });
+    const res = await issue({ line: 'ln-3', bulk: 'TB260004' });
+    expect(res.statusCode, res.body).toBe(200);
+    const s = (await get((res.json() as { id: number }).id)).steps[0]!;
+    expect(s).toMatchObject({ values: { tablets: { value: '48000', unit: 'tablets' } }, source: { tablets: { from: 'truebatch' } } });
+    expect(s.results.packs).toMatchObject({ ok: true, shown: '48000 tablets ÷ 10 tablets = 4800 packs' });
   });
 });

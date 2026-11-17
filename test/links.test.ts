@@ -516,7 +516,8 @@ describe('the views TrueBatch publishes', () => {
     const batchwright = ['batch_id uuid', 'batch_number text', 'product_code text', 'strength text', 'mbr_version_id uuid', 'family_code text',
       'record_kind text', 'status text', 'issued_at timestamp with time zone', 'completed_at timestamp with time zone', 'released boolean',
       'read_at timestamp with time zone', 'data_as_of timestamp with time zone'];
-    expect(await columns('batch_fact_v1')).toEqual([...batchwright, 'manufactured_on date', 'product_name text', 'master_version integer']);
+    expect(await columns('batch_fact_v1')).toEqual([...batchwright, 'manufactured_on date', 'product_name text', 'master_version integer',
+      'good_quantity numeric', 'good_unit text', 'yield_percent numeric']);
     expect(await columns('equipment_use_v1')).toEqual(['batch_number text', 'equipment_code text', 'equipment_type text', 'room_code text', 'step text',
       'started_at timestamp with time zone', 'ended_at timestamp with time zone', 'read_at timestamp with time zone', 'data_as_of timestamp with time zone', 'step_name text']);
     expect(await columns('deviation_note_v1')).toEqual(['note_id bigint', 'source_ref text', 'batch_number text', 'product_code text', 'step text', 'note text',
@@ -561,6 +562,34 @@ describe('the views TrueBatch publishes', () => {
       (${started}, 0, 1, 0, 1, 'value', '{}', ${b!.by}, '2026-11-02 21:00+00')`;
     const rows = await t.owner.unsafe(`select batch_number, issued_at::date::text as issued, manufactured_on::text from ${rep()}.batch_fact_v1 where batch_number like 'MFG-%' order by batch_number`);
     expect(rows).toEqual([{ batch_number: 'MFG-NOT-STARTED', issued: '2026-10-30', manufactured_on: null }, { batch_number: 'MFG-STARTED', issued: '2026-10-30', manufactured_on: '2026-11-03' }]);
+  });
+
+  it('batch_fact_v1 gives the batch\'s output (for OEE and packing): the good tablets and the yield of its tablet reconciliation, once that step is done; null before', async () => {
+    const [u] = await t.owner<{ id: number }[]>`select id::int from users order by id limit 1`;
+    // Only what the view reads of a master: a stage yield, then the tablet reconciliation (the batch's).
+    const doc = { header: { productCode: 'OUT', productName: 'Output' }, stages: [{ key: 'c', steps: [{ key: 'y', block: { id: 'stage-yield', version: 1 } },
+      { key: 'r', block: { id: 'tablet-reconciliation', version: 1 } }] }] };
+    const [v] = await t.owner<{ id: number }[]>`insert into master_versions (version_no, doc, created_by) values (1, ${t.owner.json(doc as never)}, ${u!.id}) returning id::int`;
+    const [b] = await t.owner<{ id: number }[]>`insert into batches (batch_no, master_version_id, issued_by) values ('OUT-1', ${v!.id}, ${u!.id}) returning id::int`;
+    const res = (good: string, y: string) => ({ results: { goodTablets: { ok: true, value: good, unit: 'tablets', shown: '' }, yield: { ok: true, value: y, unit: '%', shown: '' },
+      accountability: { ok: false, message: 'not yet' } } });
+    const add = (step: number, kind: string, payload: object) => t.owner`insert into step_events (batch_id, stage, sub, step, round, kind, payload, person_id)
+      values (${b!.id}, 0, 1, ${step}, 1, ${kind}, ${t.owner.json(payload as never)}, ${u!.id})`;
+    const out = async () => (await t.owner.unsafe(`select good_quantity::text, good_unit, yield_percent::text from ${rep()}.batch_fact_v1 where batch_number = 'OUT-1'`))[0];
+    await add(0, 'value', { results: { yield: { ok: true, value: '99', unit: '%', shown: '' } } });
+    await add(0, 'done', {});
+    await add(1, 'value', res('198765.4', '99.382716'));
+    // Recorded but not signed: not yet the batch's output.
+    expect(await out()).toEqual({ good_quantity: null, good_unit: 'tablets', yield_percent: null });
+    await add(1, 'done', {});
+    expect(await out()).toEqual({ good_quantity: '198765', good_unit: 'tablets', yield_percent: '99.38' });
+    // Sent back: null again until signed again; a correction after that gives the corrected figures.
+    await add(1, 'sent_back', { reason: 'recount' });
+    expect((await out())!.good_quantity).toBeNull();
+    await add(1, 'value', res('197000', '98.5'));
+    await add(1, 'done', {});
+    await add(1, 'corrected', res('197500', '98.75'));
+    expect(await out()).toEqual({ good_quantity: '197500', good_unit: 'tablets', yield_percent: '98.75' });
   });
 
   it('batch_fact_v1 names the product and gives the master version as its number', async () => {

@@ -56,7 +56,9 @@ answering) or **ok**.
   for Deviations to file notes later. `batch_fact_v1` has one more column at its end (`0007`): `manufactured_on`, the
   date of manufacture, the plant-time date the batch's first processing step started (null before), which TrueBatch
   Tablets Packing reads; readers of Batchwright's columns select them by name and are not affected. `0008` adds
-  `product_name` and `master_version` at the end (family_code is the master version's number) and publishes
+  `product_name` and `master_version` at the end (family_code is the master version's number); `0015` adds the
+  output counts for OEE and packing: `good_quantity` (the good tablets of the tablet reconciliation, whole),
+  `good_unit` ('tablets') and `yield_percent`, null until that step is done; it publishes
   `material_use_v1`: per signed weighing step its lot, material and net quantity (status dispensed, or corrected with
   the corrected quantity); MMS reduces the lot's stock by reading it (owner decision), nothing is sent. `0011`: a
   machine or room is in use by its **batch**, not its step or stage (cleaning is due between batches, not between the
