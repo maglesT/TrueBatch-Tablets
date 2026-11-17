@@ -176,7 +176,7 @@ describe('TB-11 Logbook: equipment and rooms fit for use', () => {
     expect((await sign('asha', b.id, '0.1.0.1', 'done')).statusCode).toBe(200);
   });
 
-  it('TB-11 while the Logbook answers, the machine and room pickers offer only what it has and name the rest; absent or down, every one', async () => {
+  it('TB-11 while the Logbook answers, the machine and room pickers offer only what it has (an empty one names the rest); absent or down, every one', async () => {
     const read = async () => (await as('asha', 'GET', '/api/logbook/items')).json() as { link: string; items: string[] };
     const r = await read();
     expect(r.link).toBe('ok');
@@ -184,7 +184,10 @@ describe('TB-11 Logbook: equipment and rooms fit for use', () => {
     const stirrers = t.master.equipment_.filter((m) => m.type === 'stirrer');
     const picks = inLogbook(stirrers, r.items);
     expect(picks.offered.map((m) => m.code)).toEqual(['STR-01', 'STR-02', 'STR-03', 'STR-04']);
-    expect(picks.note).toBe('Not offered, because the Logbook does not have it: STR-05. Only what the Logbook has can be used while it is linked.');
+    // A picker with choices has no note; an empty one names what the Logbook does not have.
+    expect(picks.note).toBeNull();
+    expect(inLogbook(stirrers.filter((m) => m.code === 'STR-05'), r.items)).toEqual({ offered: [],
+      note: 'Not offered, because the Logbook does not have it: STR-05. Only what the Logbook has can be used while it is linked.' });
     expect(inLogbook(t.master.rooms_, r.items).offered.map((x) => x.code)).toEqual(['GRN-01']);
     await cut(S.lb);
     try {
