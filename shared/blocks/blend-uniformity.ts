@@ -16,6 +16,6 @@ export const blendUniformity: Block = {
   ],
   calcs: [
     { name: 'meanContent', label: 'Mean content', template: 'T7', args: { readings: '$results', limit: '$meanLimit', rsdLimit: '$rsdLimit' } },
-    { name: 'locations', label: 'Each location', template: 'C3', args: { readings: '$results', band: { limit: '$individualLimit' } } },
+    { name: 'locations', label: 'Each location', template: 'C3', args: { readings: '$results', band: { limit: '$individualLimit' }, noun: 'locations' } },
   ],
 };

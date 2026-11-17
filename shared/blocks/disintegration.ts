@@ -17,6 +17,6 @@ export const disintegration: Block = {
   ],
   calcs: [
     { name: 'temperatureCheck', label: 'Medium temperature', template: 'C1', args: { value: '$temperature', limit: '$temperatureLimit' } },
-    { name: 'stages', label: 'Disintegration', template: 'C6', args: { test: 'disintegration', maxTime: '$maxTime', stages: ['$times', '$moreTimes?'] } },
+    { name: 'stages', label: 'Disintegration', template: 'C6', args: { test: 'disintegration', maxTime: '$maxTime', noun: 'tablets', stages: ['$times', '$moreTimes?'] } },
   ],
 };

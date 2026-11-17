@@ -22,7 +22,7 @@ export const compress: Block = {
   ],
   calcs: [
     { name: 'meanWeight', label: 'Mean weight', template: 'T7', args: { readings: '$weights', limit: '$meanLimit' } },
-    { name: 'individualWeights', label: 'Individual weights', template: 'C3', args: { readings: '$weights', band: { plusMinusPercent: '$weightBand', of: 'mean' }, allowedOutside: 2, outer: { plusMinusPercent: '$weightOuterBand', of: 'mean' } } },
+    { name: 'individualWeights', label: 'Individual weights', template: 'C3', args: { readings: '$weights', band: { plusMinusPercent: '$weightBand', of: 'mean' }, allowedOutside: 2, outer: { plusMinusPercent: '$weightOuterBand', of: 'mean' }, noun: 'tablets', meanLimit: '$meanLimit' } },
     { name: 'meanHardness', label: 'Hardness', template: 'T7', args: { readings: '$hardness', limit: '$hardnessLimit' } },
     { name: 'meanThickness', label: 'Thickness', template: 'T7', args: { readings: '$thickness', limit: '$thicknessLimit' } },
     { name: 'finished', label: 'Compression finished', template: 'C4', args: { question: 'Compression finished', answers: ['$compressionDone'], expected: ['yes'] } },

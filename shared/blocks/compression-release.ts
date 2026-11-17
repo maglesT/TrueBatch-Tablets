@@ -24,7 +24,7 @@ export const compressionRelease: Block = {
   calcs: [
     { name: 'stations', label: 'Every station', template: 'C4', args: { question: 'Tablets taken from every station', answers: ['$allStations'], expected: ['yes'] } },
     { name: 'meanWeight', label: 'Mean weight', template: 'T7', args: { readings: '$weights', limit: '$meanLimit' } },
-    { name: 'individualWeights', label: 'Individual weights', template: 'C3', args: { readings: '$weights', band: { plusMinusPercent: '$weightBand', of: 'mean' }, allowedOutside: 2, outer: { plusMinusPercent: '$weightOuterBand', of: 'mean' } } },
+    { name: 'individualWeights', label: 'Individual weights', template: 'C3', args: { readings: '$weights', band: { plusMinusPercent: '$weightBand', of: 'mean' }, allowedOutside: 2, outer: { plusMinusPercent: '$weightOuterBand', of: 'mean' }, noun: 'tablets', meanLimit: '$meanLimit' } },
     { name: 'meanHardness', label: 'Hardness', template: 'T7', args: { readings: '$hardness', limit: '$hardnessLimit' } },
     { name: 'meanThickness', label: 'Thickness', template: 'T7', args: { readings: '$thickness', limit: '$thicknessLimit' } },
     { name: 'appearanceCheck', label: 'Appearance', template: 'C4', args: { question: 'Tablets as described, no capping, chipping or sticking', answers: ['$appearance'], expected: ['yes'] } },
