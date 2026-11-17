@@ -204,7 +204,7 @@ describe('demo skip through the server', () => {
     const first = await mixed(b.id);
     // Start and end are both "now": 0 s, or 1 s when the clock ticks between the two records (0.0166… min).
     expect(first.results.mixTime).toMatchObject({ shown: expect.stringContaining('· DEMO: wait skipped'), check: { pass: true } });
-    expect(Number(first.results.mixTime.value)).toBeLessThan(0.1);
+    expect(Number(first.results.mixTime!.value)).toBeLessThan(0.1);
     expect(first.values.mixEnd).toMatch(/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/);
     // The terminal command skips a running mixing time too; without a skip the same short mix is out of limits.
     const [c, e] = [await issue2(), await issue2()];
