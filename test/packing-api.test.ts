@@ -243,7 +243,10 @@ describe('a packing batch from a released bulk batch', () => {
     const coding = await step('1.1.2.1', { printedBatch: 'TB260001', printedMfg: 'NOV.2026', printedExpiry: 'OCT.2028', printedMrp: 'Rs. 125.00', ...yes('legible', 'packingDone') });
     expect(coding.results.expiryCheck).toMatchObject({ check: { pass: true } });
     await step('1.1.3.1', { sealTemp: '175', ...yes('pockets', 'seal', 'packingDone') });
-    await step('1.1.4.1', { vacuum: '500', tested: '20', leaking: '0', packingDone: 'yes' });
+    const leak = await step('1.1.4.1', { vacuum: '500', tested: '20', leaking: '0', packingDone: 'yes' });
+    // A new batch reads its counts in packs, whole (17 Nov 2026 run, F22/F24/F39): the signed batches before keep their text.
+    expect(leak.values).toMatchObject({ tested: { value: '20', unit: 'packs' }, leaking: { value: '0', unit: 'packs' } });
+    expect(leak.results.plan).toMatchObject({ check: { pass: true, shown: expect.stringMatching(/^Sample 20 of 10000 \(level S-2\)/) } });
     await step('1.1.5.1', yes('appearance', 'complete', 'samplesKept', 'packingDone'));
     await step('1.1.6.1', { cartons: '10', ...yes('leaflet', 'count', 'coded', 'packingDone') });
     // The packing stage is closed: the line stays in use by the batch (its reconciliation and line clearance run in the
@@ -297,6 +300,11 @@ describe('a packing batch from a released bulk batch', () => {
     // A count in master data's name for it (cartons in nos), as on screen and in MMS: per pack, the lots issued, the values.
     for (const text of ['"0.1 nos"', 'Lot CARTON-1: 1000 nos', 'Quantity issued: 1000 nos', 'Used in good packs: 980 nos']) expect(pdf).toContain(text);
     for (const text of ['"0.1 units"', 'Lot CARTON-1: 1000 units', 'Quantity issued: 1000 units']) expect(pdf).not.toContain(text);
+    // A new batch's counts in packs, whole, and the leak test's plan in plain words (17 Nov 2026 run, F22/F24/F39).
+    for (const text of ['Packs tested: 20 packs', 'Packs that leak: 0 packs', 'Leak test (AQL): Sample 20 of 10000 (level S-2). leaking: accept 0, reject 1 (AQL 0.65); found 0: accept.',
+      'Theoretical packs: 10000 packs', '100000 tablets ÷ 10 tablets = 10000 packs', 'Cartons checked: 10 nos',
+      'Good packs in finished cartons: 9800 packs', '9800 packs ÷ 10000 packs × 100 = 98.0 %', '10 tablets × 9800 packs = 98000 tablets']) expect(pdf).toContain(text);
+    expect(pdf).not.toMatch(/Packs (tested|that leak): \d+ units|Theoretical packs: \d+ units|\d\.0+ packs|Lot 10000, level/);
     // A check's line that states its own question says it once.
     expect(pdf).toContain('Packing finished: ');
     expect(pdf).not.toMatch(/Packing finished: Packing finished/i);

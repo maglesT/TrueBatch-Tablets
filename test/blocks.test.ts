@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { findBlock } from '../shared/blocks/index.js';
 import { blockProblems } from '../shared/blocks/format.js';
 import { doneProblems, evaluate, openSteps, parseKey, type StepEvent, type Value } from '../shared/engine/index.js';
+import { readValue } from '../shared/engine/values.js';
 import { masterChecks } from '../shared/master/checks.js';
 import type { MasterDoc } from '../shared/master/schema.js';
 import { at, ev, small, unplaced } from './engine-fixture.js';
@@ -124,6 +125,16 @@ describe('the engine runs the new blocks like any other', () => {
     const { stages, steps } = openSteps(doc, e, at(10_000));
     expect(stages.map((s) => s.closed)).toEqual([true, true, true]);
     expect(steps.map((s) => s.state)).toEqual(['checked', 'checked', 'done', 'checked', 'checked', 'checked', 'checked', 'checked', 'checked']);
+  });
+
+  it('TB-16 a new batch reads the punches or dies damaged in nos, as the floor reads the typed count (17 Nov 2026 run, F22)', () => {
+    const f = findBlock({ id: 'punch-die-check', version: 1 })!.fields.find((x) => x.name === 'damaged')!;
+    const damaged = readValue(f, '0', f.unit!) as Value;
+    expect(damaged).toEqual({ value: '0', unit: 'nos' });
+    const r = evaluate(doc, [], parseKey('2.1.0.1')!, { ...intact, damaged });
+    expect(r.damagedCheck).toMatchObject({ ok: true, unit: 'nos', check: { pass: true } });
+    expect((r.damagedCheck as { shown: string }).shown).toMatch(/= 0 nos; limit not more than 0 nos/);
+    expect(JSON.stringify(r.damagedCheck)).not.toContain('units');
   });
 
   it('TB-16 punches and dies: a damaged punch after use fails the check, so the step needs a deviation note', () => {
