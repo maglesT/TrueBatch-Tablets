@@ -7,7 +7,7 @@ import { describeMaster, diffMasters, stepText } from '../web/src/designer/descr
 import { dispensing, workedExample } from '../web/src/designer/example.js';
 import { answerDoc, earlierRefs, neededKind, scaleDoc, stepFrom } from '../web/src/designer/model.js';
 import { sentence, sentenceText } from '../web/src/designer/sentences.js';
-import { defaultDispensingRooms, SKELETON_LIST, skeletonStages } from '../web/src/designer/skeletons.js';
+import { SKELETON_LIST, skeletonStages } from '../web/src/designer/skeletons.js';
 import { tablet, unplaced } from './engine-fixture.js';
 import { packing } from './packing-fixture.js';
 
@@ -36,7 +36,7 @@ describe('master designer', () => {
       expect(text, `${b.id} v${b.version}`).not.toMatch(/\[object Object\]|undefined|NaN/);
     }
     const punch = block('punch-die-check');
-    expect(sentenceText(d, punch, {}, sentence(punch, punch.calcs[1]!))).toBe('The punches or dies damaged must be at most 0 units.');
+    expect(sentenceText(d, punch, {}, sentence(punch, punch.calcs[1]!))).toBe('The punches or dies damaged must be 0: none allowed.');
     // Any other shape written into a block reads in words too.
     const said = (limit: unknown) => sentenceText(d, punch, {}, sentence(punch, { name: 'x', label: 'x', template: 'C1', args: { value: '$damaged', limit } }));
     expect(said({ max: 0 })).toBe('The punches or dies damaged must be at most 0.');
@@ -76,20 +76,17 @@ describe('master designer', () => {
     expect(rows[2]!.adjusted).toBeUndefined();
   });
 
-  it('TB-10 both process skeletons are valid drafts and start every stage with line clearance; what they leave open is listed by the master check', () => {
+  it('TB-10 the process skeletons are valid drafts and start every stage with line clearance; what they leave open is listed by the master check', () => {
     const header = { productItemId: 'p', productCode: 'P', productName: 'P', batchSize: '100000', coreWeightMg: '250.0', coatedWeightMg: '257.5', dispensingRooms: ['RM-101'] };
     for (const s of SKELETON_LIST) {
       const doc = masterSchema.parse({ header, formula: [], stages: skeletonStages(s.id, header) });
       expect(doc.stages.every((st) => st.steps.every((t) => findBlock(t.block)))).toBe(true);
-      expect(masterChecks(doc).every((p) => /not set|no core materials|choose the rooms/.test(p.message))).toBe(true);
+      expect(masterChecks(doc).every((p) => /not set|not checked|no core materials|choose the rooms/.test(p.message))).toBe(true);
     }
-    // TB-11: a master that weighs names its dispensing rooms; a new one starts with the rooms of the Dispensing area
-    // exactly (not the liquids block's "Liquid dispensing" booth, nor an inactive room).
+    // TB-11: a master that weighs names its dispensing rooms; a new one starts with none (the author picks them).
     const bare = masterSchema.parse({ header: { ...header, dispensingRooms: undefined }, formula: [], stages: skeletonStages(SKELETON_LIST[0]!.id, header) });
     expect(masterChecks(bare).filter((p) => p.path === 'header.dispensingRooms')).toEqual([{ level: 'error', path: 'header.dispensingRooms', rule: 'TB-11',
       message: 'The master weighs but names no dispensing rooms: choose them in the header (rooms of master data)' }]);
-    expect(defaultDispensingRooms([{ code: 'RM-101', area: 'Dispensing', active: true }, { code: 'RM-102', area: 'Dispensing', active: false },
-      { code: 'RM-301', area: 'Liquid dispensing', active: true }, { code: 'RM-103', area: 'Granulation', active: true }])).toEqual(['RM-101']);
     // The rooms: the usual areas where every plant has them; a preparation and blending are left for the author (TB-11).
     const rooms = (id: string) => masterChecks(masterSchema.parse({ header, formula: [], stages: skeletonStages(id, header) })).filter((p) => p.rule === 'TB-11').map((p) => p.message.split(':')[0]);
     expect(rooms('wet-granulation-film-coated')).toEqual(['Stage Binder solution', 'Stage Blending', 'Stage Coating suspension']);
@@ -103,11 +100,15 @@ describe('master designer', () => {
     const wg = skeletonStages('wet-granulation-film-coated', header);
     const at = (stage: string, step: string) => wg.find((s) => s.key === stage)!.steps.find((t) => t.key === step)!;
     expect(at('coating', 'coat')).toMatchObject({ block: { id: 'spray-coat' }, everyMinutes: 30, flow: { kind: 'repeat-until' } });
-    // Later stages' yields on the actual input; the coating gain on the actual core mean; the end point checked.
-    expect(at('blending', 'yield').settings.theoretical).toEqual({ ref: 'granulation/yield/output' });
+    // Blending adds the extragranular materials and the lubricant: its yield is on the core batch weight (17 Nov 2026
+    // run, F11); the coating yield on the good cores; the coating gain on the actual core mean; the end point checked.
+    expect(at('blending', 'yield').settings.theoretical).toEqual({ header: 'coreBatch' });
     expect(at('coating', 'yield')).toMatchObject({ block: { id: 'tablet-reconciliation' }, settings: { theoretical: { ref: 'compression/yield/goodTablets' }, meanWeight: { ref: 'coating/coat/meanWeight' } } });
     expect(at('coating', 'coat').settings.coreWeight).toEqual({ ref: 'compression/compress/meanWeight' });
     expect(at('granulation', 'granulate').checker).toBe(true);
+    // An uncoated wet-granulated tablet (17 Nov 2026 run, F10): the same stages without the coating suspension and coating.
+    expect(skeletonStages('wet-granulation-uncoated', header).map((s) => s.key)).toEqual(['binder', 'granulation', 'blending', 'compression']);
+    expect(skeletonStages('wet-granulation-uncoated', header)[3]!.produces).toEqual({ name: 'bulk tablets', holdHours: 720 });
   });
 
   it('a weigh step added from the library starts with the usual tolerance', () => {

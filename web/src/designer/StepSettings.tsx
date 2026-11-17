@@ -7,9 +7,9 @@ import { stepTitle } from '../../../shared/engine/batch.js';
 import type { Stored, Value } from '../../../shared/engine/index.js';
 import type { Kind } from '../../../shared/templates/index.js';
 import { HEADER_VALUES, materialLines, type Limit, type MasterDoc, type SettingValue, type Step } from '../../../shared/master/schema.js';
-import { usedFields, workedExample } from './example.js';
+import { usedFields, verdictless, workedExample } from './example.js';
 import { earlierRefs, HEADER_LABEL, kindOfUnit, neededKind, unitLabel, unitsOf } from './model.js';
-import { sentence, slotsOf, type Part } from './sentences.js';
+import { lower, sentence, slotsOf, type Part } from './sentences.js';
 import { Decimal } from './ui.js';
 
 type Settings = Step['settings'];
@@ -70,7 +70,7 @@ export function StepSettings({ doc, si, ti, onChange }: { doc: MasterDoc; si: nu
         <h3>Signatures</h3>
         <p className="muted small">The operator who performs the step signs it.</p>
         <label className="check"><input type="checkbox" checked={step.checker} onChange={(e) => onChange({ ...step, checker: e.target.checked })} />A second person checks it (checker)</label>
-        {block.gmp && <p className="muted small">A {block.gmp} step always needs a second-person check (TB-08).</p>}
+        {block.gmp && <p className="muted small">A {block.gmp.replace('-', ' ')} step always needs a second-person check.</p>}
         <label className="check"><input type="checkbox" checked={step.critical} onChange={(e) => onChange({ ...step, critical: e.target.checked })} />Critical step</label>
       </div>
 
@@ -121,7 +121,7 @@ export function StepSettings({ doc, si, ti, onChange }: { doc: MasterDoc; si: nu
 
 function PartView({ block, part, slot, first }: { block: Block; part: Part; slot: (name: string) => JSX.Element; first: boolean }) {
   if (typeof part === 'string') return <>{part}</>;
-  const label = (n: string) => [...block.fields, ...block.calcs, ...block.settings].find((x) => x.name === n)?.label.toLowerCase() ?? n;
+  const label = (n: string) => lower([...block.fields, ...block.calcs, ...block.settings].find((x) => x.name === n)?.label ?? n);
   if ('setting' in part) return first ? <span className="slot">{slot(part.setting)}</span> : <span className="tok">the {label(part.setting)} (above)</span>;
   if ('field' in part) return <span className="tok field">the {label(part.field)}</span>;
   if ('calc' in part) return <span className="tok calc">the {label(part.calc)}</span>;
@@ -240,7 +240,7 @@ function Example({ doc, si, ti, block }: { doc: MasterDoc; si: number; ti: numbe
   const shownSettings = block.settings.filter((s) => ex.results[s.name]);
   const line = (label: string, r: Stored | undefined) => (
     <li key={label} className={!r ? 'waits' : !r.ok ? 'refused' : r.check ? r.check.level : ''}>
-      <b>{label}</b>{' '}{!r ? <span className="muted">waits for its inputs</span> : r.ok ? <>{r.shown}{r.check && <span className={`chip ${r.check.pass ? (r.check.level === 'alert' ? 'chip-warn' : 'chip-ok') : 'chip-bad'}`}>{r.check.pass ? (r.check.level === 'alert' ? 'alert' : 'pass') : 'fail'}</span>}</> : <span className="error">{r.message}</span>}
+      <b>{label}</b>{' '}{!r ? <span className="muted">waits for its inputs</span> : r.ok ? <>{r.check ? verdictless(r.shown) : r.shown}{r.check && <span className={`chip ${r.check.pass ? (r.check.level === 'alert' ? 'chip-warn' : 'chip-ok') : 'chip-bad'}`}>{r.check.pass ? (r.check.level === 'alert' ? 'alert' : 'pass') : 'fail'}</span>}</> : <span className="error">{r.message}</span>}
     </li>
   );
   return (

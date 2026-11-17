@@ -83,10 +83,25 @@ answering) or **ok**.
 - **Where machines are**: a stage that works machines or names a room chooses the rooms it may run in (master check,
   TB-11); the floor is offered the machines of the field's type standing in those rooms. A balance is offered where
   the weighing is done: in one of the master's **dispensing rooms** (header, picked from master data's rooms; a new
-  tablet master starts with the rooms whose area is exactly "Dispensing"; a master that weighs and names none is ⛔),
+  tablet master starts with none, as a segregated block's booth may also be in a "Dispensing" area (17 Nov 2026 run);
+  the rooms where a weighing balance stands are listed first; a master that weighs and names none is ⛔),
   or in a room the stage allows, never in a QC or laboratory area (`shared/engine/picks.ts`, the same rule on the
   server and the screen). Not every area called dispensing: a liquids block's "Liquid dispensing" balance is not
   offered to a tablet weighing. A version approved before the setting reads the rooms of the Dispensing area.
+  The designer lists first the areas and rooms where the stage's machines stand (by type, from master data), and the
+  master check warns (⚠️, TB-11) when no machine of a step's type stands in the rooms its stage allows, naming where
+  the machines of that type stand: the floor's picker would be empty (17 Nov 2026 run: the disintegration tester in
+  the QC lab). A warning, not ⛔: master data changes without a new master version, and the floor checks it again.
+- **Pick lists from master data** (17 Nov 2026 run): the product pick lists offer the products whose dosage form
+  names the product's dosage form (tablets; `web/src/product.ts`), not injections or capsules. Master data does not
+  say whether a product is a bulk or a pack, so a pack product is still offered. Rooms read "code · name (area)".
+- **What the master check reports**: everything the plain view would show as not set (a required setting, a hold
+  time, a stage's responsible role, the stop check of a repeat-until step); an optional setting left empty is left out
+  of the plain view's sentences, as the engine leaves it out. A temperature recorded with its optional limits left
+  empty is a warning (the disintegration medium, an inlet or forming temperature). A stage's yield on an earlier
+  stage's output is ⛔ when the stage adds formula materials (blending with extragranular materials and the
+  lubricant: the yield would read above 100 %); the skeletons take blending's yield on the theoretical core batch
+  weight. The messages carry no internal codes (rules, templates, failure cases).
 
 ## Rules and where they are enforced
 - 22 TrueBatch GMP rules (EU GMP Part I and Annex 11, 21 CFR 211 and Part 11, Revised Schedule M), listed in

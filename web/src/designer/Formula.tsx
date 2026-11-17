@@ -3,17 +3,16 @@
 import { useState } from 'react';
 import type { MasterData, MasterRow } from '../api-designer.js';
 import type { Problem } from '../../../shared/master/checks.js';
-import { lineQuantity, type Stored } from '../../../shared/engine/index.js';
+import { lineQuantity } from '../../../shared/engine/index.js';
 import { Dec, t2Total } from '../../../shared/templates/index.js';
 import type { FormulaLine, MasterDoc } from '../../../shared/master/schema.js';
 import { AnswerBox, type OnAnswer } from './CheckPanel.js';
-import { move, newKey } from './model.js';
+import { grouped, move, newKey, qtyText } from './model.js';
 import { Decimal, Order, Picker } from './ui.js';
 
 type Adjust = NonNullable<FormulaLine['adjust']>;
 const HERE = { stage: 0, sub: 1, step: 0, round: 1 };
 const PLACES = [['intragranular', 'Intragranular'], ['extragranular', 'Extragranular'], ['binder', 'Binder solution'], ['coating:1', 'Coating layer 1'], ['coating:2', 'Coating layer 2'], ['coating:3', 'Coating layer 3']] as const;
-const kg = (r: Stored) => (r.ok ? `${new Dec(r.value).toFixed(3)} ${r.unit}` : '—');
 const total = (lines: FormulaLine[]) => { const r = t2Total({ values: lines.map((l) => `${l.mgPerTablet || '0'} mg`), unit: 'mg' }); return r.ok ? r.value : null; };
 
 export function FormulaTable({ doc, onChange, md, masters, selected, onSelect, problems, onAnswer }: {
@@ -35,7 +34,7 @@ export function FormulaTable({ doc, onChange, md, masters, selected, onSelect, p
   return (
     <>
       <div className="card">
-        <div className="d-section-head"><h2>Formula</h2><span className="muted small">Quantities per tablet; the batch quantity is worked out for {doc.header.batchSize} tablets.</span></div>
+        <div className="d-section-head"><h2>Formula</h2><span className="muted small">Quantities per tablet; the batch quantity is worked out for {grouped(doc.header.batchSize)} tablets.</span></div>
         <div className="table-wrap">
           <table className="plain-table formula-table">
             <thead><tr><th>Material</th><th>mg per tablet</th><th>Role</th><th>Place</th><th>Batch quantity</th><th>Adjustment</th><th /></tr></thead>
@@ -51,7 +50,7 @@ export function FormulaTable({ doc, onChange, md, masters, selected, onSelect, p
                     <td><select aria-label={`Place of ${l.name}`} value={l.place === 'coating' ? `coating:${l.layer ?? 1}` : l.place}
                       onChange={(e) => { const [place, layer] = e.target.value.split(':'); const { layer: _, ...rest } = l; put(i, { ...rest, place: place as FormulaLine['place'], ...(layer ? { layer: Number(layer) } : {}) }); }}>
                       {PLACES.map(([v, t]) => <option key={v} value={v}>{t}</option>)}</select></td>
-                    <td className="nowrap num">{valid(l.mgPerTablet) && /^[1-9]\d*$/.test(doc.header.batchSize) ? kg(lineQuantity(doc, [], HERE, l, false, {})) : '—'}</td>
+                    <td className="nowrap num">{valid(l.mgPerTablet) && /^[1-9]\d*$/.test(doc.header.batchSize) ? qtyText(lineQuantity(doc, [], HERE, l, false, {})) : '—'}</td>
                     <td><button type="button" className="link dark" onClick={(e) => { e.stopPropagation(); onSelect(i); }}>{adjustSummary(l.adjust)}</button></td>
                     <td><Order index={i} count={lines.length} what={l.name} onMove={(by) => set(move(lines, i, by))} onRemove={() => { set(lines.filter((_, j) => j !== i)); onSelect(undefined); }} /></td>
                   </tr>
@@ -129,7 +128,7 @@ function AdjustPanel({ doc, line, onChange, problems, onAnswer }: { doc: MasterD
       {line.role === 'api' || a.potency || a.content || a.salt ? (
         <>
           <fieldset className="checklist">
-            <legend>Salt form (T11)</legend>
+            <legend>Salt form</legend>
             <label className="check"><input type="checkbox" checked={!!a.salt} onChange={(e) => put({ ...a, salt: e.target.checked ? { from: { name: 'base', mw: '' }, to: { name: '', mw: '' } } : undefined })} />
               The formula gives the quantity of another form (base, salt, element)</label>
             {a.salt && <>{form('from', 'Form in the formula')}{form('to', 'Form dispensed')}
@@ -142,7 +141,7 @@ function AdjustPanel({ doc, line, onChange, problems, onAnswer }: { doc: MasterD
               {(['none', 'potency', 'content'] as const).map((m) => (
                 <button type="button" key={m} role="radio" aria-checked={mode === m} className={mode === m ? 'on' : ''}
                   onClick={() => put({ ...a, potency: m === 'potency' ? a.potency ?? { basis: 'as is', standardIs: 'anhydrous' } : undefined, content: m === 'content' ? a.content ?? { formulaQuantityIs: 'dry' } : undefined })}>
-                  {m === 'none' ? 'No' : m === 'potency' ? 'Assay (T9)' : 'Content (T18)'}</button>
+                  {m === 'none' ? 'No' : m === 'potency' ? 'Assay' : 'Content'}</button>
               ))}
             </div>
             {a.potency && (
@@ -175,7 +174,7 @@ function AdjustPanel({ doc, line, onChange, problems, onAnswer }: { doc: MasterD
       ) : null}
       {/* An overage on any line, e.g. a coating powder's spray loss (T16). */}
       <fieldset className="checklist">
-        <legend>Overage (T16)</legend>
+        <legend>Overage</legend>
         <div className="form-grid">
           <label>Overage (%)<Decimal label="Overage percent" placeholder="none" value={a.overage?.percent} onChange={(v) => put({ ...a, overage: v ? { ...a.overage, percent: v } : undefined })} /></label>
           {a.overage && <label>Highest overage allowed (%)<Decimal label="Highest overage allowed" value={a.overage.maxPercent} onChange={(v) => put({ ...a, overage: { ...a.overage!, maxPercent: v || undefined } })} /></label>}
@@ -183,7 +182,7 @@ function AdjustPanel({ doc, line, onChange, problems, onAnswer }: { doc: MasterD
       </fieldset>
       {line.role !== 'api' && (
         <fieldset className="checklist">
-          <legend>Compensating filler (T10)</legend>
+          <legend>Compensating filler</legend>
           {others.length ? others.map((o) => (
             <label key={o.key} className="check"><input type="checkbox" checked={a.compensates?.includes(o.key) ?? false}
               onChange={(e) => put({ ...a, compensates: e.target.checked ? [...(a.compensates ?? []), o.key] : a.compensates?.filter((k) => k !== o.key) })} />

@@ -2,19 +2,20 @@
 // what the master starts from: empty, a process skeleton, or a copy of another master (scaled to the batch size).
 import { useEffect, useState, type FormEvent } from 'react';
 import { ApiError } from '../api.js';
-import { createMaster, getVersion, STATE_LABEL, type MasterData, type MasterRow, type Product, type Room } from '../api-designer.js';
+import { createMaster, getVersion, STATE_LABEL, type MasterData, type MasterRow } from '../api-designer.js';
 import { masterSchema, type MasterDoc } from '../../../shared/master/schema.js';
 import { batchWeight } from './example.js';
-import { scaleDoc } from './model.js';
-import { defaultDispensingRooms, packingStages, SKELETON_LIST, skeletonStages } from './skeletons.js';
+import { dispensingRoomChoices, grouped, ownProducts, scaleDoc } from './model.js';
+import { packingStages, SKELETON_LIST, skeletonStages } from './skeletons.js';
 import { NEW_PACK, PackFields } from './Pack.js';
 import { product } from '../product.js';
 import { ChipSet, Decimal, Picker } from './ui.js';
 
 type Header = MasterDoc['header'];
 
-export function HeaderFields({ header, onChange, products, rooms }: { header: Header; onChange: (h: Header) => void; products: Product[]; rooms: Room[] }) {
-  const product = products.find((p) => p.itemId === header.productItemId);
+export function HeaderFields({ header, onChange, md }: { header: Header; onChange: (h: Header) => void; md: MasterData }) {
+  const product = md.products.find((p) => p.itemId === header.productItemId);
+  const rooms = dispensingRoomChoices(md);
   const [picking, setPicking] = useState(!header.productItemId);
   const set = (k: keyof Header, v: string) => onChange({ ...header, [k]: v });
   const core = batchWeight({ header } as MasterDoc, /^\d+(\.\d+)?$/.test(header.coreWeightMg) && /^[1-9]\d*$/.test(header.batchSize) ? header.coreWeightMg : undefined);
@@ -31,7 +32,7 @@ export function HeaderFields({ header, onChange, products, rooms }: { header: He
             <div><dt /><dd><button type="button" className="link dark" onClick={() => setPicking(true)}>Change product</button></dd></div>
           </dl>
         ) : (
-          <Picker label="Product" items={products.map((p) => ({ id: p.itemId, code: p.code, name: p.name, note: [p.strength, p.dosageForm].filter(Boolean).join(' · '), off: p.active ? undefined : 'inactive' }))}
+          <Picker label="Product" items={ownProducts(md.products).map((p) => ({ id: p.itemId, code: p.code, name: p.name, note: [p.strength, p.dosageForm].filter(Boolean).join(' · '), off: p.active ? undefined : 'inactive' }))}
             onPick={(i) => { onChange({ ...header, productItemId: i.id, productCode: i.code, productName: i.name }); setPicking(false); }} />
         )}
       </div>
@@ -44,10 +45,10 @@ export function HeaderFields({ header, onChange, products, rooms }: { header: He
         </label>
         <label>Die bore area (mm², tooling record)<Decimal label="Die bore area" placeholder="not given" value={header.dieAreaMm2}
           onChange={(v) => onChange(v ? { ...header, dieAreaMm2: v } : (({ dieAreaMm2: _, ...h }) => h)(header))} /></label>
-        <div className="calc-note">{core?.ok ? <>Theoretical core batch weight: <b>{core.shown}</b></> : <span className="muted">The core batch weight shows once the batch size and core weight are set.</span>}</div>
+        <div className="calc-note">{core?.ok ? <>Theoretical core batch weight: <b>{grouped(core.shown)}</b></> : <span className="muted">The core batch weight shows once the batch size and core weight are set.</span>}</div>
       </div>
       {/* TB-11: a balance is offered in these rooms or in a room the stage allows. */}
-      <ChipSet label="Dispensing rooms (where the materials are weighed)" values={header.dispensingRooms ?? []} options={rooms.filter((r) => r.active).map((r) => r.code)}
+      <ChipSet label="Dispensing rooms (where the materials are weighed)" values={header.dispensingRooms ?? []} options={rooms.options} groups={rooms.groups} text={rooms.text}
         onChange={(dispensingRooms) => onChange({ ...header, dispensingRooms })} empty="None chosen yet: choose the rooms of master data where the materials are weighed" />
       <OtherStrengths header={header} onChange={onChange} />
     </div>
@@ -81,8 +82,9 @@ type Start = { kind: 'empty' } | { kind: 'skeleton'; id: string } | { kind: 'cop
 export function NewMaster({ md, masters, copyOf, onCreated, onCancel }: {
   md: MasterData; masters: MasterRow[]; copyOf?: MasterRow; onCreated: (id: number) => void; onCancel: () => void;
 }) {
-  // A tablet master starts with the rooms of the Dispensing area as its dispensing rooms (a copy: those it names).
-  const [header, setHeader] = useState<Header>({ ...(product.packing ? {} : { dispensingRooms: defaultDispensingRooms(md.rooms) }),
+  // A new tablet master starts with no dispensing rooms: the author picks them (the rooms with a weighing balance are
+  // listed first); every room of an area called Dispensing could be a segregated block's booth. A copy: those it names.
+  const [header, setHeader] = useState<Header>({
     ...(copyOf?.header ?? { productItemId: '', productCode: '', productName: '', batchSize: '', coreWeightMg: '' }) });
   const skeletons = product.packing ? [{ id: 'packing', name: 'Packing record', text: 'Issue to the line, packing with the checks alongside the line, reconciliation and line clearance after, for this pack.' }] : SKELETON_LIST;
   const [start, setStart] = useState<Start>(copyOf ? { kind: 'copy', versionId: copyOf.id } : { kind: 'skeleton', id: skeletons[0]!.id });
@@ -124,8 +126,8 @@ export function NewMaster({ md, masters, copyOf, onCreated, onCancel }: {
     <div className="overlay" role="dialog" aria-modal="true" aria-label={copyOf ? 'Copy a master' : 'New master'}>
       <form className="card dialog wide" onSubmit={submit}>
         <h2>{copyOf ? `Copy ${copyOf.header.productCode} version ${copyOf.versionNo}` : 'New master'}</h2>
-        {pack ? <PackFields header={header} pack={pack} products={md.products} onChange={(h, p) => { setHeader(h); setPack(p); }} />
-          : <HeaderFields header={header} onChange={setHeader} products={md.products} rooms={md.rooms} />}
+        {pack ? <PackFields header={header} pack={pack} products={ownProducts(md.products)} onChange={(h, p) => { setHeader(h); setPack(p); }} />
+          : <HeaderFields header={header} onChange={setHeader} md={md} />}
         <fieldset className="checklist">
           <legend>Start from</legend>
           {skeletons.map((s) => (
@@ -136,13 +138,13 @@ export function NewMaster({ md, masters, copyOf, onCreated, onCancel }: {
             <span>A copy of another master<small>Formula and process are copied; typed batch quantities scale to the new batch size.</small></span></label>
           {start.kind === 'copy' && (
             <select aria-label="Master to copy" value={start.versionId} onChange={(e) => { setStart({ kind: 'copy', versionId: Number(e.target.value) }); }}>
-              {masters.map((m) => <option key={m.id} value={m.id}>{m.header.productCode} {m.header.productName} · {m.header.batchSize} tablets · version {m.versionNo} ({STATE_LABEL[m.state]})</option>)}
+              {masters.map((m) => <option key={m.id} value={m.id}>{m.header.productCode} {m.header.productName} · {grouped(m.header.batchSize)} tablets · version {m.versionNo} ({STATE_LABEL[m.state]})</option>)}
             </select>
           )}
           <label className="check route"><input type="radio" name="start" checked={start.kind === 'empty'} onChange={() => setStart({ kind: 'empty' })} />
             <span>Empty<small>No formula and no stages yet.</small></span></label>
         </fieldset>
-        {scaled && <p className="notice small">Copy to a new batch size: {source!.header.batchSize} → {header.batchSize} tablets. Quantities per tablet stay; typed batch quantities in the steps scale.</p>}
+        {scaled && <p className="notice small">Copy to a new batch size: {grouped(source!.header.batchSize)} → {grouped(header.batchSize)} tablets. Quantities per tablet stay; typed batch quantities in the steps scale.</p>}
         {error && <p className="error">{error}</p>}
         <div className="actions">
           <button type="button" onClick={onCancel}>Cancel</button>

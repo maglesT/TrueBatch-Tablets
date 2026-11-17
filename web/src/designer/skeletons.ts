@@ -2,10 +2,11 @@
 // depend on the product (which material a step weighs, its limits) are left for the author; the master check lists
 // them. Tablet-weight limits start at ± 5 % of the header's core weight. Every stage is worked in a room, so each
 // starts with line clearance (TB-10). A later stage's yield is on the actual input of the stage (the previous stage's
-// output), the coating gain on the batch's actual core mean weight, and the granulation end point is checked by a
-// second person. A stage starts with the rooms it usually runs in, by the usual area names; a stage whose rooms
-// differ from plant to plant (a binder or coating suspension, blending) is left for the author: the master check
-// asks for its rooms (TB-11).
+// output), unless the stage adds materials (blending: on the core batch weight); the coating gain is on the batch's
+// actual core mean weight, and the granulation end point is checked by a second person. A new master names no
+// dispensing rooms: the author picks them (Header.tsx). A stage starts with the rooms it usually runs in, by the usual
+// area names; a stage whose rooms differ from plant to plant (a binder or coating suspension, blending) is left for
+// the author: the master check asks for its rooms (TB-11).
 import { findBlock } from '../../../shared/blocks/index.js';
 import { Dec } from '../../../shared/templates/index.js';
 import type { MasterDoc, Pack, SettingValue, Stage, Step } from '../../../shared/master/schema.js';
@@ -30,19 +31,25 @@ const compression = [tooling('tooling-before', 'Punch and die check — before c
   { block: 'friability', settings: () => ({ lossLimit: { high: '1.0', unit: '%' } }) }, { block: 'disintegration', settings: () => ({ maxTime: '15' }) },
   tooling('tooling-after', 'Punch and die check — after compression'), reconcile];
 
+// Wet granulation: binder solution, granulation and drying, blending with the extragranular materials and the
+// lubricant, compression. Blending adds materials to the granules, so its yield is on the theoretical core batch weight
+// (the granules' output alone would leave out what the stage adds and read above 100 %; the master check refuses it).
+const WET: StagePlan[] = [
+  { key: 'binder', name: 'Binder solution', kind: 'preparation', role: 'Granulation operator', produces: ['binder solution', 24],
+    steps: [weighStep('weigh-binder'), { block: 'binder-solution' }] },
+  { key: 'granulation', name: 'Granulation', role: 'Granulation operator', rooms: ['Granulation'], produces: ['dried granules', 72], uses: ['binder'],
+    steps: [weighStep('weigh-api'), { block: 'sift' }, { block: 'charge', key: 'charge-api' }, { block: 'dry-mix' }, { block: 'granulate', checker: true }, { block: 'dry' },
+      { block: 'sieve', key: 'mill' }, yieldStep('')] },
+  { key: 'blending', name: 'Blending', role: 'Granulation operator', produces: ['lubricated blend', 72], uses: ['granulation'],
+    steps: [{ block: 'lubricate', settings: () => ({ granuleWeight: { ref: 'granulation/yield/output' }, tolerance: '0.5' }) }, { block: 'blend-uniformity' }, yieldStep({ header: 'coreBatch' })] },
+];
+const wetCompression = (produces: string): StagePlan => ({ key: 'compression', name: 'Compression', role: 'Compression operator', rooms: ['Compression'], produces: [produces, 720], uses: ['blending'], steps: compression });
+
 const SKELETONS: { id: string; name: string; text: string; stages: StagePlan[] }[] = [
   {
     id: 'wet-granulation-film-coated', name: 'Wet granulation, film-coated',
     text: 'Binder solution, granulation and drying, lubrication, compression, coating suspension and film coating.',
-    stages: [
-      { key: 'binder', name: 'Binder solution', kind: 'preparation', role: 'Granulation operator', produces: ['binder solution', 24],
-        steps: [weighStep('weigh-binder'), { block: 'binder-solution' }] },
-      { key: 'granulation', name: 'Granulation', role: 'Granulation operator', rooms: ['Granulation'], produces: ['dried granules', 72], uses: ['binder'],
-        steps: [weighStep('weigh-api'), { block: 'sift' }, { block: 'charge', key: 'charge-api' }, { block: 'dry-mix' }, { block: 'granulate', checker: true }, { block: 'dry' },
-          { block: 'sieve', key: 'mill' }, yieldStep('')] },
-      { key: 'blending', name: 'Blending', role: 'Granulation operator', produces: ['lubricated blend', 72], uses: ['granulation'],
-        steps: [{ block: 'lubricate', settings: () => ({ granuleWeight: { ref: 'granulation/yield/output' }, tolerance: '0.5' }) }, { block: 'blend-uniformity' }, yieldStep({ ref: 'granulation/yield/output' })] },
-      { key: 'compression', name: 'Compression', role: 'Compression operator', rooms: ['Compression'], produces: ['core tablets', 720], uses: ['blending'], steps: compression },
+    stages: [...WET, wetCompression('core tablets'),
       { key: 'suspension', name: 'Coating suspension', kind: 'preparation', role: 'Coating operator', produces: ['coating suspension', 24],
         steps: [weighStep('weigh-coating'), { block: 'coating-suspension' }] },
       { key: 'coating', name: 'Film coating', role: 'Coating operator', rooms: ['Coating'], produces: ['coated tablets', 2160], uses: ['compression', 'suspension'],
@@ -50,6 +57,11 @@ const SKELETONS: { id: string; name: string; text: string; stages: StagePlan[] }
           { block: 'tablet-reconciliation', key: 'yield', settings: () => ({ theoretical: { ref: 'compression/yield/goodTablets' }, meanWeight: { ref: 'coating/coat/meanWeight' },
             yieldLimit: { low: '97.0', high: '100.5', unit: '%' }, accountabilityLimit: { low: '99.0', high: '100.5', unit: '%' } }) }] },
     ],
+  },
+  {
+    id: 'wet-granulation-uncoated', name: 'Wet granulation, uncoated',
+    text: 'Binder solution, granulation and drying, lubrication, then compression.',
+    stages: [...WET, wetCompression('bulk tablets')],
   },
   {
     id: 'direct-compression-uncoated', name: 'Direct compression, uncoated',
@@ -62,10 +74,6 @@ const SKELETONS: { id: string; name: string; text: string; stages: StagePlan[] }
   },
 ];
 export const SKELETON_LIST = SKELETONS.map(({ id, name, text }) => ({ id, name, text }));
-
-/** The dispensing rooms a new tablet master starts with (TB-11): the active rooms whose area is exactly "Dispensing". */
-export const defaultDispensingRooms = (rooms: readonly { code: string; area: string | null; active: boolean }[]) =>
-  rooms.filter((r) => r.active && r.area === 'Dispensing').map((r) => r.code);
 
 /** The stages of a skeleton for this header. */
 export function skeletonStages(id: string, h: Header): Stage[] {

@@ -1,14 +1,16 @@
 // Screen 4: the process. Left: the stages in order. Middle: the steps of the selected stage, added from the block
 // library. Right: the selected stage's or step's settings.
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import type { MasterData } from '../api-designer.js';
 import { findBlock } from '../../../shared/blocks/index.js';
 import { stepTitle } from '../../../shared/engine/batch.js';
 import type { MasterDoc, Stage, Step } from '../../../shared/master/schema.js';
-import { move, newStage, searchBlocks, stepFrom, type Place } from './model.js';
+import { move, newStage, searchBlocks, stageRoomChoices, stepFrom, type Place } from './model.js';
 import { StepSettings } from './StepSettings.js';
 import { ChipSet, Order } from './ui.js';
 
+// What a step's flow means, in the step list.
+const FLOW_NOTE: Record<Step['flow']['kind'], string> = { none: '', 'repeat-until': 'repeated until its check passes', 'optional-with-reason': 'optional', 'qa-hold': 'QA hold' };
 const KIND_LABEL: Record<Stage['kind'], string> = { normal: 'Stage', preparation: 'Preparation', 'sub-batch': 'Sub-batches' };
 // Rows that select an item are not buttons, so a read-only (disabled) form can still be browsed.
 const pickable = (onPick: () => void) => ({ role: 'button', tabIndex: 0, onClick: onPick, onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPick(); } } });
@@ -37,8 +39,9 @@ export function Process({ doc, onChange, md, place, onPlace, editable }: {
   const roles = [...new Set(doc.stages.map((s) => s.role).filter(Boolean)
     .concat(['Production operator', 'Granulation operator', 'Compression operator', 'Coating operator', 'Packing operator', 'Packing supervisor', 'Warehouse officer']))];
   const machineTypes = [...new Set(md.equipment.filter((e) => e.active && e.type).map((e) => e.type!))].sort();
-  // Rooms are allowed by their area, or one by one by their code (not every room of an area in every block).
-  const areas = [...[...new Set(md.rooms.filter((r) => r.active && r.area).map((r) => r.area!))].sort(), ...md.rooms.filter((r) => r.active).map((r) => r.code).sort()];
+  // A stage with steps is removed after the app's own question (never the browser's confirm box).
+  const [removing, setRemoving] = useState<number | null>(null);
+  const removeStage = (i: number) => { setStages(doc.stages.filter((_, j) => j !== i)); select(Math.max(0, i - 1)); setRemoving(null); };
 
   return (
     <div className="process">
@@ -49,7 +52,7 @@ export function Process({ doc, onChange, md, place, onPlace, editable }: {
             <li key={s.key} className={i === si ? 'on' : ''}>
               <span className="ol-main" {...pickable(() => select(i))} aria-current={i === si}><b>{i + 1}. {s.name}</b><small>{KIND_LABEL[s.kind]}{s.kind === 'sub-batch' && s.count ? ` × ${s.count}` : ''} · {s.steps.length} step{s.steps.length === 1 ? '' : 's'} · {s.roomTypes.length ? s.roomTypes.join(', ') : 'no rooms chosen'}</small></span>
               {editable && <Order index={i} count={doc.stages.length} what={s.name} onMove={(by) => { setStages(move(doc.stages, i, by)); select(i + by); }}
-                onRemove={() => { if (!s.steps.length || window.confirm(`Remove ${s.name} and its ${s.steps.length} steps?`)) { setStages(doc.stages.filter((_, j) => j !== i)); select(Math.max(0, i - 1)); } }} />}
+                onRemove={() => (s.steps.length ? setRemoving(i) : removeStage(i))} />}
             </li>
           ))}
         </ol>
@@ -67,7 +70,7 @@ export function Process({ doc, onChange, md, place, onPlace, editable }: {
                 const b = findBlock(t.block);
                 return (
                   <li key={t.key} className={j === ti ? 'on' : ''}>
-                    <span className="ol-main" {...pickable(() => select(si, j))} aria-current={j === ti}><b>{j + 1}. {b ? stepTitle(doc, t) : t.block.id}</b><small>{[t.checker && 'checked', t.critical && 'critical', t.flow.kind !== 'none' && t.flow.kind.replaceAll('-', ' ')].filter(Boolean).join(' · ')}</small></span>
+                    <span className="ol-main" {...pickable(() => select(si, j))} aria-current={j === ti}><b>{j + 1}. {b ? stepTitle(doc, t) : t.block.id}</b><small>{[t.checker && 'checked', t.critical && 'critical', FLOW_NOTE[t.flow.kind]].filter(Boolean).join(' · ')}</small></span>
                     {editable && <Order index={j} count={stage.steps.length} what={stepTitle(doc, t)} onMove={(by) => { setSteps(move(stage.steps, j, by)); select(si, j + by); }}
                       onRemove={() => { setSteps(stage.steps.filter((_, k) => k !== j)); select(si); }} />}
                   </li>
@@ -92,20 +95,31 @@ export function Process({ doc, onChange, md, place, onPlace, editable }: {
         ) : <p className="muted">Add a stage first.</p>}
       </div>
 
+      {removing !== null && doc.stages[removing] && (
+        <div className="overlay" role="dialog" aria-modal="true" aria-label="Remove a stage">
+          <form className="card dialog" onSubmit={(e: FormEvent) => { e.preventDefault(); removeStage(removing); }}>
+            <h2>Remove {doc.stages[removing]!.name}?</h2>
+            <p>The stage and its {doc.stages[removing]!.steps.length} steps are removed from this draft.</p>
+            <div className="actions"><button type="button" onClick={() => setRemoving(null)}>Cancel</button><button className="primary" type="submit">Remove the stage</button></div>
+          </form>
+        </div>
+      )}
       <div className="card col settings-col">
         {stage && ti !== undefined ? (
           <StepSettings key={`${si}/${stage.steps[ti]!.key}`} doc={doc} si={si} ti={ti} onChange={(t) => setSteps(stage.steps.map((x, k) => (k === ti ? t : x)))} />
         ) : stage ? (
-          <StageForm doc={doc} si={si} stage={stage} onChange={putStage} roles={roles} machineTypes={machineTypes} areas={areas} />
+          <StageForm doc={doc} si={si} stage={stage} onChange={putStage} roles={roles} machineTypes={machineTypes} md={md} />
         ) : null}
       </div>
     </div>
   );
 }
 
-function StageForm({ doc, si, stage, onChange, roles, machineTypes, areas }: {
-  doc: MasterDoc; si: number; stage: Stage; onChange: (s: Stage) => void; roles: string[]; machineTypes: string[]; areas: string[];
+function StageForm({ doc, si, stage, onChange, roles, machineTypes, md }: {
+  doc: MasterDoc; si: number; stage: Stage; onChange: (s: Stage) => void; roles: string[]; machineTypes: string[]; md: MasterData;
 }) {
+  // Rooms are allowed by their area, or one by one by their code; the rooms where the stage's machines stand first.
+  const rooms = stageRoomChoices(stage, md);
   const earlier = doc.stages.slice(0, si).filter((s) => s.produces);
   return (
     <div className="stage-form">
@@ -119,7 +133,7 @@ function StageForm({ doc, si, stage, onChange, roles, machineTypes, areas }: {
         <datalist id="roles">{roles.map((r) => <option key={r} value={r} />)}</datalist>
       </div>
       {/* TB-11: the machines and rooms the floor is offered stand in these rooms (balances also in a dispensing area). */}
-      <ChipSet label="Rooms this stage may run in (an area, or a room)" values={stage.roomTypes} options={areas} onChange={(roomTypes) => onChange({ ...stage, roomTypes })}
+      <ChipSet label="Rooms this stage may run in (an area, or a room)" values={stage.roomTypes} options={rooms.options} groups={rooms.groups} text={rooms.text} onChange={(roomTypes) => onChange({ ...stage, roomTypes })}
         empty="None chosen yet: choose the rooms (needed when the stage works machines or names a room)" />
       <ChipSet label="Allowed machine types" values={stage.machineTypes} options={machineTypes} onChange={(machineTypes) => onChange({ ...stage, machineTypes })} empty="Any machine type" />
       <fieldset className="checklist">

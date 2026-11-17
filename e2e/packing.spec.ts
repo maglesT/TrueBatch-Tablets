@@ -66,6 +66,10 @@ test('TB-P2 packing journey: packing master from the skeleton, approved; a packi
   await check.getByRole('button', { name: /Sealing temperature limits is not set/ }).click();
   await author.page.getByLabel('Sealing temperature limits: lowest').fill('160');
   await author.page.getByLabel('Sealing temperature limits: highest').fill('190');
+  // The forming temperature is recorded: the check asks for its limits too (a temperature recorded without a check).
+  await check.getByRole('button', { name: /Forming temperature is recorded but not checked/ }).click();
+  await author.page.getByLabel('Forming temperature limits: lowest').fill('120');
+  await author.page.getByLabel('Forming temperature limits: highest').fill('150');
   await check.getByRole('button', { name: /Vacuum limits is not set/ }).click();
   await author.page.getByLabel('Vacuum limits: lowest').fill('400');
   await author.page.getByLabel('Vacuum limits: highest').fill('600');
