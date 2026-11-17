@@ -296,6 +296,22 @@ describe('TB-12 MMS: only released, in-date lots of the material; certificate va
     expect(r.hand).toMatchObject([{ field: 'lot', link: 'mms' }]);
   });
 
+  it('TB-12 a lot typed by hand after an MMS lot: its certificate values are typed from its label, not refused as the earlier lot\'s from MMS', async () => {
+    const c = await issue(granulation());
+    await act('asha', c.id, '0.1.0.1', 'start');
+    expect((await record(c.id, '0.1.0.1', { lot: 'API-OK', balance: 'eq-bal', gross: '1.000', tare: '0.850' })).statusCode).toBe(200);
+    expect((await stepOf(c.id, '0.1.0.1')).source.assay).toMatchObject({ from: 'mms' });
+    await cut(S.mms);
+    try {
+      const r = await record(c.id, '0.1.0.1', { lot: 'API-OK', ...handLabels('lot', 'lot'), assay: '98.5' });
+      expect(r.statusCode, r.body).toBe(200);
+    } finally { await restore(S.mms); }
+    const s = await stepOf(c.id, '0.1.0.1');
+    expect(s.source.lot).toEqual({ from: 'hand', link: 'mms', state: 'down' });
+    expect(s.source.assay).toMatchObject({ from: 'hand' });
+    expect(s.values).toMatchObject({ assay: { value: '98.5', unit: '%' } });
+  });
+
   it('TB-11 a balance is shared by the batches weighing on it: it is no use in equipment_use_v1, so the next weighing on it is not refused', async () => {
     const uses = async (code: string) => (await t.owner.unsafe(`select batch_number from ${t.schema}_report.equipment_use_v1 where equipment_code = $1`, [code])).map((r) => r.batch_number);
     // The weighing above was signed on BAL-01; the charge's mixer is a use of the batch.
