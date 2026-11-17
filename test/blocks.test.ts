@@ -133,7 +133,8 @@ describe('the engine runs the new blocks like any other', () => {
     expect(damaged).toEqual({ value: '0', unit: 'nos' });
     const r = evaluate(doc, [], parseKey('2.1.0.1')!, { ...intact, damaged });
     expect(r.damagedCheck).toMatchObject({ ok: true, unit: 'nos', check: { pass: true } });
-    expect((r.damagedCheck as { shown: string }).shown).toMatch(/= 0 nos; limit not more than 0 nos/);
+    // Plain when rounding changes nothing: no "0.00 nos rounded to 0 decimals (as the limit is written) = 0 nos".
+    expect((r.damagedCheck as { shown: string }).shown).toBe('0 nos; limit not more than 0 nos: within limits');
     expect(JSON.stringify(r.damagedCheck)).not.toContain('units');
   });
 
