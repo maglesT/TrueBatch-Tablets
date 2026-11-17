@@ -61,7 +61,7 @@ test('TB-14 floor journey: start, a value out of limits needs a deviation note, 
   await op.getByLabel('Reading').press('Enter');
   const results = op.getByRole('region', { name: 'Results' });
   await expect(results).toContainText('Out of limits');
-  await expect(results).toContainText('limit 5.0 to 7.0: OUT OF LIMITS');
+  await expect(results).toContainText('Limit 5.0 to 7.0');
   await expect(op.getByRole('button', { name: 'Done', exact: true })).toBeDisabled();
   await expect(op.locator('.action-bar')).toContainText('Add a deviation note first');
   await op.getByRole('button', { name: 'Add deviation note' }).click();
@@ -92,7 +92,7 @@ test('TB-14 floor journey: start, a value out of limits needs a deviation note, 
   await op.getByRole('button', { name: `← Batch ${batch.batchNo}` }).click();
   await expect(op.locator('.step-row').first()).toContainText('Checked', { timeout: 5_000 });
   await op.getByRole('button', { name: /Stage yield/ }).click();
-  await expect(op.locator('.step-title')).toContainText('Stage end · Blending');
+  await expect(op.locator('.step-title')).toContainText('Blending · stage yield');
   await op.getByRole('button', { name: 'Start', exact: true }).click();
   for (const [label, v] of [['Output', '0.099'], ['Samples', '0.000'], ['Rejects', '0.001']] as const) {
     await op.getByLabel(label).fill(v);

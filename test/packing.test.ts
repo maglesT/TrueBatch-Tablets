@@ -122,7 +122,7 @@ describe('the packing blocks', () => {
     const d = packing();
     const r = results(d, [], '0.1.0.1', { mfgDate: '2026-11-03', tablets: { value: '100000', unit: 'tablets' } });
     expect(r.expiry).toMatchObject({ ok: true, expiry: '2028-10', shown: 'Manufactured 11/2026, shelf life 24 months (to the end of the month before): expiry 10/2028' });
-    expect(r.packs).toMatchObject({ ok: true, value: '10000', unit: 'units' });
+    expect(r.packs).toMatchObject({ ok: true, value: '10000', unit: 'packs' });
     // The bulk step's figure is the expiry date, not the shelf life it is worked out from.
     expect(headline(r.expiry!)).toBe('10/2028');
     // No packing block has an expiry to type: the coding check works it out from the shelf life.
@@ -200,7 +200,7 @@ describe('the packing blocks', () => {
     expect(results(d, [issued(d)], f.key, { sealTemp: { value: '195', unit: '°C' }, pockets: 'yes', seal: 'yes', packingDone: 'no' }).sealCheck).toMatchObject({ check: { pass: false } });
     const l = where(d, 'leak-test');
     const leak = (leaking: string) => results(d, [issued(d)], l.key, { vacuum: { value: '500', unit: 'mbar' }, tested: { value: '20', unit: 'units' }, leaking: { value: leaking, unit: 'units' }, packingDone: 'no' }).plan;
-    expect(leak('0')).toMatchObject({ ok: true, value: '20', check: { pass: true, shown: expect.stringContaining('Lot 10000, level S-2') } });
+    expect(leak('0')).toMatchObject({ ok: true, value: '20', check: { pass: true, shown: expect.stringContaining('Sample 20 of 10000 (level S-2)') } });
     expect(leak('1')).toMatchObject({ check: { pass: false } });
   });
 

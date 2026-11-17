@@ -10,11 +10,11 @@ export const punchDieCheck: Block = {
     { name: 'upperPunches', label: 'Upper punches present, clean and undamaged', kind: 'yes-no' },
     { name: 'lowerPunches', label: 'Lower punches present, clean and undamaged', kind: 'yes-no' },
     { name: 'dies', label: 'Dies present, clean and undamaged', kind: 'yes-no' },
-    { name: 'damaged', label: 'Punches or dies damaged', kind: 'number', unit: 'units' },
+    { name: 'damaged', label: 'Punches or dies damaged', kind: 'number', unit: 'nos' },
   ],
   settings: [],
   calcs: [
     { name: 'toolingCheck', label: 'Punches and dies', template: 'C4', args: { question: 'Punches and dies present, clean and undamaged', answers: ['$upperPunches', '$lowerPunches', '$dies'], expected: ['yes'] } },
-    { name: 'damagedCheck', label: 'Damaged punches and dies', template: 'C1', args: { value: '$damaged', limit: { high: '0', unit: 'units' } } },
+    { name: 'damagedCheck', label: 'Damaged punches and dies', template: 'C1', args: { value: '$damaged', limit: { high: '0', unit: 'nos' } } },
   ],
 };

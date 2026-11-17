@@ -19,7 +19,7 @@ export const bulkIssue: Block = {
   settings: [],
   calcs: [
     { name: 'expiry', label: 'Expiry date', template: 'T27', args: { manufactured: '$mfgDate', months: '$pack.shelfLifeMonths', rule: '$pack.expiryRule' } },
-    { name: 'packs', label: 'Theoretical packs', template: 'T6', args: { mode: 'ratio', a: '$tablets', b: '$pack.unitsPerPack', unit: 'units', decimals: 0 } },
+    { name: 'packs', label: 'Theoretical packs', template: 'T6', args: { mode: 'ratio', a: '$tablets', b: '$pack.unitsPerPack', unit: 'packs', decimals: 0 } },
     { name: 'receivedCheck', label: 'Bulk received', template: 'C4', args: { question: 'Bulk containers intact and labelled RELEASED', answers: ['$received'], expected: ['yes'] } },
   ],
 };
