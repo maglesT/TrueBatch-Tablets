@@ -34,8 +34,10 @@ await schemaOwner.end();
 
 const master = fakeMaster();
 const item = (itemId: string, code: string, name: string) => ({ itemId, code, name, version: 1, active: true });
-master.products_.push({ ...item('pk-1', 'PK-001', 'Examplol 100 mg tablets, 10 x 10 blister'), strength: '100 mg', dosageForm: 'tablet' },
-  { ...item('prd-1', 'PRD-001', 'Examplol 100 mg tablets'), strength: '100 mg', dosageForm: 'tablet' });
+// Master data's kind: the pack and the bulk it is packed from; PRD-002 has no kind yet (offered in both lists).
+master.products_.push({ ...item('pk-1', 'PK-001', 'Examplol 100 mg tablets, 10 x 10 blister'), strength: '100 mg', dosageForm: 'tablet', kind: 'pack' },
+  { ...item('prd-1', 'PRD-001', 'Examplol 100 mg tablets'), strength: '100 mg', dosageForm: 'tablet', kind: 'bulk' },
+  { ...item('prd-2', 'PRD-002', 'Examplol 200 mg tablets'), strength: '200 mg', dosageForm: 'tablet' });
 master.materials_.push({ ...item('pm-foil', 'PM-101', 'Printed aluminium foil'), category: 'packing', unit: 'm' },
   { ...item('pm-ctn', 'PM-103', 'Carton'), category: 'packing', unit: 'nos' });
 master.equipment_.push({ ...item('ln-1', 'BL-01', 'Blister line 1'), kind: 'equipment', type: 'blister line', room: 'PK-01' },
