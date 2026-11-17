@@ -52,7 +52,7 @@ const SETTINGS: Record<string, Step['settings']> = {
   'leak-test': { vacuumUnit: 'mbar', vacuumLimit: { low: '400', high: '600', unit: 'mbar' }, level: 'S-1', aql: '0' },
   'finished-goods': { meanWeight: { header: 'coreWeight' }, yieldLimit: pct('98.0', '100.5'), accountabilityLimit: pct('99.5', '100.5') },
   'printed-reconciliation': { material: { formula: 'foil' }, unit: 'm', issued: '100 m' },
-  'serial-reconciliation': { received: '1000 units' },
+  'serial-reconciliation': { received: '1000 nos' },
 };
 
 const item = { itemId: 'eq-1', code: 'EQ-01', name: 'Equipment', version: 1, type: 'balance', room: 'RM-1', area: 'Area' };
