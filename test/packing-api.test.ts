@@ -300,6 +300,9 @@ describe('a packing batch from a released bulk batch', () => {
     // A count in master data's name for it (cartons in nos), as on screen and in MMS: per pack, the lots issued, the values.
     for (const text of ['"0.1 nos"', 'Lot CARTON-1: 1000 nos', 'Quantity issued: 1000 nos', 'Used in good packs: 980 nos']) expect(pdf).toContain(text);
     for (const text of ['"0.1 units"', 'Lot CARTON-1: 1000 units', 'Quantity issued: 1000 units']) expect(pdf).not.toContain(text);
+    // The reconciliation's worked line counts as its fields do, in the steps and in the packing materials table.
+    expect(pdf).toMatch(/\(980 nos used \+ \d+ nos destroyed \+ \d+ nos returned\) ÷ 1000 nos/);
+    expect(pdf).not.toMatch(/\d+ units (used|destroyed|returned)|÷ 1000 units/);
     // A new batch's counts in packs, whole, and the leak test's plan in plain words (17 Nov 2026 run, F22/F24/F39).
     for (const text of ['Packs tested: 20 packs', 'Packs that leak: 0 packs', 'Leak test (AQL): Sample 20 of 10000 (level S-2). leaking: accept 0, reject 1 (AQL 0.65); found 0: accept.',
       'Theoretical packs: 10000 packs', '100000 tablets ÷ 10 tablets = 10000 packs', 'Cartons checked: 10 nos',

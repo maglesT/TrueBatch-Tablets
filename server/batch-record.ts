@@ -138,7 +138,7 @@ export function batchRecordDoc(r: RecordInput, by: string, printedAt = new Date(
       return [
         { stack: [small(stepName(v), { bold: true }), small((ended && TERMINATED_STATE[v.state]) || (STATE[v.state] ?? v.state), { color: v.state === 'not_applicable' ? '#666666' : undefined })] },
         { stack: block ? valueLines(block, v, who, unitOf(v)) : [] },
-        { stack: block ? resultLines(block, st, v, who, cutShort(ended, v, steps)) : [] },
+        { stack: block ? resultLines(block, st, v, who, cutShort(ended, v, steps), unitOf(v)) : [] },
         { stack: v.events.filter((e) => e.kind !== 'value').map((e) => {
           // Demo installations only (server/demo.ts).
           if (e.kind === 'demo_wait_skipped') return small(`DEMO: wait skipped by ${who(e.person)} at ${plant(e.at)} · ${String(e.payload.label ?? '')}`, { color: RED, bold: true });
@@ -214,21 +214,23 @@ function certificateText(s: Source | undefined): string {
   return m ? ` · ${m[1] ? `${m[1]}, ` : ''}${PROVIDER_NAME[(s as { from: keyof typeof PROVIDER_NAME }).from]} report ${m[2]}` : sourceText(s);
 }
 
-/** The worked calculation lines, with the limits and pass or fail. */
-function resultLines(block: Block, st: Step, v: StepView, who: (id: number | null) => string, terminated: boolean): Content[] {
+/** The worked calculation lines, with the limits and pass or fail; a count of the step's material in master data's name
+ *  for it (nos for units), as its recorded values and the floor's worked lines. */
+function resultLines(block: Block, st: Step, v: StepView, who: (id: number | null) => string, terminated: boolean, stockUnit?: string): Content[] {
   const label = (name: string) => block.calcs.find((c) => c.name === name)?.label ?? block.settings.find((s) => s.name === name)?.label ?? name;
   const out: Content[] = Object.entries(v.results).flatMap(([name, r]) => {
     if (!r.ok) return [small(`${label(name)}: ${r.message}`, { color: RED })];
     const checks = checksOf(r);
     // A round whose stop check is not reached yet is not out of limits: the rounds go on.
     const notYet = name === v.notYet;
-    const text = (t: string) => plantText(notYet ? notYetText(t, terminated) : t);
+    const counted = (t: string) => t.replace(/\bunits\b/g, unitName('units', stockUnit));
+    const text = (t: string) => counted(plantText(notYet ? notYetText(t, terminated) : t));
     // A check's worked line may start with its own question ("Packing finished: no", "Line clear after packing: …"):
     // the label is not said twice.
     // A figure leads, with its limit (owner, 17 Nov 2026); the worked lines follow without their verdict, which the
     // verdict line under them says once.
-    const h = headline(r);
-    const limit = limitOf(r);
+    const h = headline(r) && counted(headline(r)!);
+    const limit = limitOf(r) && counted(limitOf(r)!);
     const shown = withoutVerdict(text(r.shown));
     const lead = h ? `${label(name)}: ${h}${limit ? ` (limit ${limit})` : ''}` : shown.toLowerCase().startsWith(label(name).toLowerCase()) ? shown : `${label(name)}: ${shown}`;
     return [
