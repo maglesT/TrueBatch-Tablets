@@ -247,6 +247,10 @@ describe('the packing blocks', () => {
     expect(view(qcApproved).status).toBe('QC approved');
     expect(batchRefusal('release', view(qcApproved), qa)).toBeNull();
     expect(batchRefusal('qc-approve', view(qcApproved), qc)?.problems).toEqual(['Not possible while the batch is QC approved.']);
+    // Every step done, not yet approved: the refusal says "packing complete", never "manufacturing complete".
+    expect(view([]).status).toBe('manufacturing complete');
+    expect(batchRefusal('release', view([]), qa)?.problems).toEqual(['Not possible while the batch is packing complete.']);
+    expect(batchRefusal('release', batchView({ ...p, pack: undefined }, events, [], at(60)), qa)?.problems).toEqual(['Not possible while the batch is manufacturing complete.']);
   });
 });
 
