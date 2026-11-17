@@ -9,7 +9,7 @@ import { masterSchema, type MasterDoc } from '../../../shared/master/schema.js';
 import { CheckPanel, type OnAnswer } from './CheckPanel.js';
 import { FormulaTable } from './Formula.js';
 import { HeaderFields } from './Header.js';
-import { answerDoc, ownProducts, placeOf, type Place } from './model.js';
+import { answerDoc, placeOf, type Place } from './model.js';
 import { Preview } from './Preview.js';
 import { Process } from './Process.js';
 import { Review } from './Review.js';
@@ -102,7 +102,7 @@ export function Designer({ me, versionId, onBack, onOpen }: { me: Me; versionId:
       <div className="designer">
         <div className="d-main">
           <fieldset className="plain" disabled={!editable}>
-            {tab === 'header' && <div className="card">{doc.pack ? <PackFields header={doc.header} pack={doc.pack} products={ownProducts(md.products)} onChange={(header, pack) => change({ ...doc, header, pack })} />
+            {tab === 'header' && <div className="card">{doc.pack ? <PackFields header={doc.header} pack={doc.pack} products={md.products} onChange={(header, pack) => change({ ...doc, header, pack })} />
               : <HeaderFields header={doc.header} md={md} onChange={(header) => change({ ...doc, header })} />}</div>}
             {tab === 'formula' && doc.pack && <PackMaterials doc={doc} md={md} onChange={change} />}
             {tab === 'formula' && !doc.pack && <FormulaTable doc={doc} onChange={change} md={md} masters={others} selected={place.line} onSelect={(line) => setPlace({ tab: 'formula', line })} problems={problems ?? []} onAnswer={onAnswer} />}

@@ -7,6 +7,7 @@ export const product = {
   masters: 'Master records',
   packing: false,
   // The word master data's dosage form of this product's products has: the pick lists offer only those (tablets, not
-  // injections or capsules). Master data does not say whether a product is a bulk or a pack, so both are offered.
+  // injections or capsules). Of those, a master offers the products master data marks as bulk (packing masters: pack,
+  // and bulk for the bulk packed) and those it does not mark yet.
   dosageForm: 'tablet',
 };
