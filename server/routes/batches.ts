@@ -15,7 +15,7 @@ import { blocking, masterChecks } from '../../shared/master/checks.js';
 import type { MasterDoc } from '../../shared/master/schema.js';
 import { Dec } from '../../shared/templates/index.js';
 import {
-  ACTIONS, BATCH_ACTIONS, CERTIFICATE, LINK_OF, MATERIAL_USE, batchRefusal, inLotUnit, issuedLots, returnProblems, returnsOf, usedQuantity, usesOfLot, stepLabel, stepPlace, stepTitle, handFields, isHand, batchView, doneProblems, evaluate, lateItems, openSteps, parseKey, readValue, refusal, review, timers,
+  ACTIONS, BATCH_ACTIONS, CERTIFICATE, LINK_OF, MATERIAL_USE, batchRefusal, filedKey, inLotUnit, issuedLots, returnProblems, returnsOf, usedQuantity, usesOfLot, stepLabel, stepPlace, stepTitle, handFields, isHand, batchView, doneProblems, evaluate, lateItems, openSteps, parseKey, readValue, refusal, review, timers,
   type Action, type BatchAction, type BatchEvent, type DeviationStatus, type LinkState, type Source, type StageView, type Stored, type StepEvent, type StepKey, type StepView, type Timer, type Value,
 } from '../../shared/engine/index.js';
 
@@ -80,11 +80,26 @@ async function materialUnits(master: FastifyInstance['master']): Promise<Map<str
 }
 const batchHash = (l: LoadedBatch) => contentHash('batch', l.batch.id, batchContent(l));
 const view = (l: LoadedBatch, read?: ReadonlyMap<string, DeviationStatus> | null) => batchView(l.doc, l.events, l.batchEvents, l.now, read);
-/** TB-21: the batch's deviation references as the Deviations system has them now; null when the link does not answer. */
+/**
+ * TB-21: the batch's deviation references as the Deviations system has them now, and (owner, 17 Nov 2026) the
+ * deviation filed from each note written without one, found by the note's source_ref (keyed filedKey(note)); null when
+ * the link does not answer.
+ */
 async function deviationsRead(app: FastifyInstance, l: LoadedBatch): Promise<{ read: Map<string, DeviationStatus> | null; link: LinkState }> {
-  const refs = [...new Set(l.events.flatMap((e) => (e.kind === 'note' && e.payload.reference ? [e.payload.reference] : [])))];
+  const notes = l.events.filter((e) => e.kind === 'note');
+  const refs = [...new Set(notes.flatMap((e) => (e.payload.reference ? [e.payload.reference] : [])))];
   const r = await app.links.deviations.byNumbers(refs);
-  return { read: r.state === 'ok' ? r.value : null, link: r.state };
+  if (r.state !== 'ok') return { read: null, link: r.state };
+  const read = new Map<string, DeviationStatus>(r.value);
+  const bare = notes.filter((e) => !e.payload.reference);
+  if (!bare.length) return { read, link: 'ok' };
+  const f = await app.links.deviations.bySourceRefs(bare.map((e) => `${app.product.id}:note:${e.id}`));
+  if (f.state !== 'ok') return { read: null, link: f.state };
+  for (const e of bare) {
+    const d = f.value.get(`${app.product.id}:note:${e.id}`);
+    if (d) read.set(filedKey(e.id), { status: d.status, closedAt: d.closedAt, number: d.number });
+  }
+  return { read, link: 'ok' };
 }
 
 // What a signer is shown of a step, and its hash: the signature is refused if the step changed since (PL-05).

@@ -48,6 +48,12 @@ export const deviationsClient = (l: Link) => ({
   byNumbers: (numbers: string[]) => l.read(async (q, v) => new Map((await q<DevRow[]>`
     select distinct on (number) number, status, title, closed_at::text from ${v('deviation_v1')} where number = any(${numbers}) order by number`)
     .map((r) => [r.number, dev(r)]))),
+  // The deviations filed from these notes (owner, 17 Nov 2026: the number flows back): deviation_v1.source_ref is the
+  // note's deviation_note_v1.source_ref. Read through to_jsonb, so a view without the column finds none.
+  bySourceRefs: (refs: string[]) => l.read(async (q, v) => new Map((await q<(DevRow & { source_ref: string })[]>`
+    select distinct on (source_ref) source_ref, number, status, title, closed_at from (
+      select to_jsonb(d) ->> 'source_ref' as source_ref, number, status, title, closed_at::text from ${v('deviation_v1')} d) x
+    where source_ref = any(${refs}) order by source_ref, number`).map((r) => [r.source_ref, dev(r)]))),
   // The deviations that name the batch, matched as Deviations matches batches (its batch_norm).
   byBatch: (batchNo: string) => l.read(async (q, v) => (await q<DevRow[]>`
     select distinct on (number) number, status, title, closed_at::text from ${v('deviation_v1')}

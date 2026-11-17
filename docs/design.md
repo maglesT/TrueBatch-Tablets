@@ -27,7 +27,11 @@ answering) or **ok**.
   the value is stored with source `hand` (and whether the link was absent or down), and QA's review lists it.
 - **Deviations** (`deviation_v1`): a note's reference must exist; while the link answers its status is Deviations'
   (closed or rejected there counts as closed) and QA cannot close it by hand. By hand: a QA person other than the one
-  who typed the number closes it.
+  who typed the number closes it. The number flows back (owner, 17 November 2026): a note written without a number
+  that Deviations filed a deviation from (`deviation_v1.source_ref` = the note's `deviation_note_v1.source_ref`) is
+  that deviation, read live while the link answers: its number and status are shown on the step, the batch screen,
+  QA's review and the PDF, and it blocks release until closed there. A number typed while the link was off says
+  "typed by hand".
 - **QMS** (`change_v1`, planned): the change control at approval must exist and be QA-approved, in a step of
   `CHANGE_STEPS`, and its products must name the master's product (code or name, without case); one that names no
   product is taken with a warning to QA. By hand: another person makes the version effective.
