@@ -12,7 +12,8 @@ export const tabletReconciliation: Block = {
   ],
   settings: [
     { name: 'theoretical', label: 'Theoretical number of tablets', kind: 'quantity' },
-    { name: 'meanWeight', label: 'Mean tablet weight', kind: 'quantity' },
+    // A weight per tablet (the tablets are counted by weight): compression's mean weight, the header's tablet weight or typed.
+    { name: 'meanWeight', label: 'Mean tablet weight', kind: 'quantity', notBatch: 'tablet' },
     { name: 'yieldLimit', label: 'Yield limits', kind: 'limit' },
     { name: 'accountabilityLimit', label: 'Accountability limits', kind: 'limit' },
   ],

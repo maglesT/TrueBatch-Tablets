@@ -18,6 +18,8 @@ export const limitSchema = z.object({
 // calculation ("stage/step/name"), to a formula line (its batch quantity, adjusted when asked; or its label claim, for a
 // block setting with formulaField) or to the header.
 export const HEADER_VALUES = ['batchSize', 'coreWeight', 'coatedWeight', 'coreBatch', 'coatedBatch'] as const;
+// The header values per tablet: the only ones a block setting with notBatch 'tablet' takes (the others are per batch).
+export const PER_TABLET_HEADERS: readonly (typeof HEADER_VALUES)[number][] = ['coreWeight', 'coatedWeight'];
 export const settingValueSchema = z.union([
   text(),
   limitSchema,

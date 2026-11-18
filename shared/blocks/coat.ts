@@ -10,7 +10,8 @@ export const coat: Block = {
     { name: 'meanWeight', label: 'Mean weight of coated tablets', kind: 'number', unit: 'mg' },
   ],
   settings: [
-    { name: 'coreWeight', label: 'Core weight', kind: 'quantity' },
+    // A weight per tablet: the header's core tablet weight, an earlier step's mean weight or typed; never a batch quantity.
+    { name: 'coreWeight', label: 'Core weight', kind: 'quantity', notBatch: 'tablet' },
     { name: 'gainLimit', label: 'Weight gain limits', kind: 'limit' },
   ],
   calcs: [{ name: 'gain', label: 'Weight gain', template: 'T5', args: { before: '$coreWeight', after: '$meanWeight', mode: 'gain', base: 'start', limit: '$gainLimit' } }],

@@ -17,7 +17,8 @@ export const sprayCoat: Block = {
     { name: 'meanWeight', label: 'Mean weight of coated tablets', kind: 'number', unit: 'mg' },
   ],
   settings: [
-    { name: 'coreWeight', label: 'Weight before this coat', kind: 'quantity' },
+    // A weight per tablet: the header's core (or coated) tablet weight, an earlier coat's mean weight or typed.
+    { name: 'coreWeight', label: 'Weight before this coat', kind: 'quantity', notBatch: 'tablet' },
     { name: 'base', label: 'Weight gain on (start: before this coat; final: after it)', kind: 'text', options: ['start', 'final'] },
     { name: 'gainLimit', label: 'Weight gain limits', kind: 'limit' },
     { name: 'inletLimit', label: 'Inlet temperature limits', kind: 'limit', optional: true },
