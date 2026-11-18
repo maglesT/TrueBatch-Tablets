@@ -12,7 +12,8 @@ export const uniformityByWeight: Block = {
   ],
   settings: [
     { name: 'coating', label: 'Coating', kind: 'text', options: ['uncoated', 'film-coated'] },
-    { name: 'labelClaim', label: 'Label claim per tablet', kind: 'quantity' },
+    // A formula line gives its label claim per tablet (never its batch quantity): pulled from the API line.
+    { name: 'labelClaim', label: 'Label claim per tablet', kind: 'quantity', formulaField: 'labelClaim' },
   ],
   calcs: [
     { name: 'acceptance', label: 'Content uniformity', template: 'T14', args: { method: 'weight variation', coating: '$coating', weights: { readings: '$weights' }, assay: '$assay', labelClaim: '$labelClaim' } },
