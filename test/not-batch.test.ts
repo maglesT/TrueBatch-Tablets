@@ -141,3 +141,32 @@ describe('the designer offers', () => {
     expect(quantityChoices(d, si, 0, 'count')).toMatchObject({ lines: false, headers: ['batchSize'] });
   });
 });
+
+// Round 37 (port of the TrueBatch API check): a repeat-until step whose stop check reads an optional setting the master
+// left unset never passes at run time (the check is left out), so the rounds could only end at the most rounds allowed.
+describe('a repeat-until step whose stop check can never pass', () => {
+  const pct = (low: string, high: string) => ({ low, high, unit: '%' });
+  const flow = (stop: string): Step['flow'] => ({ kind: 'repeat-until', maxRounds: 5, stop });
+  const never = (d: MasterDoc) => errors(d).filter((e) => e.includes('never passes'));
+
+  it('the Carr index stops the rounds but its limits are not set: refused', () => {
+    const [d, p] = withStep('density-flow', {}, flow('carr'));
+    expect(never(d)).toEqual([`${p.replace(/\.settings$/, '.flow')}: Carr index stops the rounds, but Carr index limits is not set, so it never passes: set it, or pick the check that stops the rounds under More options`]);
+  });
+
+  it('the limits set: taken; the other optional limits (not the stop check) stay optional', () => {
+    const [d] = withStep('density-flow', { carrLimit: pct('5', '15') }, flow('carr'));
+    expect(never(d)).toEqual([]);
+    // Not a repeat-until step: every limit stays optional.
+    expect(never(withStep('density-flow', {})[0])).toEqual([]);
+  });
+
+  it('no block\'s own stop check reads an optional setting (each stop check of the blocks as shipped can pass)', () => {
+    const optional = BLOCKS.filter((b) => b.stop).flatMap((b) => {
+      const c = b.calcs.find((x) => x.name === b.stop)!;
+      return [...JSON.stringify(c.args).matchAll(/"\$([a-zA-Z0-9]+)\?"/g)].filter(([, n]) => b.settings.some((s) => s.name === n)).map(([, n]) => `${b.id}.${n}`);
+    });
+    expect(optional).toEqual([]);
+    expect(errors(tablet())).toEqual([]);
+  });
+});
