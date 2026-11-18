@@ -149,16 +149,19 @@ describe('a repeat-until step whose stop check can never pass', () => {
   const flow = (stop: string): Step['flow'] => ({ kind: 'repeat-until', maxRounds: 5, stop });
   const never = (d: MasterDoc) => errors(d).filter((e) => e.includes('never passes'));
 
-  it('the Carr index stops the rounds but its limits are not set: refused', () => {
-    const [d, p] = withStep('density-flow', {}, flow('carr'));
-    expect(never(d)).toEqual([`${p.replace(/\.settings$/, '.flow')}: Carr index stops the rounds, but Carr index limits is not set, so it never passes: set it, or pick the check that stops the rounds under More options`]);
+  it('a stop check that is not a C1 runs without its optional limit, so it is not refused (round 37b)', () => {
+    // The Carr index (T6) is computed and passes without limits; only a C1 with an unset optional value or limit is left out.
+    expect(never(withStep('density-flow', {}, flow('carr'))[0])).toEqual([]);
+    expect(never(withStep('density-flow', { carrLimit: pct('5', '15') }, flow('carr'))[0])).toEqual([]);
+    expect(never(withStep('density-flow', {})[0])).toEqual([]);
   });
 
-  it('the limits set: taken; the other optional limits (not the stop check) stay optional', () => {
-    const [d] = withStep('density-flow', { carrLimit: pct('5', '15') }, flow('carr'));
-    expect(never(d)).toEqual([]);
-    // Not a repeat-until step: every limit stays optional.
-    expect(never(withStep('density-flow', {})[0])).toEqual([]);
+  it('no C1 of the blocks as shipped has an optional value or limit, so the rule guards new blocks only (round 37b)', () => {
+    const optionalC1 = BLOCKS.flatMap((b) => b.calcs.filter((c) => c.template === 'C1').flatMap((c) => {
+      const a = c.args as { value?: unknown; limit?: unknown };
+      return [...JSON.stringify({ value: a.value, limit: a.limit }).matchAll(/"\$([a-zA-Z0-9]+)\?"/g)].map(([, n]) => `${b.id}.${c.name}.${n}`);
+    }));
+    expect(optionalC1).toEqual([]);
   });
 
   it('no block\'s own stop check reads an optional setting (each stop check of the blocks as shipped can pass)', () => {
