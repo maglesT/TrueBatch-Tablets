@@ -72,7 +72,7 @@ const word = (x: string) => new RegExp(`(^|[^a-z0-9])${x.toLowerCase().replace(/
 /** Whether a change control's products name this product, by its code or its name (case-insensitive); 'none' when it names no product. */
 export function namesProduct(c: ChangeRead, product: { productCode: string; productName: string }): 'yes' | 'no' | 'none' {
   const p = c.products?.trim().toLowerCase();
-  if (!p) return 'none';
+  if (!p || p === 'none') return 'none';   // QMS publishes the text 'none' when "None" is ticked (no product named)
   return [product.productCode, product.productName].some((x) => x.trim() && word(x.trim()).test(p)) ? 'yes' : 'no';
 }
 export const qmsClient = (l: Link) => ({
