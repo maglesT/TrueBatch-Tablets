@@ -105,6 +105,17 @@ describe('TrueBatch Tablets Packing: its own product on the platform', () => {
     expect(m.publishes).toEqual(['packing_batch_v1', 'equipment_use_v1', 'material_use_v1', 'deviation_note_v1']);
   });
 
+  it('PL-01 packing\'s report schema holds exactly the views it publishes: no batch_fact_v1 (that is TrueBatch Tablets\')', async () => {
+    const m = JSON.parse(readFileSync(path.join(import.meta.dirname, '../ops/packing.manifest.draft.json'), 'utf8')) as { publishes: string[] };
+    const views = async () => (await t.owner.unsafe(`select table_name from information_schema.views where table_schema = $1 order by 1`, [`${t.schema}_report`])).map((r) => r.table_name as string);
+    expect(await views()).toEqual([...m.publishes].sort());
+    // An installation that got the stray view from Tablets' 0017 loses it with packing 0112.
+    await t.owner.unsafe(`create view ${t.schema}_report.batch_fact_v1 as select 1 as x`);
+    expect(await views()).toContain('batch_fact_v1');
+    await t.owner.unsafe(readFileSync(path.join(import.meta.dirname, '../packing/migrations/0112_drop_stray_batch_fact.sql'), 'utf8'));
+    expect(await views()).toEqual([...m.publishes].sort());
+  });
+
   it('PL-06 the packing app login keeps the step events and signatures insert-only', async () => {
     mv = await effective();
     await expect(t.sql`update step_events set kind = 'done'`).rejects.toMatchObject({ code: '42501' });
