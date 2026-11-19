@@ -96,8 +96,7 @@ answering) or **ok**.
   insert-only), published as `report.lab_request_v1` (`db/migrations/0019`, columns: `request_id` '<batch number>/<step
   key>' (stage.sub-batch.step.round, so a repeated round or sub-batch has its own), `batch_no`, `product_code`,
   `stage_title`, `step_key`, `step_title`, `tests` ([{name, label, unit, individual: n or null}]), `requested_at`,
-  `status` (open; done once the step is signed as performed; cancelled when the step is set not applicable or the
-  batch rejected or terminated before that), `read_at`, `data_as_of`). LIMS reads it from every TrueBatch edition as its
+  `status` (open, done or cancelled: round 43 below), `read_at`, `data_as_of`). LIMS reads it from every TrueBatch edition as its
   own link, so packing migrates the same file and publishes the same view (empty: no packing block has such a test).
   LIMS publishes its in-process reports in `coa_v1`/`result_v1` with purpose `in_process`, the report number (IPR…) in
   `coa_number`, the `request_id`, and in `result_v1` the `individual_values` (in order) and `figure` (what `reported`
@@ -122,6 +121,21 @@ answering) or **ok**.
   (shop-floor IPC, done at the press or in the IPQC room on the floor): weights, hardness, thickness, friability,
   disintegration, LOD (moisture balance), density and flow, sieve analysis. The uniformity-by-weight assay stays the
   batch's release assay (`qc: true`): the tablets' own in-process assay is not a separate step in Tablets.
+- **LIMS in-process tests: rounds and older steps** (round 43). A step with rounds (repeat-until) also takes an
+  in-process report of an EARLIER round of the same step (`requestFits`: same batch and stage.sub-batch.step, round up to
+  this one; never a later round's, another step's or batch's): a sample of round 1 is often approved while round 2
+  runs. One result fills one round: a result another round of the step picked is not offered and refused ("… was used
+  in another round of this step: one result fills one round."). The source keeps the result (`ref`) and the request it
+  was sampled for (`request`), and says when: "(request …, sampled in round 1 at <time>)", or for a step without rounds
+  "(request …, requested <time>)". `lab_request_v1` is replaced in place (`db/migrations/0020`, same name and columns):
+  `status` done once a round of the step picked a result of the request, or this round's test was typed by hand;
+  cancelled when the round is set not applicable, the step's rounds ended without picking it (the "done" event of the
+  round that ends them, `endsTheRounds`: no rounds, the stop check passed or the last round, has `labClosed`), or the
+  batch is rejected, terminated or approved by production; open until then. A field whose unit is not set opens no
+  test (`labTests`; Tablets' in-process fields have a fixed unit, so this changes nothing here). A step started before
+  round 42 has no lab request (its "started" event has none), so no pick could ever come: its in-process fields are
+  typed by hand while LIMS answers too, marked "typed by hand: started before LIMS in-process requests" (source state
+  `no_request`), checked by a second person and listed in QA's review, as when LIMS is down; a pick is refused.
 - **Published** (`db/migrations/0006_report_views.sql`): `batch_fact_v1` and `equipment_use_v1` with Batchwright's
   names and columns, so the Logbook and Deviations read TrueBatch as they read Batchwright, and `deviation_note_v1`
   for Deviations to file notes later. `batch_fact_v1` has one more column at its end (`0007`): `manufactured_on`, the
