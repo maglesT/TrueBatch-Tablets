@@ -8,7 +8,7 @@ export const uniformityByWeight: Block = {
   fields: [
     { name: 'balance', label: 'Balance', kind: 'machine', types: ['balance'], notTypes: ['analytical', 'micro'] },
     { name: 'weights', label: 'Weights of 10 tablets', kind: 'number', unit: 'mg', count: 10 },
-    { name: 'assay', label: 'Assay (% of label claim, QC report)', kind: 'number', unit: '%' },
+    { name: 'assay', label: 'Assay (% of label claim, QC report)', kind: 'number', unit: '%', qc: true },
   ],
   settings: [
     { name: 'coating', label: 'Coating', kind: 'text', options: ['uncoated', 'film-coated'] },

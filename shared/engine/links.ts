@@ -6,11 +6,11 @@
 import type { BlockField } from '../blocks/format.js';
 
 // truebatch: TrueBatch Tablets' published bulk batches, read by TrueBatch Tablets Packing. recruitment: the people's
-// training (training.ts), read when a person signs a step that names one.
-export const PROVIDERS = ['deviations', 'qms', 'logbook', 'mms', 'truebatch', 'recruitment'] as const;
+// training (training.ts), read when a person signs a step that names one. lims: QC's CoAs and results (lims.ts).
+export const PROVIDERS = ['deviations', 'qms', 'logbook', 'mms', 'truebatch', 'recruitment', 'lims'] as const;
 export type Provider = (typeof PROVIDERS)[number];
 export type LinkState = 'absent' | 'down' | 'ok';
-export const PROVIDER_NAME: Record<Provider, string> = { deviations: 'Deviations', qms: 'QMS', logbook: 'Logbook', mms: 'MMS', truebatch: 'TrueBatch Tablets', recruitment: 'Recruitment' };
+export const PROVIDER_NAME: Record<Provider, string> = { deviations: 'Deviations', qms: 'QMS', logbook: 'Logbook', mms: 'MMS', truebatch: 'TrueBatch Tablets', recruitment: 'Recruitment', lims: 'LIMS' };
 
 /** Pulled through a link (with what was read, PL-07), or typed by hand while the link was absent or down. */
 export type Source = { from: 'hand'; link: Provider; state: 'absent' | 'down' } | { from: Provider; asOf: string | null; shown: string };
