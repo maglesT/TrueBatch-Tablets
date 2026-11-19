@@ -87,8 +87,41 @@ answering) or **ok**.
   product code) or this lot number (material sample, the line's material), of a release sample (a lot: release or
   retest); a stability or investigation sample, another batch, lot, product or material is never offered and refused
   with its reason. Absent or down: typed by hand as before, marked "typed by hand: LIMS …" (a step value then needs a
-  second-person check and is listed for QA). Not from LIMS: the 10 or 30 individual results of blend and content
-  uniformity (`result_v1` has one figure per test) and the certificate values of a lot (MMS gives them with the lot).
+  second-person check and is listed for QA). Not from LIMS: the certificate values of a lot (MMS gives them with the
+  lot).
+- **LIMS in-process tests** (round 42, owner 19 Nov 2026: in-process lab tests are picked, not typed). A block field
+  with `qc: 'in_process'` is an in-process test done in the QC lab on a sample of THIS step (`qc: true` stays the
+  release CoA's result, unchanged). When such a step starts, it opens a lab request: the "started" event keeps the
+  stage and step in words and the tests (`labRequestOf`; insert-only like every event, so the batches table stays
+  insert-only), published as `report.lab_request_v1` (`db/migrations/0019`, columns: `request_id` '<batch number>/<step
+  key>' (stage.sub-batch.step.round, so a repeated round or sub-batch has its own), `batch_no`, `product_code`,
+  `stage_title`, `step_key`, `step_title`, `tests` ([{name, label, unit, individual: n or null}]), `requested_at`,
+  `status` (open; done once the step is signed as performed; cancelled when the step is set not applicable or the
+  batch rejected or terminated before that), `read_at`, `data_as_of`). LIMS reads it from every TrueBatch edition as its
+  own link, so packing migrates the same file and publishes the same view (empty: no packing block has such a test).
+  LIMS publishes its in-process reports in `coa_v1`/`result_v1` with purpose `in_process`, the report number (IPR…) in
+  `coa_number`, the `request_id`, and in `result_v1` the `individual_values` (in order) and `figure` (what `reported`
+  is: mean, AV or result), all read through to_jsonb (a LIMS without them gives none). Fixed rules (`coaRefusal` with
+  the request, `inProcessFit`): only an APPROVED in-process report whose request is this step's (another step, another
+  batch or product, a release or other sample, an unapproved report are refused with their reason); the field's unit
+  (`sameUnit`); a single number takes the reported figure (a `figure` of mean or AV is refused); a list takes LIMS's
+  individual values in LIMS's order, exactly the block's count, never padded or cut (a count that differs is refused
+  in words); its `figure` must be the field's (`figure: 'mean'` or `'AV'`), and TrueBatch works the figure out again
+  from the same values (the mean, or the T14 acceptance value with the step's coating) and refuses, naming both
+  numbers, when it does not agree rounded as LIMS wrote it. Content uniformity is staged: LIMS keeps one result with 10
+  values after L1 and 30 after L2 (L1's 10 first). The 10 results pick 10 values (or all 30: L1 and L2 at once); the
+  step's own C6 says "test 20 more" when L1 does not pass, and only then the screen asks for the 20 more, which pick
+  values 11 to 30 of the 30-value result (refused when its first 10 differ from those recorded) or a 20-value result.
+  The block's calculations (mean, RSD, each location; AV, L1 and L2) then run on the picked values exactly as on typed
+  ones. Each picked field keeps "LIMS in-process report IPR…: test (request …), n values, mean/AV … as reported,
+  analysis …" as its source; the step, QA's review and the PDF show it ("from LIMS …"). While LIMS answers typing is
+  refused; the step screen offers the results that fit, says why the others do not, and shows "Waiting for LIMS:
+  request <id> (sample not yet approved)" while none is there. Absent or down: typed by hand as before (a second person
+  checks it, QA's review lists it). Marked in Tablets: blend uniformity (the 10 location results, figure mean) and
+  content uniformity (the 10 and the 20 more, figure AV), the tests the QC lab does on the step's sample. Not marked
+  (shop-floor IPC, done at the press or in the IPQC room on the floor): weights, hardness, thickness, friability,
+  disintegration, LOD (moisture balance), density and flow, sieve analysis. The uniformity-by-weight assay stays the
+  batch's release assay (`qc: true`): the tablets' own in-process assay is not a separate step in Tablets.
 - **Published** (`db/migrations/0006_report_views.sql`): `batch_fact_v1` and `equipment_use_v1` with Batchwright's
   names and columns, so the Logbook and Deviations read TrueBatch as they read Batchwright, and `deviation_note_v1`
   for Deviations to file notes later. `batch_fact_v1` has one more column at its end (`0007`): `manufactured_on`, the
