@@ -150,6 +150,19 @@ answering) or **ok**.
   values of both stages (30) fills either stage, whichever of the two it names. A result that names no field (an older
   LIMS) is matched by its unit as before. The same rule holds for a release CoA's result (`qc: true`) once LIMS names
   a field on it; today it does not, so those are matched by unit.
+- **LIMS in-process tests: codes unique within the product** (round 45, agreed with LIMS: its in-process
+  specification is per product). Each test of `lab_request_v1.tests` has a `code`, unique within the master
+  (`ipcCodes`): '<block id>.<field name>' ('blend-uniformity.results', 'uniformity-by-weight.assay'), with '@<n>' when the
+  block is in the master more than once (n: its occurrence, stages and steps in order: 'blend-uniformity.results@2'); a
+  sub-batch or a round of the step has the same code (the request id tells them apart). The master check shows an info
+  line (ℹ️, not blocking) on each step of such a block: "LIMS specification must map each occurrence". Content
+  uniformity is ONE test: code 'content-uniformity', name 'results' (L1's field), `individual` 30, `stages` [10, 20];
+  picking is unchanged (a 30-value result fills both stages, a 10-value result L1). LIMS names the code back at the end
+  of `result_v1` as `ipc_code` (read through to_jsonb): a result with it fills only the field of that code in this
+  step (`answersField`; both stages of content uniformity have its one code), refused otherwise ("<test> of report
+  <IPR…> answers in-process test <code>, not <field>."); without it the round 44 rule holds (`ipc_field`, else the
+  unit). `lab_request_v1` is replaced in place (`db/migrations/0021`, same name and columns): every test has `code`,
+  null for a request opened before round 45 (LIMS matches those by name).
 - **Published** (`db/migrations/0006_report_views.sql`): `batch_fact_v1` and `equipment_use_v1` with Batchwright's
   names and columns, so the Logbook and Deviations read TrueBatch as they read Batchwright, and `deviation_note_v1`
   for Deviations to file notes later. `batch_fact_v1` has one more column at its end (`0007`): `manufactured_on`, the
