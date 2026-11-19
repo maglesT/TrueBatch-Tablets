@@ -136,6 +136,15 @@ answering) or **ok**.
   round 42 has no lab request (its "started" event has none), so no pick could ever come: its in-process fields are
   typed by hand while LIMS answers too, marked "typed by hand: started before LIMS in-process requests" (source state
   `no_request`), checked by a second person and listed in QA's review, as when LIMS is down; a pick is refused.
+- **LIMS in-process tests: the field a result answers** (round 44). LIMS's in-process specification names, per test, the
+  TrueBatch field it answers (a test of the lab request, `tests[].name`), published at the end of `result_v1` as
+  `ipc_field` (read through to_jsonb: an older LIMS gives null). A result that names a field fills only that field
+  (`answersField`, `fieldRefusal`): in a step with several fields in one unit a result of one test is never picked into
+  another; the step screen offers each field only its own results, and the server refuses another field's ("<test> of
+  report <IPR…> answers <field>, not <this field>."). Content uniformity is one test in LIMS: a result holding the
+  values of both stages (30) fills either stage, whichever of the two it names. A result that names no field (an older
+  LIMS) is matched by its unit as before. The same rule holds for a release CoA's result (`qc: true`) once LIMS names
+  a field on it; today it does not, so those are matched by unit.
 - **Published** (`db/migrations/0006_report_views.sql`): `batch_fact_v1` and `equipment_use_v1` with Batchwright's
   names and columns, so the Logbook and Deviations read TrueBatch as they read Batchwright, and `deviation_note_v1`
   for Deviations to file notes later. `batch_fact_v1` has one more column at its end (`0007`): `manufactured_on`, the
