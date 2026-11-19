@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, onTestFinished } from 'vitest';
 import { connect, type Sql } from '../server/db.js';
 import { links } from '../server/links.js';
 import { findBlock } from '../shared/blocks/index.js';
@@ -16,6 +16,9 @@ import { small } from './engine-fixture.js';
 // QC result, the batch's QC approval and the QC report of a lot typed by hand are PICKED from an approved CoA of this
 // batch or lot; absent or down, they are typed by hand as before.
 
+/** The uniformity-by-weight block as it was before round 44 (its assay the release CoA's, qc true): the qc true rule
+ * is no longer used by a Tablets block but stays for the editions that use it, so it is still tested with it. */
+const releaseAssay = (b: Block): Block => ({ ...b, fields: b.fields.map((f) => (f.name === 'assay' ? { ...f, qc: true as const } : f)) });
 const coa = (o: Partial<Coa> = {}): Coa => ({ coaId: 'c1', coaNumber: 'COA26001', sampleNumber: 'LS26001', lotNumber: 'TB260001', itemKind: 'PRODUCT', itemMasterId: 'p',
   itemCode: 'P', itemName: 'P', purpose: 'release', decision: 'APPROVED', decidedAt: '2026-11-19T06:00:00Z', decidedBy: 'QC ONE', specNumber: 'SPEC-P', specVersion: 1, ...o });
 const batch = { kind: 'PRODUCT' as const, batchNo: 'TB260001', productCode: 'P' };
@@ -64,7 +67,8 @@ describe('the LIMS rules (shared/engine/lims.ts): only an approved CoA of this b
   });
 
   it('a QC result field is a single number (the block check)', () => {
-    const b = findBlock({ id: 'uniformity-by-weight', version: 1 })!;
+    // Round 44: no Tablets block has a release CoA field (qc true) now; the rule stays for the editions that use it.
+    const b = releaseAssay(findBlock({ id: 'uniformity-by-weight', version: 1 })!);
     expect(b.fields.find((f) => f.name === 'assay')).toMatchObject({ qc: true });
     expect(blockProblems(b)).toEqual([]);
     const bad: Block = { ...b, fields: b.fields.map((f) => (f.name === 'weights' ? { ...f, qc: true as const } : f)) };
@@ -157,7 +161,12 @@ const uniformity = { block: { id: 'uniformity-by-weight', version: 1 }, checker:
 describe('a QC result of the batch, picked from LIMS', () => {
   let b: { id: number; batchNo: string };
   let good = '';
+  // Round 44: the Tablets assay is in-process now; the release CoA field (qc true) of other editions is tested on the
+  // block as it was (its assay qc true) for this describe only.
+  const assay = findBlock({ id: 'uniformity-by-weight', version: 1 })!.fields.find((f) => f.name === 'assay')!;
+  afterAll(() => { assay.qc = 'in_process'; });
   beforeAll(async () => {
+    assay.qc = true;
     b = await issue([uniformity]);
     await as('asha', 'POST', `/api/batches/${b.id}/steps/0.1.0.1/start`, {});
     good = await decided(b.batchNo, { results: [['Assay', '99.4', '%'], ['Average weight', '250.1', 'mg'], ['Water', null, '%']] });
@@ -787,6 +796,10 @@ describe('round 44: a result fills only the field it answers (result_v1.ipc_fiel
     });
 
     it('TB-14 a release CoA result that names another field is refused; one naming this field, or none, is picked', async () => {
+      // The release CoA field (qc true) of other editions, on the block as it was before round 44 (see above).
+      const assay = findBlock({ id: 'uniformity-by-weight', version: 1 })!.fields.find((f) => f.name === 'assay')!;
+      assay.qc = true;
+      onTestFinished(() => { assay.qc = 'in_process'; });
       const b = await issue([uniformity]);
       await as('asha', 'POST', `/api/batches/${b.id}/steps/${key}/start`, {});
       const no = await decided(b.batchNo, { results: [['Assay', '99.4', '%']] });
@@ -799,5 +812,64 @@ describe('round 44: a result fills only the field it answers (result_v1.ipc_fiel
       expect((await record(b.id, { assay: { lims: r!.resultId } })).statusCode).toBe(200);
       expect((await stepOf(b.id, key)).values.assay).toEqual({ value: '99.4', unit: '%' });
     });
+  });
+});
+
+// Round 44 (found by Capsules on the demo): the uniformity-by-weight step comes mid-production (after compression), so
+// its assay is an in-process test of the step (a composite sample of the units, USP <905> weight variation), not the
+// batch's release CoA: the operator never waits for release testing. One result (LIMS figure 'result'); T14 then works
+// out the acceptance value from it and the weights.
+describe('round 44: the uniformity-by-weight assay is an in-process test of the step', () => {
+  const key = '0.1.0.1';
+  const W = ['151.0', '149.5', '150.2', '150.8', '149.0', '150.5', '151.2', '149.8', '150.0', '150.4'];
+
+  it('TB-14 the block: the assay is an in-process single number (no release CoA field is left in Tablets)', () => {
+    const b = findBlock({ id: 'uniformity-by-weight', version: 1 })!;
+    expect(b.fields.find((f) => f.name === 'assay')).toMatchObject({ qc: 'in_process', kind: 'number', unit: '%' });
+    expect(b.fields.find((f) => f.name === 'assay')!.count).toBeUndefined();
+    expect(blockProblems(b)).toEqual([]);
+    for (const x of ['blend-uniformity', 'content-uniformity', 'uniformity-by-weight', 'compress', 'friability']) {
+      expect(findBlock({ id: x, version: 1 })!.fields.some((f) => f.qc === true)).toBe(false);
+    }
+  });
+
+  it('TB-14 starting the step opens its lab request for the assay; the release CoA\'s assay is never offered or taken', async () => {
+    const b = await issue([uniformity]);
+    await as('asha', 'POST', `/api/batches/${b.id}/steps/${key}/start`, {});
+    expect((await requests(b.batchNo)).map((r) => [r.request_id, r.status, r.tests])).toEqual([[`${b.batchNo}/${key}`, 'open',
+      [{ name: 'assay', label: 'Assay (% of label claim, QC report)', unit: '%', individual: null }]]]);
+    await decided(b.batchNo, { results: [['Assay', '99.4', '%']] });
+    const release = (await t.owner.unsafe(`select r.result_id::text as id from ${L}.result_v1 r join ${L}.coa_v1 c using (coa_id) where c.lot_number = $1`, [b.batchNo]))[0]!.id as string;
+    expect((await ipPicks(b.id, key)).results).toEqual([]);
+    expect(await problems(recordAt(b.id, key, { assay: { lims: release } })))
+      .toEqual([`Assay (% of label claim, QC report): that result is not a result in % of an approved in-process report of request ${b.batchNo}/${key} (this step) in LIMS.`]);
+    expect(await problems(recordAt(b.id, key, { assay: '99.4' })))
+      .toEqual([`Assay (% of label claim, QC report) comes from LIMS: pick the result of in-process request ${b.batchNo}/${key} once QC has approved it there.`]);
+  });
+
+  it('TB-14 the composite sample\'s assay is picked from the in-process report; the acceptance value is worked out from it', async () => {
+    const b = await issue([uniformity]);
+    await as('asha', 'POST', `/api/batches/${b.id}/steps/${key}/start`, {});
+    const list = await inProcess(b.batchNo, `${b.batchNo}/${key}`, { values: L1_PASS, reported: av(L1_PASS), figure: 'AV' });
+    const r = await inProcess(b.batchNo, `${b.batchNo}/${key}`, { values: null, reported: '99.4', figure: 'result', test: 'Assay' });
+    expect(await problems(recordAt(b.id, key, { assay: { lims: list.resultId } }))).toEqual([expect.stringContaining('is a list of 10 values: Assay (% of label claim, QC report) takes one result')]);
+    expect((await recordAt(b.id, key, { weights: W })).statusCode).toBe(200);
+    expect((await recordAt(b.id, key, { assay: { lims: r.resultId } })).statusCode).toBe(200);
+    const s = (await stepOf(b.id, key)) as StepJson & { results: Record<string, { ok: boolean }> };
+    expect(s.values.assay).toEqual({ value: '99.4', unit: '%' });
+    expect(s.source.assay).toMatchObject({ from: 'lims', ref: r.resultId, request: `${b.batchNo}/${key}`, shown: expect.stringContaining(`LIMS in-process report ${r.number}: Assay (request ${b.batchNo}/${key}`) });
+    expect(s.results.acceptance).toMatchObject({ ok: true });
+    expect((await requests(b.batchNo)).map((x) => x.status)).toEqual(['done']);
+  });
+
+  it('TB-14 a step started before (no lab request for the assay): the assay is typed, marked "started before LIMS in-process requests"', async () => {
+    const b = await issue([{ ...uniformity, checker: false }]);
+    await t.owner`insert into step_events (batch_id, stage, sub, step, round, kind, payload, person_id)
+      values (${b.id}, 0, 1, 0, 1, 'started', ${t.owner.json({ where: 'Stage 0' })}, (select id from users where username = 'asha'))`;
+    expect(await requests(b.batchNo)).toEqual([]);
+    expect((await recordAt(b.id, key, { assay: '99.4' })).statusCode).toBe(200);
+    const s = await stepOf(b.id, key);
+    expect(s.values.assay).toEqual({ value: '99.4', unit: '%' });
+    expect(s.source.assay).toEqual({ from: 'hand', link: 'lims', state: 'no_request' });
   });
 });

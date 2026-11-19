@@ -78,7 +78,8 @@ answering) or **ok**.
   marked not applicable, a QA hold release and the batch-level signatures do not read training.
 - **LIMS** (`coa_v1`, `result_v1`, readers round 2, 19 Nov 2026): QC's certificate of analysis (CoA) and its results,
   read through `LIMS_DATABASE_URL` (`shared/engine/lims.ts`, `server/pull.ts`). While the link answers they are
-  PICKED, never typed: (1) a QC result field of a step (`qc` on a number field: the uniformity-by-weight assay) takes
+  PICKED, never typed: (1) a QC result field of a step (`qc` on a number field; round 44: no Tablets block has one now,
+  the uniformity-by-weight assay is in-process, below; the rule stays for the editions that use it) takes
   the `reported` figure of a result of this batch's approved CoA in the field's unit, and keeps "LIMS CoA … as
   reported" as its source; (2) QC approval of the batch (or packing batch) takes the CoA number of this batch's
   approved CoA, kept in the approval's payload (`source`) and signed with it; (3) the "QC report or certificate number"
@@ -119,8 +120,12 @@ answering) or **ok**.
   checks it, QA's review lists it). Marked in Tablets: blend uniformity (the 10 location results, figure mean) and
   content uniformity (the 10 and the 20 more, figure AV), the tests the QC lab does on the step's sample. Not marked
   (shop-floor IPC, done at the press or in the IPQC room on the floor): weights, hardness, thickness, friability,
-  disintegration, LOD (moisture balance), density and flow, sieve analysis. The uniformity-by-weight assay stays the
-  batch's release assay (`qc: true`): the tablets' own in-process assay is not a separate step in Tablets.
+  disintegration, LOD (moisture balance), density and flow, sieve analysis. Round 44 (found by Capsules on the demo):
+  the uniformity-by-weight assay is in-process too (`qc: 'in_process'`, a single number: LIMS's figure 'result'), no
+  longer the batch's release CoA: the step comes mid-production (after compression), so the operator must not wait for
+  full release testing. Its lab request asks QC for the assay of a composite sample of the units (USP <905> weight
+  variation); T14 works out the acceptance value from it and the weights. A uniformity-by-weight step started before
+  has no lab request for it: its assay is typed (the round 43 rule below, "started before LIMS in-process requests").
 - **LIMS in-process tests: rounds and older steps** (round 43). A step with rounds (repeat-until) also takes an
   in-process report of an EARLIER round of the same step (`requestFits`: same batch and stage.sub-batch.step, round up to
   this one; never a later round's, another step's or batch's): a sample of round 1 is often approved while round 2
