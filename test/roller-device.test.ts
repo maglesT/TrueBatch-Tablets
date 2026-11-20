@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import { findBlock } from '../shared/blocks/index.js';
 import { blockProblems } from '../shared/blocks/format.js';
-import { doneProblems, evaluate, materialUses, openSteps, parseKey, type StepEvent, type Value } from '../shared/engine/index.js';
+import { batchRefusal, batchView, doneProblems, evaluate, materialUses, openSteps, parseKey, type BatchEvent, type StepEvent, type Value } from '../shared/engine/index.js';
 import { masterChecks } from '../shared/master/checks.js';
 import type { MasterDoc } from '../shared/master/schema.js';
 import { at, ev, small, unplaced } from './engine-fixture.js';
@@ -144,5 +144,30 @@ describe('the batch record PDF', () => {
       events: events.map((e) => ({ ...e, personName: 'RAMESH' })), batchEvents: [], now: at(1000), versionNo: 1, issuedByName: 'SUPER', signatures: [] }, 'QA'));
     for (const text of ['Roller compaction with periodic checks', 'Roll force', '8.0 kN/cm', 'Ribbon density', 'Mill screen', 'Device assembly', 'AQL inspection',
       'Sample 80 of 980', 'Accountability of the component', 'Lot AI-HSG-2601: 1005 units']) expect(pdf, text).toContain(text);
+  });
+});
+
+describe('round 47 with the new blocks: a deviation note without a number waits for a decision before release', () => {
+  it('TB-21 a roller compaction round and a device assembly out of limits: release waits until each bare note is decided; the device assembly, a yield step, also needs a numbered deviation', () => {
+    const doc = small([{ name: 'Dry granulation', role: 'Granulation operator', steps: [
+      { key: 'compact', block: { id: 'roller-compact', version: 1 }, checker: false, everyMinutes: 30, flow: { kind: 'repeat-until', maxRounds: 20 }, settings: ROLLER },
+      { key: 'assemble', block: { id: 'device-assembly', version: 1 }, checker: true, settings: DEVICE }] }]);
+    const r1 = round({ rollGap: q('3.4', 'mm'), compactionDone: 'yes' });
+    const a = assembled({ works: 'no' });
+    const gap = ev('note', '0.1.0.1', { payload: { text: 'Roll gap drifted' } });
+    const dev = ev('note', '0.1.1.1', { payload: { text: 'One device did not lock' } });
+    const events = [ev('started', '0.1.0.1'), ev('value', '0.1.0.1', { payload: { values: r1, results: evaluate(doc, [], K('0.1.0.1'), r1) } }), gap, ev('done', '0.1.0.1'),
+      ev('started', '0.1.1.1'), ev('value', '0.1.1.1', { payload: { values: a, results: evaluate(doc, [], K('0.1.1.1'), a) } }), dev, ev('done', '0.1.1.1'), ev('checked', '0.1.1.1', { person: 2 })];
+    let id = 10_000;
+    const be = (kind: BatchEvent['kind'], payload: BatchEvent['payload'] = {}): BatchEvent => ({ id: id++, kind, payload, person: 5, at: at(900) });
+    const approved = [be('production_approved'), be('qc_approved', { reportNo: 'QC-26-0146' })];
+    const qa = { permissions: ['truebatch.qa.release', 'truebatch.exception.decide'] };
+    const refusal = (b: BatchEvent[]) => batchRefusal('release', batchView(doc, events, b, at(1000)), qa)?.problems ?? null;
+    const yieldRule = 'The yield of Dry granulation › Device assembly: M is out of limits: a deviation note with its reference is needed';
+    expect(refusal(approved)).toEqual([
+      'Deviation note “Roll gap drifted” (Dry granulation › Roller compaction with periodic checks (round 1)) waits for a decision: close it here or send it to Deviations',
+      'Deviation note “One device did not lock” (Dry granulation › Device assembly: M) waits for a decision: close it here or send it to Deviations', yieldRule]);
+    const closed = [...approved, be('exception_closed', { note: gap.id, reason: 'Gap reset at once' }), be('exception_closed', { note: dev.id, reason: 'Device rejected, line adjusted' })];
+    expect(refusal(closed)).toEqual([yieldRule]);
   });
 });
