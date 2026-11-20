@@ -21,6 +21,8 @@ import { lubricate } from './lubricate.js';
 import { mix } from './mix.js';
 import { polishPrint } from './polish-print.js';
 import { pressSetup } from './press-setup.js';
+import { rollerCompact } from './roller-compact.js';
+import { deviceAssembly } from './device-assembly.js';
 import { punchDieCheck } from './punch-die-check.js';
 import { qaSample } from './qa-sample.js';
 import { sieveAnalysis } from './sieve-analysis.js';
@@ -54,10 +56,12 @@ export type { Block, BlockField, BlockSetting } from './format.js';
 // In the order of a process: dispensing and preparation, granulation and blending, compression and its tests,
 // coating, then the steps of any stage.
 export const BLOCKS: readonly Block[] = [
-  weigh, charge, sift, binderSolution, coatingSuspension, dryMix, mix, granulate, dry, dryConstant, sieve, lubricate,
+  weigh, charge, sift, binderSolution, coatingSuspension, dryMix, mix, granulate, rollerCompact, dry, dryConstant, sieve, lubricate,
   subBatchCombine, blendUniformity, densityFlow, sieveAnalysis, punchDieCheck, pressSetup, compressionRelease, compress,
   friability, disintegration, uniformityByWeight, contentUniformity, coat, sprayCoat, polishPrint, check, qaSample,
   stageYield, tabletReconciliation, lineClearance,
+  // Any edition: assembling devices (autoinjectors, safety syringes, inhalers) from a component lot.
+  deviceAssembly,
   // TrueBatch Tablets Packing, in the order of a packing record.
   bulkIssue, packMaterialIssue, packClearance, lineSetup, visionChallenge, serialReceived, codingCheck, formingCheck, leakTest, onlineInspection,
   cartonCheck, serialSample, finishedGoods, printedReconciliation, serialReconciliation, destruction, packClearanceAfter,
