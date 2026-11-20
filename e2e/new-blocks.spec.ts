@@ -39,6 +39,9 @@ test('the designer offers both blocks: added from the library, their limits aske
   await expect(page.getByRole('heading', { name: 'Roller compaction with periodic checks' })).toBeVisible();
   const check = page.getByRole('complementary', { name: 'Master check' });
   await expect(check).toContainText('Roll force limits is not set');
+  // Display round: the roll force limit waits for its unit, and the unit list is the block's own (kN/cm, kN, bar).
+  await expect(page.getByText('within limits; choose the roll force unit first')).toBeVisible();
+  await expect(page.getByLabel('Roll force unit (as the compactor shows it)').locator('option')).toHaveText(['(choose)', 'kN/cm', 'kN', 'bar']);
   await page.getByLabel('Roll force unit (as the compactor shows it)').selectOption('kN/cm');
   await page.getByLabel('Roll force limits: lowest').fill('6');
   await page.getByLabel('Roll force limits: highest').fill('10');
