@@ -243,7 +243,7 @@ async function readValues(app: FastifyInstance, tx: Tx, doc: MasterDoc, key: Ste
       const item = f.kind === 'machine' ? usableItem(await app.master.equipment(), String(x), 'machine') : usableItem(rooms, String(x), 'room');
       const type = 'type' in item ? item.type : item.area;
       // A8: a balance within its range for the quantity this step weighs.
-      const no = 'type' in item ? machineRefusal(stage, f, item, rooms, dispensingRooms(doc, rooms), isBalance(f) ? weighTarget(doc, key, current.results) : undefined) : roomRefusal(stage, item);
+      const no = 'type' in item ? machineRefusal(stage, f, item, rooms, dispensingRooms(doc, rooms), isBalance(f) ? weighTarget(doc, key, current.results) : undefined, doc.pack?.type) : roomRefusal(stage, item);
       if (no) { problems.push(no); continue; }
       // The area of the room it stands in, so a later stage that runs in that area keeps it in use by the batch (equipment_use_v1).
       const room = 'room' in item ? item.room : item.code;

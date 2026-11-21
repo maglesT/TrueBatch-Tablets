@@ -170,7 +170,7 @@ export function StepScreen({ me, d, blocks, row, now, reload }: { me: Me; d: Bat
   // A8: a balance is offered for the quantity this step weighs (within its range).
   const qty = weighTarget(doc, row.key, row.results);
   const fits = (f: BlockField) => (f.kind === 'room' ? md.room.filter((r) => r.active && !roomRefusal(stage, r))
-    : f.kind === 'machine' ? md.machine.filter((m) => m.active && !machineRefusal(stage, f, m, md.room, dispensingRooms(doc, md.room), qty)) : []);
+    : f.kind === 'machine' ? md.machine.filter((m) => m.active && !machineRefusal(stage, f, m, md.room, dispensingRooms(doc, md.room), qty, doc.pack?.type)) : []);
   const pickOf = (f: BlockField) => inLogbook(fits(f), logbook?.items ?? null);
   // A machine or room not fit for use in the Logbook is marked with why ("Dirty in the Logbook") before it is picked.
   const picksFor = (f: BlockField) => pickOf(f).offered.map((p) => ({ ...p, notFit: logbook?.notFit[p.itemId] }));

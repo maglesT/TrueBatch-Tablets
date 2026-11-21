@@ -54,9 +54,24 @@ export function rangeRefusal(m: PickMachine, q: PickQuantity | undefined): strin
 
 /** Why a machine does not fit the field in this stage; null when it does. `dispensing`: the master's dispensing rooms;
  *  `quantity`: what a balance weighs in this step (A8: within its range). */
-export function machineRefusal(stage: Stage, f: BlockField, m: PickMachine, rooms: readonly PickRoom[], dispensing: readonly string[] = [], quantity?: PickQuantity): string | null {
+// Pre-demo sweep (21 Nov 2026): a packing line of the master's pack type (a blister pack is not packed on a strip packer
+// or a bottle line); a machine of the line that packs nothing itself (a cartoner, a coder) fits any pack.
+const LINE_OF_PACK: Record<string, string[]> = { blister: ['blister', 'forming'], strip: ['strip'], bottle: ['tablet counter', 'bottle'] };
+/** Why a machine is not a packing line for this pack type; null when it is (or the field is not a packing line). */
+export function packLineRefusal(f: BlockField, m: PickMachine, packType: string | undefined): string | null {
+  const words = packType ? LINE_OF_PACK[packType] : undefined;
+  if (!words || !f.types?.includes('tablet counter')) return null;
+  const t = `${m.type ?? ''} ${m.name ?? ''}`.toLowerCase();
+  // Only a primary packer of another pack is refused: a cartoner, labeller or coder of the line fits any pack.
+  const primary = Object.values(LINE_OF_PACK).flat().some((w) => t.includes(w));
+  return !primary || words.some((w) => t.includes(w)) ? null : `${m.code} (${m.type ?? 'no type'}) is not a line for a ${packType} pack`;
+}
+
+export function machineRefusal(stage: Stage, f: BlockField, m: PickMachine, rooms: readonly PickRoom[], dispensing: readonly string[] = [], quantity?: PickQuantity, packType?: string): string | null {
   const balance = isBalance(f);
   if (!balance && stage.machineTypes.length && !among(stage.machineTypes, m.type)) return `${m.code} is not one of the machine types this stage allows (${stage.machineTypes.join(', ')})`;
+  const line = packLineRefusal(f, m, packType);
+  if (line) return line;
   const type = (m.type ?? '').toLowerCase();
   if (!type && f.types?.length) return `${m.code} has no type in master data, so it is not offered as a ${f.label.toLowerCase()}`;
   if (!fitsType(f, m)) return `${m.code} is not a ${f.label.toLowerCase()} (master data: ${m.type ?? 'no type'})`;

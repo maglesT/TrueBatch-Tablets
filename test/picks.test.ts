@@ -115,3 +115,18 @@ describe('A8 pickers: a bilayer press and a balance for the quantity weighed (fi
     expect(machineRefusal(stage, f, bal[0]!, [])).toBeNull();
   });
 });
+
+describe('pre-demo sweep: the packing line picker follows the pack type', () => {
+  it('a blister pack is offered blister and forming machines, not a strip packer or a bottle line; a cartoner or a "packing line" fits any', async () => {
+    const { findBlock } = await import('../shared/blocks/index.js');
+    const { packLineRefusal } = await import('../shared/engine/picks.js');
+    const f = findBlock({ id: 'bulk-issue', version: 1 })!.fields.find((x) => x.name === 'line')!;
+    const m = (code: string, type: string, name = '') => ({ code, type, name });
+    expect(packLineRefusal(f, m('CFORM-01', 'Blister packer', 'Cold-form (alu-alu) blister machine'), 'blister')).toBeNull();
+    expect(packLineRefusal(f, m('EQ-STP-01', 'Strip packer'), 'blister')).toBe('EQ-STP-01 (Strip packer) is not a line for a blister pack');
+    expect(packLineRefusal(f, m('EQ-TCT-01', 'Tablet counter'), 'blister')).not.toBeNull();
+    expect(packLineRefusal(f, m('EQ-TCT-01', 'Tablet counter'), 'bottle')).toBeNull();
+    expect(packLineRefusal(f, m('PL-01', 'Packing line'), 'strip')).toBeNull();
+    expect(packLineRefusal(f, m('CT-01', 'Cartoner'), 'blister')).toBeNull();
+  });
+});

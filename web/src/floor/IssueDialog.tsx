@@ -29,7 +29,7 @@ export function IssueDialog({ row, onCancel }: { row: MasterRow; onCancel: () =>
     if (!doc || !atIssue.length) return;
     if (doc.pack) void api<typeof bulk>('GET', `/api/bulk-batches?product=${encodeURIComponent(doc.pack.bulkCode)}`).then(setBulk, () => setBulk({ link: 'down', batches: [] }));
     void Promise.all([api<PickItem[]>('GET', '/api/master/equipment'), api<PickItem[]>('GET', '/api/master/rooms')])
-      .then(([all, rooms]) => { setMachines(all); setRooms(rooms); setLines(all.filter((m) => m.active && atIssue.some((f) => f.kind === 'machine' && !machineRefusal(doc.stages[0]!, f, m, rooms)))); }, () => {});
+      .then(([all, rooms]) => { setMachines(all); setRooms(rooms); setLines(all.filter((m) => m.active && atIssue.some((f) => f.kind === 'machine' && !machineRefusal(doc.stages[0]!, f, m, rooms, [], undefined, doc.pack?.type)))); }, () => {});
   }, [doc]);
 
   // While the Logbook is linked, only the lines it has (shared/engine/picks.ts).
