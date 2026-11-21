@@ -45,6 +45,7 @@ const SETTINGS: Record<string, Step['settings']> = {
   disintegration: { maxTime: '15', temperatureLimit: { low: '35', high: '39', unit: '°C' } },
   'uniformity-by-weight': { coating: 'uncoated', labelClaim: '50 mg' },
   'content-uniformity': { coating: 'uncoated' },
+  dissolution: { test: 'dissolution IR', q: '80', timePoint: '45 min, 900 ml pH 6.8' },
   coat: { coreWeight: { header: 'coreWeight' }, gainLimit: pct('2.8', '3.2') },
   'spray-coat': { coreWeight: { header: 'coreWeight' }, base: 'start', gainLimit: pct('2.8', '3.2'), inletLimit: { low: '50', high: '70', unit: '°C' },
     bedLimit: { low: '35', high: '45', unit: '°C' }, sprayRateLimit: { low: '50', high: '150', unit: 'g/min' } },

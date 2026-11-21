@@ -12,6 +12,7 @@ import { compressionRelease } from './compression-release.js';
 import { contentUniformity } from './content-uniformity.js';
 import { densityFlow } from './density-flow.js';
 import { disintegration } from './disintegration.js';
+import { dissolution } from './dissolution.js';
 import { dryConstant } from './dry-constant.js';
 import { dryMix } from './dry-mix.js';
 import { dry } from './dry.js';
@@ -59,7 +60,7 @@ export type { Block, BlockField, BlockSetting } from './format.js';
 export const BLOCKS: readonly Block[] = [
   weigh, charge, sift, binderSolution, coatingSuspension, dryMix, mix, granulate, rollerCompact, dry, dryConstant, sieve, lubricate,
   subBatchCombine, blendUniformity, densityFlow, sieveAnalysis, punchDieCheck, pressSetup, compressionRelease, compress, bilayerCompress,
-  friability, disintegration, uniformityByWeight, contentUniformity, coat, sprayCoat, polishPrint, check, qaSample,
+  friability, disintegration, dissolution, uniformityByWeight, contentUniformity, coat, sprayCoat, polishPrint, check, qaSample,
   stageYield, tabletReconciliation, lineClearance,
   // Any edition: assembling devices (autoinjectors, safety syringes, inhalers) from a component lot.
   deviceAssembly,
