@@ -19,6 +19,7 @@ import { dry } from './dry.js';
 import { friability } from './friability.js';
 import { granulate } from './granulate.js';
 import { lineClearance } from './line-clearance.js';
+import { labTests } from './lab-tests.js';
 import { lubricate } from './lubricate.js';
 import { mix } from './mix.js';
 import { polishPrint } from './polish-print.js';
@@ -55,12 +56,13 @@ import { serialSample } from './serial-sample.js';
 import { visionChallenge } from './vision-challenge.js';
 
 export type { Block, BlockField, BlockSetting } from './format.js';
+export { labelled } from './format.js';
 // In the order of a process: dispensing and preparation, granulation and blending, compression and its tests,
 // coating, then the steps of any stage.
 export const BLOCKS: readonly Block[] = [
   weigh, charge, sift, binderSolution, coatingSuspension, dryMix, mix, granulate, rollerCompact, dry, dryConstant, sieve, lubricate,
   subBatchCombine, blendUniformity, densityFlow, sieveAnalysis, punchDieCheck, pressSetup, compressionRelease, compress, bilayerCompress,
-  friability, disintegration, dissolution, uniformityByWeight, contentUniformity, coat, sprayCoat, polishPrint, check, qaSample,
+  friability, disintegration, dissolution, uniformityByWeight, contentUniformity, labTests, coat, sprayCoat, polishPrint, check, qaSample,
   stageYield, tabletReconciliation, lineClearance,
   // Any edition: assembling devices (autoinjectors, safety syringes, inhalers) from a component lot.
   deviceAssembly,
