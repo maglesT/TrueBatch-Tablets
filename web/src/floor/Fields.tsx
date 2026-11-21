@@ -145,7 +145,7 @@ export function FieldInput({ f, unit, saved, picks = [], note, options = [], res
   } else {
     input = <>
       <input id={id} className="text" type={f.date ? 'date' : 'text'} autoComplete="off" value={raw as string} disabled={disabled} maxLength={f.kind === 'lot' ? 60 : 2000} list={options.length ? `${id}-list` : undefined}
-        placeholder={f.kind === 'lot' ? (options.length ? 'Pick the lot from MMS' : 'Type the lot number from the label') : options.length ? 'Pick the CoA from LIMS' : undefined} onChange={(e) => set(e.target.value)} onBlur={blurSave} onKeyDown={enter} />
+        placeholder={f.kind === 'lot' ? (options.length ? 'Pick the lot from MMS' : 'Type the lot number from the label') : f.kind === 'bulk' ? (options.length ? 'Pick the released bulk batch' : 'Type the bulk batch number from the label') : options.length ? 'Pick the CoA from LIMS' : undefined} onChange={(e) => set(e.target.value)} onBlur={blurSave} onKeyDown={enter} />
       {options.length > 0 && <datalist id={`${id}-list`}>{options.map((o) => <option key={o} value={o} />)}</datalist>}
     </>;
   }
