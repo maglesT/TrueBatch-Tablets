@@ -127,7 +127,7 @@ test('TB-P2 packing journey: packing master from the skeleton, approved; a packi
     // Pull, don't type: the tablets issued are what is left of the bulk batch's good tablets, from TrueBatch Tablets,
     // offered in the field; less may be typed (a part issue), more is refused.
     await expect(issue.getByLabel('Bulk tablets issued')).toHaveValue('100000');
-    await expect(issue.getByText('Left to issue of TB260001: 1,00,000 tablets (1,00,000 good tablets in TrueBatch Tablets). Issue all of it, or type less for a part issue.')).toBeVisible();
+    await expect(issue.getByText('Left to issue of TB260001: 1,00,000 tablets (1,00,000 good tablets in TrueBatch Tablets). Shown: all that is left. Type the tablets actually issued.')).toBeVisible();
     await issue.getByLabel('Bulk tablets issued').fill('100001');
     await issue.getByRole('button', { name: 'Next: sign' }).click();
     await iss.page.getByRole('dialog').last().getByRole('button', { name: 'Sign', exact: true }).click();
