@@ -26,7 +26,8 @@ export function CheckPanel({ doc, state, problems, invalid, onGo, onAnswer }: { 
         : problems && (
           <>
             {later ? <p className="muted small" role="note">ℹ️ Approved before {later === 1 ? 'this check' : 'these checks'} existed; a new version will need: {[...new Set(problems.filter(blocking).map((p) => placeLabel(doc, p.path)))].join(', ')} (ℹ️ below).{warnings ? ` · ${warnings} ⚠️ to look at` : ''}</p>
-              : <p className="muted small">{errors ? `${errors} ⛔ to fix before review` : 'No ⛔'}{open ? ` · ${open} ⚠️ to answer before review` : ''}{warnings ? ` · ${warnings} ⚠️ to look at` : ''}</p>}
+              : past ? <p className="muted small">{warnings ? `Approved with ${warnings === 1 ? 'this warning' : `these ${warnings} warnings`} answered or looked at in review; nothing to fix in this version.` : 'Approved: nothing to fix in this version.'}</p>
+              : <p className="muted small">{errors ? `${errors} error${errors === 1 ? '' : 's'} to fix before review` : 'No errors'}{open ? ` · ${open} warning${open === 1 ? '' : 's'} to answer before review` : ''}{warnings ? ` · ${warnings} warning${warnings === 1 ? '' : 's'} to look at` : ''}</p>}
             <ul className="cp-list">
               {problems.map((p, i) => (
                 <li key={i} className={past && blocking(p) ? 'info' : p.level}>
@@ -52,7 +53,7 @@ export function AnswerBox({ p, onAnswer }: { p: Problem; onAnswer?: OnAnswer }) 
   const [reason, setReason] = useState(q.answer?.reason ?? '');
   if (q.answer && !editing) {
     return (
-      <p className="cp-answer small">answered: <b>{q.answer.choice}</b>{q.answer.reason && <> · {q.answer.reason}</>}
+      <p className="cp-answer small">Answer given: <b>{q.answer.choice}</b>{q.answer.reason && <> · {q.answer.reason}</>}
         {onAnswer && <button type="button" className="link dark small" onClick={() => setEditing(true)}>Change</button>}</p>
     );
   }

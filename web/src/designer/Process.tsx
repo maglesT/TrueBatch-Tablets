@@ -70,7 +70,7 @@ export function Process({ doc, onChange, md, place, onPlace, editable }: {
                 const b = findBlock(t.block);
                 return (
                   <li key={t.key} className={j === ti ? 'on' : ''}>
-                    <span className="ol-main" {...pickable(() => select(si, j))} aria-current={j === ti}><b>{j + 1}. {b ? stepTitle(doc, t) : t.block.id}</b><small>{[t.checker && 'checked', t.critical && 'critical', FLOW_NOTE[t.flow.kind]].filter(Boolean).join(' · ')}</small></span>
+                    <span className="ol-main" {...pickable(() => select(si, j))} aria-current={j === ti}><b>{j + 1}. {b ? stepTitle(doc, t) : t.block.id}</b><small>{[t.checker && 'second-person check', t.critical && 'critical', FLOW_NOTE[t.flow.kind]].filter(Boolean).join(' · ')}</small></span>
                     {editable && <Order index={j} count={stage.steps.length} what={stepTitle(doc, t)} onMove={(by) => { setSteps(move(stage.steps, j, by)); select(si, j + by); }}
                       onRemove={() => { setSteps(stage.steps.filter((_, k) => k !== j)); select(si); }} />}
                   </li>
