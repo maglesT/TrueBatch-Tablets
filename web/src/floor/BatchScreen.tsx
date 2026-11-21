@@ -8,6 +8,7 @@ import {
 } from '../api-floor.js';
 import { StepScreen } from './StepScreen.js';
 import { DemoSkip } from './DemoSkip.js';
+import { OpsScore } from './OpsScore.js';
 import { Terminate, terminatedText } from '../release/Terminate.js';
 import { deviationText } from '../../../shared/engine/release.js';
 import { Exceptions } from '../components/Exceptions.js';
@@ -102,6 +103,7 @@ function Overview({ me, d, blocks, now, reload }: { me: Me; d: BatchDetail; bloc
         ))}
       </nav>
       <Alerts d={d} blocks={blocks} now={now} />
+      <OpsScore id={d.batch.id} />
       <section className="dash-panel" aria-label={`Stage ${stage.name}`}>
         <div className="panel-head"><h2>{stage.name}</h2><span className="muted">{stage.kind === 'sub-batch' ? `${stage.count} sub-batches · ` : ''}{steps.filter(finished).length} of {steps.length} steps finished</span></div>
         {!d.batch.terminated && d.stages[shown]!.blocked && <p className="notice">{d.stages[shown]!.blocked}</p>}

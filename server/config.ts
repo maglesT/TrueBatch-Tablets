@@ -19,6 +19,8 @@ const schema = z.object({
   RECRUITMENT_DATABASE_URL: optionalUrl,
   // LIMS's coa_v1 and result_v1: QC's CoAs and results, picked where a step or QC approval asks for them.
   LIMS_DATABASE_URL: optionalUrl,
+  // Operations' running_batch_v1: its live scoring of a running batch, shown for information only (fix 1121 B5).
+  OPS_DATABASE_URL: optionalUrl,
   // Packing only: TrueBatch Tablets' published views (its bulk batches), TRUEBATCH_DATABASE_URL on the platform.
   TRUEBATCH_LINK_URL: optionalUrl,
   // Sign-on through Medhanta core, written by the platform's apply.

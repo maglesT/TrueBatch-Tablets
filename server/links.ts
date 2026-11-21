@@ -236,6 +236,28 @@ export const limsClient = (l: Link) => ({
       ipcField: r.ipc_field, ipcCode: r.ipc_code }))),
 });
 
+// ---- Operations: report.running_batch_v1 (fix 1121 B5), its live scoring of a running batch against the good batches
+// of the product, one row per batch (the latest scoring). Information only: nothing in TrueBatch decides on it.
+export interface OpsScore {
+  stageTitle: string | null; stepTitle: string | null; level: 'usual' | 'unusual' | 'very_unusual' | 'too_few_batches'; reasons: string[];
+  valuesSeen: number | null; valuesTotal: number | null; expectedFinishAt: string | null; finishFrom: string | null; finishTo: string | null;
+  expectedYieldPercent: string | null; yieldFrom: string | null; yieldTo: string | null; scoredAt: string | null;
+}
+export const operationsClient = (l: Link) => ({
+  score: (productCode: string, batchNo: string) => l.read(async (q, v) => {
+    const [r] = await q<Record<string, string | number | string[] | null>[]>`
+      select stage_title, step_title, level, reasons, values_seen::int, values_total::int, expected_finish_at::text, finish_from::text, finish_to::text,
+        expected_yield_percent::text, yield_from::text, yield_to::text, scored_at::text
+      from ${v('running_batch_v1')} where batch_number = ${batchNo} and product_code = ${productCode} order by scored_at desc nulls last limit 1`;
+    if (!r || !['usual', 'unusual', 'very_unusual', 'too_few_batches'].includes(String(r.level))) return null;
+    const s = (k: string) => (r[k] === null || r[k] === undefined ? null : String(r[k]));
+    const n = (k: string) => (typeof r[k] === 'number' ? (r[k] as number) : null);
+    return { stageTitle: s('stage_title'), stepTitle: s('step_title'), level: r.level as OpsScore['level'], reasons: Array.isArray(r.reasons) ? r.reasons.map(String) : [],
+      valuesSeen: n('values_seen'), valuesTotal: n('values_total'), expectedFinishAt: s('expected_finish_at'), finishFrom: s('finish_from'), finishTo: s('finish_to'),
+      expectedYieldPercent: s('expected_yield_percent'), yieldFrom: s('yield_from'), yieldTo: s('yield_to'), scoredAt: s('scored_at') } satisfies OpsScore;
+  }),
+});
+
 export interface Links {
   deviations: ReturnType<typeof deviationsClient>;
   qms: ReturnType<typeof qmsClient>;
@@ -244,6 +266,7 @@ export interface Links {
   truebatch: ReturnType<typeof truebatchClient>;
   recruitment: ReturnType<typeof recruitmentClient>;
   lims: ReturnType<typeof limsClient>;
+  operations: ReturnType<typeof operationsClient>;
 }
 /** The links, from their connections (null: absent). `schema` lets tests point a provider at its own schema. */
 export function links(c: Partial<Record<Provider, Sql | null>> = {}, schema: Partial<Record<Provider, string>> = {}): Links {
@@ -255,5 +278,6 @@ export function links(c: Partial<Record<Provider, Sql | null>> = {}, schema: Par
     truebatch: truebatchClient(link('truebatch', c.truebatch ?? null, schema.truebatch)),
     recruitment: recruitmentClient(link('recruitment', c.recruitment ?? null, schema.recruitment)),
     lims: limsClient(link('lims', c.lims ?? null, schema.lims)),
+    operations: operationsClient(link('operations', c.operations ?? null, schema.operations)),
   };
 }

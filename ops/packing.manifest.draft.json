@@ -25,7 +25,8 @@
     "deviations": ["deviation_v1"],
     "qms": ["change_v1"],
     "recruitment": ["training_v1"],
-    "lims": ["coa_v1", "result_v1"]
+    "lims": ["coa_v1", "result_v1"],
+    "operations": ["running_batch_v1"]
   },
   "source": { "repo": "https://github.com/maglesT/TrueBatch-Tablets", "commit": "<full commit id at bundling>" }
 }

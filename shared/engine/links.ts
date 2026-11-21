@@ -7,10 +7,11 @@ import type { BlockField } from '../blocks/format.js';
 
 // truebatch: TrueBatch Tablets' published bulk batches, read by TrueBatch Tablets Packing. recruitment: the people's
 // training (training.ts), read when a person signs a step that names one. lims: QC's CoAs and results (lims.ts).
-export const PROVIDERS = ['deviations', 'qms', 'logbook', 'mms', 'truebatch', 'recruitment', 'lims'] as const;
+// operations (fix 1121 B5): Operations' live scoring of a running batch, shown for information only, never a GMP check.
+export const PROVIDERS = ['deviations', 'qms', 'logbook', 'mms', 'truebatch', 'recruitment', 'lims', 'operations'] as const;
 export type Provider = (typeof PROVIDERS)[number];
 export type LinkState = 'absent' | 'down' | 'ok';
-export const PROVIDER_NAME: Record<Provider, string> = { deviations: 'Deviations', qms: 'QMS', logbook: 'Logbook', mms: 'MMS', truebatch: 'TrueBatch Tablets', recruitment: 'Recruitment', lims: 'LIMS' };
+export const PROVIDER_NAME: Record<Provider, string> = { deviations: 'Deviations', qms: 'QMS', logbook: 'Logbook', mms: 'MMS', truebatch: 'TrueBatch Tablets', recruitment: 'Recruitment', lims: 'LIMS', operations: 'Operations' };
 
 /**
  * Pulled through a link (with what was read, PL-07), or typed by hand while the link was absent or down. Round 43: or

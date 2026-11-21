@@ -652,6 +652,16 @@ export function batchRoutes(app: FastifyInstance, sql: Sql) {
 
   // TB-21: what QA reviews in the release screen: corrections, sent-backs, late items, values out of limits with
   // their notes, deviation notes and their status, steps not applicable, and every signature of the batch.
+  // Fix 1121 B5: Operations' live scoring of this batch, for information only (never a GMP check). Nothing when
+  // Operations is not linked, its view is missing, or it has no scoring of the batch.
+  app.get<{ Params: { id: string } }>('/api/batches/:id/operations', anyUser, async (req, reply) => {
+    const id = parseId(req.params.id);
+    const l = id === null ? null : await loadBatch(sql, id);
+    if (!l) return reply.code(404).send({ error: 'not_found' });
+    const r = await app.links.operations.score(l.doc.header.productCode, l.batch.batchNo).catch(() => ({ state: 'down' as const }));
+    return { score: r.state === 'ok' ? r.value : null };
+  });
+
   app.get<{ Params: { id: string } }>('/api/batches/:id/review', anyUser, async (req, reply) => {
     const id = parseId(req.params.id);
     const l = id === null ? null : await loadBatch(sql, id);
