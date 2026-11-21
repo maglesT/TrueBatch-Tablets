@@ -93,7 +93,7 @@ export function describeMaster(doc: MasterDoc, units?: Units, { items = false } 
     ...(h.otherStrengths ?? []).map((x, n) => ({ key: `strength:${n}`, text: `Also compressed from the same blend: ${x.name}, label claim ${x.labelClaim}, core weight ${x.coreWeightMg} mg.` })),
   ];
   const formula: Section = { key: 'formula', title: 'Formula', lines: doc.formula.map((l) => ({ key: l.key,
-    text: `${l.name} (${l.code}), ${ROLE[l.role]}, ${PLACE[l.place]}${l.layer ? ` layer ${l.layer}` : ''}: ${l.mgPerTablet} mg per tablet${l.labelClaim ? ` (label claim ${l.labelClaim})` : ''}${l.batchQuantity ? ` (batch quantity written as ${l.batchQuantity})` : ''}${adjustText(doc, l)}.` })) };
+    text: `${l.name} (${l.code}), ${ROLE[l.role]}, ${PLACE[l.place]}${l.layer ? (l.place === 'coating' ? ` layer ${l.layer}` : `, tablet layer ${l.layer}`) : ''}: ${l.mgPerTablet} mg per tablet${l.labelClaim ? ` (label claim ${l.labelClaim})` : ''}${l.batchQuantity ? ` (batch quantity written as ${l.batchQuantity})` : ''}${adjustText(doc, l)}.` })) };
   // A packing master (TB-P1) in packing words: the pack and its packing materials, no formula or coating.
   const top: Section[] = p ? [
     { key: 'header', title: 'Pack', lines: [

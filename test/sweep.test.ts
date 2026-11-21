@@ -40,6 +40,7 @@ const SETTINGS: Record<string, Step['settings']> = {
   'press-setup': { toolingType: '8.0 mm round', pressureLimit: { low: '100', high: '250', unit: 'MPa' }, speedLimit: { low: '10', high: '60', unit: 'rpm' } },
   'compression-release': weights,
   compress: weights,
+  'bilayer-compress': { ...weights, layerOneLimit: { low: '68.0', high: '72.0', unit: 'mg' }, layerOneBand: '5.0', layerTwoLimit: { low: '28.0', high: '32.0', unit: 'mg' } },
   friability: { lossLimit: { high: '1.0', unit: '%' } },
   disintegration: { maxTime: '15', temperatureLimit: { low: '35', high: '39', unit: '°C' } },
   'uniformity-by-weight': { coating: 'uncoated', labelClaim: '50 mg' },

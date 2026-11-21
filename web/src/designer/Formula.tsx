@@ -49,7 +49,11 @@ export function FormulaTable({ doc, onChange, md, masters, selected, onSelect, p
                       <option value="api">API</option><option value="excipient">Excipient</option><option value="solvent">Removed in processing (solvent, processing aid)</option></select></td>
                     <td><select aria-label={`Place of ${l.name}`} value={l.place === 'coating' ? `coating:${l.layer ?? 1}` : l.place}
                       onChange={(e) => { const [place, layer] = e.target.value.split(':'); const { layer: _, ...rest } = l; put(i, { ...rest, place: place as FormulaLine['place'], ...(layer ? { layer: Number(layer) } : {}) }); }}>
-                      {PLACES.map(([v, t]) => <option key={v} value={v}>{t}</option>)}</select></td>
+                      {PLACES.map(([v, t]) => <option key={v} value={v}>{t}</option>)}</select>
+                      {/* A1 (fix round 21 Nov 2026): the tablet layer of a core line (a bilayer tablet: each layer's lines). */}
+                      {l.place !== 'coating' && <select aria-label={`Tablet layer of ${l.name}`} value={l.layer ?? ''}
+                        onChange={(e) => { const { layer: _, ...rest } = l; put(i, { ...rest, ...(e.target.value ? { layer: Number(e.target.value) } : {}) }); }}>
+                        <option value="">One layer</option>{[1, 2, 3].map((n) => <option key={n} value={n}>Tablet layer {n}</option>)}</select>}</td>
                     <td className="nowrap num">{valid(l.mgPerTablet) && /^[1-9]\d*$/.test(doc.header.batchSize) ? qtyText(lineQuantity(doc, [], HERE, l, false, {})) : '—'}</td>
                     <td><button type="button" className="link dark" onClick={(e) => { e.stopPropagation(); onSelect(i); }}>{adjustSummary(l.adjust)}</button></td>
                     <td><Order index={i} count={lines.length} what={l.name} onMove={(by) => set(move(lines, i, by))} onRemove={() => { set(lines.filter((_, j) => j !== i)); onSelect(undefined); }} /></td>
@@ -67,7 +71,7 @@ export function FormulaTable({ doc, onChange, md, masters, selected, onSelect, p
         {adding ? (
           <div className="add-box">
             <Picker label="Material" first={linked} firstLabel={`Materials of ${doc.header.productCode} in other masters`}
-              items={md.materials.map((m) => ({ id: m.itemId, code: m.code, name: m.name, note: m.category ?? undefined, off: !m.active ? 'inactive' : lines.some((l) => l.materialItemId === m.itemId) ? 'in the formula' : undefined }))}
+              items={md.materials.map((m) => ({ id: m.itemId, code: m.code, name: m.name, note: [m.category, lines.some((l) => l.materialItemId === m.itemId) ? 'in the formula already (a second line: another place or tablet layer)' : null].filter(Boolean).join(' · ') || undefined, off: !m.active ? 'inactive' : undefined }))}
               onPick={(m) => {
                 const line: FormulaLine = { key: newKey(m.code, lines.map((l) => l.key)), materialItemId: m.id, code: m.code, name: m.name, mgPerTablet: '', role: 'excipient', place: 'intragranular' };
                 set([...lines, line]); onSelect(lines.length); setAdding(false);

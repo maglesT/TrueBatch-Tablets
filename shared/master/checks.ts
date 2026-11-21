@@ -105,6 +105,19 @@ export function masterChecks(doc: MasterDoc): Problem[] {
         const lim = st.settings[bs.name] as Limit | undefined;
         if (both && lim) warn(`${p}.settings.${bs.name}`, `${bs.label} is written in ${lim.unit} but ${both.label} is recorded in ${both.reading}: write the limits in ${both.reading} (${limitWords(both.limit)}), or record in ${lim.unit}`);
       }
+      // A1 (fix round 21 Nov 2026): a bilayer step's layer limits against the formula's tablet layers (the core lines of
+      // each layer, solvents left out): a limit that does not contain its layer's weight per tablet is warned about.
+      if (block.id === 'bilayer-compress' && !doc.pack) {
+        const layerMg = (n: number) => doc.formula.filter((l) => l.place !== 'coating' && l.role !== 'solvent' && l.layer === n).reduce((t, l) => t.plus(DECIMAL.test(l.mgPerTablet) ? l.mgPerTablet : 0), new Dec(0));
+        if (!doc.formula.some((l) => l.place !== 'coating' && l.layer)) warn(p, 'This is a bilayer step but no formula line names its tablet layer: set the tablet layer of each core line (Formula), so the layer weights are checked against the formula');
+        else for (const [n, name] of [[1, 'layerOneLimit'], [2, 'layerTwoLimit']] as const) {
+          const lim = st.settings[name];
+          const mg = layerMg(n);
+          if (!lim || typeof lim !== 'object' || !('unit' in lim) || mg.isZero()) continue;
+          const r = c1WithinLimits({ value: { value: mg.toString(), unit: 'mg' }, limit: lim });
+          if (r.ok && r.check && !r.check.pass) warn(`${p}.settings.${name}`, `The formula's tablet layer ${n} is ${mg.toString()} mg per tablet, outside the ${block.settings.find((x) => x.name === name)!.label.toLowerCase()} (${limitWords(lim)}): correct the limits or the formula`);
+        }
+      }
       // A stage's yield (by mass) on an earlier stage's output while this stage adds formula materials (extragranular materials,
       // the lubricant): the base leaves out what the stage adds, so the yield reads above 100 %.
       const base = block.id === 'stage-yield' ? st.settings.theoretical : undefined;
