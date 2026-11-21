@@ -37,7 +37,8 @@ export function HeaderFields({ header, onChange, md }: { header: Header; onChang
         )}
       </div>
       <div className="form-grid">
-        <label>Batch size (tablets)<Decimal label="Batch size (tablets)" value={header.batchSize} onChange={(v) => set('batchSize', v)} width={9} /></label>
+        <label>Batch size (tablets)<Decimal label="Batch size (tablets)" value={header.batchSize} onChange={(v) => set('batchSize', v)} width={9} />
+          {/^\d{4,}$/.test(header.batchSize) && <small className="muted"> = {Number(header.batchSize).toLocaleString('en-IN')} tablets</small>}</label>
         <label>Theoretical core weight (mg per tablet)<Decimal label="Theoretical core weight (mg per tablet)" value={header.coreWeightMg} onChange={(v) => set('coreWeightMg', v)} /></label>
         <label>Theoretical coated weight (mg per tablet)
           <Decimal label="Theoretical coated weight (mg per tablet)" placeholder="uncoated" value={header.coatedWeightMg}

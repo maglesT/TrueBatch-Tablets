@@ -126,8 +126,8 @@ function StageForm({ doc, si, stage, onChange, roles, machineTypes, md }: {
       <h2>Stage settings</h2>
       <label>Name<input value={stage.name} onChange={(e) => onChange({ ...stage, name: e.target.value })} /></label>
       <div className="form-grid">
-        <label>Kind<select value={stage.kind} onChange={(e) => { const kind = e.target.value as Stage['kind']; const { count: _, ...rest } = stage; onChange(kind === 'sub-batch' ? { ...rest, kind, count: stage.count ?? 2 } : { ...rest, kind }); }}>
-          <option value="normal">Normal stage</option><option value="preparation">Preparation (e.g. binder solution)</option><option value="sub-batch">Sub-batches (done several times)</option></select></label>
+        <label>Kind<select style={{ minWidth: 0, width: '100%' }} title="Preparation: e.g. a binder solution; sub-batches: done several times" value={stage.kind} onChange={(e) => { const kind = e.target.value as Stage['kind']; const { count: _, ...rest } = stage; onChange(kind === 'sub-batch' ? { ...rest, kind, count: stage.count ?? 2 } : { ...rest, kind }); }}>
+          <option value="normal">Normal stage</option><option value="preparation">Preparation (binder…)</option><option value="sub-batch">Sub-batches (repeated)</option></select></label>
         {stage.kind === 'sub-batch' && <label>Number of sub-batches<input type="number" min={2} max={50} value={stage.count ?? 2} onChange={(e) => onChange({ ...stage, count: Number(e.target.value) })} /></label>}
         <label>Responsible role<input list="roles" value={stage.role} onChange={(e) => onChange({ ...stage, role: e.target.value })} /></label>
         <datalist id="roles">{roles.map((r) => <option key={r} value={r} />)}</datalist>
