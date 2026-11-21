@@ -43,7 +43,9 @@ export function IssueDialog({ row, onCancel }: { row: MasterRow; onCancel: () =>
   // The date of manufacture comes with the bulk batch while TrueBatch Tablets answers, and so do the tablets issued
   // when it gives them (pull, don't type): what is left of its good tablets, offered; less may be typed (a part issue).
   const picked = bulk?.link === 'ok' ? bulk.batches.find((x) => x.batchNo === String(values.bulk ?? '').trim()) : undefined;
-  const offered = picked?.goodQuantity ? picked.left ?? picked.goodQuantity : undefined;
+  // Fix round 21 Nov 2026 (A6): offered is the packing master's batch (or what is left of the bulk when less), not all of it.
+  const left = picked?.goodQuantity ? picked.left ?? picked.goodQuantity : undefined;
+  const offered = left === undefined ? undefined : Number(left) > Number(doc.header.batchSize) ? doc.header.batchSize : left;
   const fields = [...atIssue.filter((f) => f.name !== 'mfgDate' || (bulk && bulk.link !== 'ok')), ...asked];
   const sent = Object.fromEntries(Object.entries(values).filter(([k]) => fields.some((f) => f.name === k)));
   // Another bulk batch: the tablets typed for the previous one go.
@@ -67,7 +69,7 @@ export function IssueDialog({ row, onCancel }: { row: MasterRow; onCancel: () =>
           <FieldInput key={f.name === 'tablets' ? `tablets-${picked?.batchNo ?? ''}` : f.name} f={f} unit={f.unit ?? ''} saved={f.name === 'tablets' && offered ? { value: offered, unit: f.unit ?? 'tablets' } : undefined} picks={f.kind === 'machine' ? linePicks : []} note={[f.kind === 'machine' && machines.length && !lines.length ? emptyNote(doc.stages[0]!, f, machines, rooms) : null, f.kind === 'machine' ? offer.note : null]} onChange={set(f.name)}
             options={f.kind === 'bulk' ? (bulk?.batches ?? []).map((x) => x.batchNo) : []} />
         ))}
-        {picked?.goodQuantity && <p className="notice">Left to issue of {picked.batchNo}: {Number(offered).toLocaleString('en-IN')} tablets ({Number(picked.goodQuantity).toLocaleString('en-IN')} good tablets in TrueBatch Tablets{Number(picked.issued ?? 0) > 0 ? `, ${Number(picked.issued).toLocaleString('en-IN')} already issued to other packing batches` : ''}). Issue all of it, or type less for a part issue.</p>}
+        {picked?.goodQuantity && <p className="notice">Left to issue of {picked.batchNo}: {Number(left).toLocaleString('en-IN')} tablets ({Number(picked.goodQuantity).toLocaleString('en-IN')} good tablets in TrueBatch Tablets{Number(picked.issued ?? 0) > 0 ? `, ${Number(picked.issued).toLocaleString('en-IN')} already issued to other packing batches` : ''}). {offered === left ? 'Shown: all that is left.' : `Shown: the packing batch of the master, ${Number(offered).toLocaleString('en-IN')} tablets.`} Type the tablets actually issued.</p>}
         {doc.pack && bulk && bulk.link !== 'ok' && <p className="notice warn">TrueBatch Tablets is not linked or not answering: type the bulk batch from its container labels; a second person checks it.</p>}
         {problems.length > 0 && <div className="notice bad" role="alert">{problems.map((p, i) => <p key={i}>{p}</p>)}</div>}
         <div className="actions">
