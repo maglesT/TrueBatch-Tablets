@@ -58,6 +58,9 @@ export function pageFrame(title: string, by: string, content: Content[], now = n
       fontSize: 7,
     }),
     content,
+    // A stage heading (headlineLevel 1) low on a page starts the next page, so it is never left alone above its table
+    // (pre-demo sweep, 21 Nov 2026).
+    pageBreakBefore: (node) => node.headlineLevel === 1 && (node.startPosition?.verticalRatio ?? 0) > 0.7,
   };
 }
 

@@ -54,7 +54,7 @@ const small = (text: string, extra: Record<string, unknown> = {}): Content => ({
 const heading = (text: string): Content => ({ text: runs(text), bold: true, fontSize: 11, margin: [0, 12, 0, 4] });
 const th = (text: string): Content => ({ text, fontSize: 8, bold: true, fillColor: '#eef1f4' });
 const table = (widths: (number | string)[], head: string[], rows: Content[][], empty = 'None.'): Content =>
-  rows.length ? { table: { headerRows: 1, dontBreakRows: true, widths, body: [head.map(th), ...rows] }, layout: 'lightHorizontalLines' } : { text: empty, italics: true, fontSize: 8 };
+  rows.length ? { table: { headerRows: 1, keepWithHeaderRows: 1, dontBreakRows: true, widths, body: [head.map(th), ...rows] }, layout: 'lightHorizontalLines' } : { text: empty, italics: true, fontSize: 8 };
 
 export function batchRecordDoc(r: RecordInput, by: string, printedAt = new Date(), demo = false): TDocumentDefinitions {
   const { doc, events, batchEvents, now } = r;
@@ -144,7 +144,7 @@ export function batchRecordDoc(r: RecordInput, by: string, printedAt = new Date(
     const mine = steps.filter((v) => v.key.stage === si);
     const yields = mine.filter((v) => findBlock(stepOf(v).block)?.gmp === 'yield' && v.results.yield?.ok)
       .map((v) => `yield ${endOf(v.results.yield!)}${checksOf(v.results.yield!).some(([, c]) => !c.pass) ? ' (OUT OF LIMITS)' : ''}${s.kind === 'sub-batch' ? ` in sub-batch ${v.key.sub}` : ''}`);
-    content.push(heading(`Stage ${si + 1}: ${s.name}`));
+    content.push({ ...(heading(`Stage ${si + 1}: ${s.name}`) as object), headlineLevel: 1 } as Content);
     content.push(small([s.kind === 'preparation' ? 'Preparation' : s.kind === 'sub-batch' ? `${s.count} sub-batches` : 'Stage', s.role, s.roomTypes.length ? `rooms: ${s.roomTypes.join(', ')}` : '',
       ...yields].filter(Boolean).join(' · '), { margin: [0, 0, 0, 4] }));
     content.push(table([120, '*', '*', 175], ['Step', 'Recorded values', 'Calculations, limits and result', 'Who and when'], mine.map((v) => {
