@@ -20,6 +20,7 @@ const OFFERS: Record<string, string[]> = {
   'sieve.machine': ['Sifter', 'Multimill'], 'binder-solution.machine': ['Manufacturing vessel'], 'coating-suspension.machine': ['Manufacturing vessel'],
   'charge.machine': [...BLENDERS, 'Rapid mixer granulator', 'Fluid bed dryer', 'Manufacturing vessel'], 'friability.machine': ['Friabilator'], 'disintegration.machine': ['Disintegration tester'],
   'bulk-issue.line': LINES, 'pack-clearance.line': LINES, 'pack-clearance-after.line': LINES,
+  'line-setup.machine2': [...LINES, 'Case packer'], 'line-setup.machine3': [...LINES, 'Case packer'], 'line-setup.machine4': [...LINES, 'Case packer'],
 };
 
 describe('machine pickers on the demo master-data types', () => {
