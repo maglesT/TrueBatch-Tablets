@@ -47,7 +47,8 @@ export function rangeRefusal(m: PickMachine, q: PickQuantity | undefined): strin
   const kg = Number(q.value) * per;
   const shown = (x: number) => (x >= 1 ? `${+x.toFixed(3)} kg` : `${+(x * 1000).toFixed(3)} g`);
   if (kg > cap) return `${m.code} weighs at most ${shown(cap)}: ${q.value} ${q.unit} is too much for it`;
-  if (kg < cap * BALANCE_MIN_SHARE) return `${m.code} (${shown(cap)}) is too large for ${q.value} ${q.unit}: a balance weighs at least ${BALANCE_MIN_SHARE * 100} % of its capacity (${shown(cap * BALANCE_MIN_SHARE)}); use a smaller balance`;
+  // B4 (owner, 21 Nov 2026: the 0.5 % minimum stays): the message says the rule plainly.
+  if (kg < cap * BALANCE_MIN_SHARE) return `${m.code} is a ${shown(cap)} balance. Rule: a balance may weigh no less than ${BALANCE_MIN_SHARE * 100} % of its capacity, so at least ${shown(cap * BALANCE_MIN_SHARE)} on this one. ${q.value} ${q.unit} is less: use a smaller balance`;
   return null;
 }
 

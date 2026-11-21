@@ -110,7 +110,7 @@ describe('A8 pickers: a bilayer press and a balance for the quantity weighed (fi
     expect(offered('0.04', 'kg')).toEqual(['IN-BAL-04', 'IN-BAL-05']);
     expect(offered('12.000', 'kg')).toEqual(['IN-BAL-03', 'IN-BAL-05']);
     expect(offered('3.26', 'kg')).toEqual(['IN-BAL-03', 'IN-BAL-04', 'IN-BAL-05']);
-    expect(machineRefusal(stage, f, bal[0]!, [], [], { value: '0.04', unit: 'kg' })).toBe('IN-BAL-03 (300 kg) is too large for 0.04 kg: a balance weighs at least 0.5 % of its capacity (1.5 kg); use a smaller balance');
+    expect(machineRefusal(stage, f, bal[0]!, [], [], { value: '0.04', unit: 'kg' })).toBe('IN-BAL-03 is a 300 kg balance. Rule: a balance may weigh no less than 0.5 % of its capacity, so at least 1.5 kg on this one. 0.04 kg is less: use a smaller balance');
     expect(machineRefusal(stage, f, bal[1]!, [], [], { value: '12', unit: 'kg' })).toBe('IN-BAL-04 weighs at most 6 kg: 12 kg is too much for it');
     expect(machineRefusal(stage, f, bal[0]!, [])).toBeNull();
   });
