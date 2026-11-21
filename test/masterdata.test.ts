@@ -49,3 +49,22 @@ describe('master data', () => {
     expect(() => usableItem(materials, randomUUID(), 'material')).toThrow(NotUsable);
   });
 });
+
+describe('fix 1121 B6: materials master data does not list as used by the product are warned about', () => {
+  it('a warning per formula or packing material not linked; one warning when the product has no links; nothing when master data publishes none', async () => {
+    const { usesChecks } = await import('../shared/master/places.js');
+    const { tablet } = await import('./engine-fixture.js');
+    const doc = tablet();
+    const ids = doc.formula.map((l) => l.materialItemId);
+    expect(usesChecks(doc, null)).toEqual([]);
+    expect(usesChecks(doc, new Set(ids))).toEqual([]);
+    const missing = usesChecks(doc, new Set(ids.slice(1)));
+    expect(missing).toEqual([{ level: 'warning', path: 'formula[0]', message: `Master data does not list ${doc.formula[0]!.code} as used by ${doc.header.productCode}: LIMS and MMS rely on it; ask the master data editor to add it` }]);
+    expect(usesChecks(doc, new Set())).toEqual([{ level: 'warning', path: 'header', message: expect.stringContaining(`Master data lists no materials as used by ${doc.header.productCode}`) }]);
+  });
+  it('the designer reads the links of a product; a product without published links gives null', async () => {
+    t.master.uses_.set('prd-x', ['mat-1']);
+    expect((await call(t.app, cookie, 'GET', '/api/master/uses?product=prd-x')).json()).toEqual({ uses: ['mat-1'] });
+    expect((await call(t.app, cookie, 'GET', '/api/master/uses?product=other')).json()).toEqual({ uses: null });
+  });
+});

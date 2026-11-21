@@ -40,6 +40,8 @@ export const getReview = (id: number) => api<ReviewData>('GET', `/api/master-ver
 export const addComment = (id: number, text: string, path?: string) => api<{ id: number }>('POST', `/api/master-versions/${id}/comments`, { text, ...(path ? { path } : {}) });
 export const reviewAction = (id: number, action: ReviewAction, body: object) => api<{ ok: true; state: MasterState }>('POST', `/api/master-versions/${id}/${action}`, body);
 
+/** B6: the material ids master data lists as used by the product; null when it publishes no links. */
+export const productUses = (productId: string) => api<{ uses: string[] | null }>('GET', `/api/master/uses?product=${encodeURIComponent(productId)}`).then((r) => (r.uses ? new Set(r.uses) : null), () => null);
 let masterData: Promise<MasterData> | null = null;
 /** Products, materials, equipment and rooms, read live from core's master data (once per page load). */
 export function loadMasterData(): Promise<MasterData> {

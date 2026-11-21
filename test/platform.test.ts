@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -181,6 +182,18 @@ describe('master data through the platform views', () => {
         grant select on report.product_v1 to truebatch_app;
         update item set f = f - 'shelfLifeMonths' - 'expiryRule' where code = 'PRD-001';`);
     }
+  });
+
+  it('B6: the materials a product uses are read from item_link_v1; without that view, none (null), no error', async () => {
+    expect(await sqlMaster(md).uses(randomUUID())).toBeNull();
+    const [p] = await mdAdmin<{ id: string }[]>`select id::text from item where code = 'PRD-001'`;
+    const [m] = await mdAdmin<{ id: string }[]>`select id::text from item where code = 'MAT-001'`;
+    await mdAdmin.unsafe(`create view report.item_link_v1 as select 'uses'::text as type, p.id as from_id, m.id as to_id from item p, item m where p.code = 'PRD-001' and m.code = 'MAT-001';
+      grant select on report.item_link_v1 to truebatch_app;`);
+    try {
+      expect([...(await sqlMaster(md).uses(p!.id))!]).toEqual([m!.id]);
+      expect([...(await sqlMaster(md).uses(m!.id))!]).toEqual([]);
+    } finally { await mdAdmin.unsafe('drop view report.item_link_v1'); }
   });
 
   it('PL-08: after the link is cut the next read says "connection off", even on an open connection', async () => {

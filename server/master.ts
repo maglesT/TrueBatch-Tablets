@@ -22,6 +22,9 @@ export interface Master {
   materials(): Promise<MasterMaterial[]>;
   equipment(): Promise<MasterEquipment[]>;   // equipment and instruments
   rooms(): Promise<MasterRoom[]>;
+  /** Fix 1121 B6: the materials master data lists as used by a product (item_link_v1, type 'uses'), by material id;
+   *  null when master data does not publish the links (an older platform). */
+  uses(productId: string): Promise<Set<string> | null>;
 }
 
 export const CONNECTION_OFF = 'Connection to master data is off. Ask your administrator.';
@@ -57,6 +60,11 @@ export function sqlMaster(md: Sql): Master {
       ...(await md<MasterEquipment[]>`select id as "itemId", code, name, version, active, 'equipment' as kind, type, room_code as room from report.equipment_v1`),
       ...(await md<MasterEquipment[]>`select id as "itemId", code, name, version, active, 'instrument' as kind, type, room_code as room from report.instrument_v1`),
     ].sort((a, b) => a.code.localeCompare(b.code))),
+    uses: (productId) => read(async () => {
+      try {
+        return new Set((await md<{ id: string }[]>`select to_id::text as id from report.item_link_v1 where type = 'uses' and from_id::text = ${productId}`).map((r) => r.id));
+      } catch (e) { if ((e as { code?: string }).code === '42P01') return null; throw e; }
+    }),
     rooms: () => read(async () => [...await md<MasterRoom[]>`
       select id as "itemId", code, name, version, active, area, grade from report.room_v1 order by code`]),
   };

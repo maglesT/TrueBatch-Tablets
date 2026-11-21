@@ -2,9 +2,9 @@
 // master check always beside it. A draft saves itself as it is edited; other states are read only.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ApiError, can, type Me } from '../api.js';
-import { getVersion, listMasters, loadMasterData, saveVersion, STATE_CHIP, STATE_LABEL, type MasterData, type MasterRow, type Version } from '../api-designer.js';
+import { getVersion, listMasters, loadMasterData, productUses, saveVersion, STATE_CHIP, STATE_LABEL, type MasterData, type MasterRow, type Version } from '../api-designer.js';
 import { blocking, masterChecks } from '../../../shared/master/checks.js';
-import { placeChecks } from '../../../shared/master/places.js';
+import { placeChecks, usesChecks } from '../../../shared/master/places.js';
 import { masterSchema, type MasterDoc } from '../../../shared/master/schema.js';
 import { CheckPanel, type OnAnswer } from './CheckPanel.js';
 import { FormulaTable } from './Formula.js';
@@ -73,7 +73,10 @@ export function Designer({ me, versionId, onBack, onOpen }: { me: Me; versionId:
 
   const parsed = useMemo(() => (doc ? masterSchema.safeParse(doc) : null), [doc]);
   // The master's own checks, and (once master data is read) whether the floor finds a machine for each step (TB-11).
-  const problems = useMemo(() => (parsed?.success ? [...masterChecks(parsed.data), ...(md ? placeChecks(parsed.data, md) : [])] : null), [parsed, md]);
+  const productId = parsed?.success ? parsed.data.header.productItemId : '';
+  const [uses, setUses] = useState<Set<string> | null>(null);
+  useEffect(() => { let on = true; if (productId) void productUses(productId).then((u) => on && setUses(u)); else setUses(null); return () => { on = false; }; }, [productId]);
+  const problems = useMemo(() => (parsed?.success ? [...masterChecks(parsed.data), ...(md ? placeChecks(parsed.data, md) : []), ...usesChecks(parsed.data, uses)] : null), [parsed, md, uses]);
   const go = (path: string) => { const p = placeOf(path); setPlace(p); setTab(p.tab); };
 
   if (error) return <><button className="link dark" onClick={onBack}>← {product.masters}</button><p className="notice">{error}</p></>;

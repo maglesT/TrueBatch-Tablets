@@ -7,6 +7,7 @@ import { usableItem, type Master, type MasterProduct } from '../master.js';
 import { SignError, authenticateSigner, contentHash, sign, type Meaning } from '../signatures.js';
 import { BLOCKS } from '../../shared/blocks/index.js';
 import { blocking, masterChecks } from '../../shared/master/checks.js';
+import { usesChecks } from '../../shared/master/places.js';
 import { masterSchema, type MasterDoc, type MasterState, type Pack } from '../../shared/master/schema.js';
 import { isHand, type Source } from '../../shared/engine/links.js';
 import { CHANGE_STEPS, approvedChange, namesProduct } from '../links.js';
@@ -147,7 +148,7 @@ export function masterRoutes(app: FastifyInstance, sql: Sql) {
     const id = parseId(req.params.id);
     const v = id === null ? undefined : await masterVersion(sql, id);
     if (!v) return reply.code(404).send({ error: 'not_found' });
-    return { problems: masterChecks(v.doc) };
+    return { problems: [...masterChecks(v.doc), ...usesChecks(v.doc, v.doc.header.productItemId ? await app.master.uses(v.doc.header.productItemId).catch(() => null) : null)] };
   });
 
   reviewRoutes(app, sql);

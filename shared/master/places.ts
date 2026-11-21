@@ -39,3 +39,20 @@ export function placeChecks(doc: MasterDoc, md: PlaceData): Problem[] {
   }));
   return out;
 }
+
+/**
+ * Fix 1121 B6: a warning (never blocking) for each formula or packing material master data does not list as used by the
+ * product (item_link_v1 'uses', product to material): LIMS and MMS find a product's materials through those links.
+ * `uses`: the material ids master data lists for the product; null when it publishes no links (nothing is said). A
+ * product with no links at all gets one warning, not one per material.
+ */
+export function usesChecks(doc: MasterDoc, uses: ReadonlySet<string> | null): Problem[] {
+  if (!uses || !doc.header.productItemId) return [];
+  const lines = [...doc.formula.map((l, i) => ({ id: l.materialItemId, code: l.code, path: `formula[${i}]` })),
+    ...(doc.pack?.materials ?? []).map((m, i) => ({ id: m.materialItemId, code: m.code, path: `pack.materials[${i}]` }))];
+  if (!lines.length) return [];
+  const product = doc.header.productCode;
+  if (!uses.size) return [{ level: 'warning', path: 'header', message: `Master data lists no materials as used by ${product}: LIMS and MMS rely on these links; ask the master data editor to add them` }];
+  return lines.filter((l, i) => !uses.has(l.id) && lines.findIndex((x) => x.id === l.id) === i)
+    .map((l) => ({ level: 'warning', path: l.path, message: `Master data does not list ${l.code} as used by ${product}: LIMS and MMS rely on it; ask the master data editor to add it` }));
+}

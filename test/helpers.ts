@@ -57,6 +57,8 @@ export interface FakeMaster extends Master {
   materials_: MasterMaterial[];
   equipment_: MasterEquipment[];
   rooms_: MasterRoom[];
+  // B6: product id -> the material ids master data lists as used by it; a product not here: no links published.
+  uses_: Map<string, string[]>;
   cut: boolean;
 }
 const ROOMS = [['DSP-01', 'Dispensing'], ['GRN-01', 'Granulation'], ['CMP-01', 'Compression'], ['COT-01', 'Coating'], ['PK-01', 'Packing'], ['PK-02', 'Packing']] as const;
@@ -64,7 +66,8 @@ export function fakeMaster(): FakeMaster {
   const read = <T>(rows: () => T[]) => async () => { if (m.cut) throw new ConnectionOff(); return rows().map((r) => ({ ...r })); };
   const m: FakeMaster = {
     // The rooms the fixtures' machines stand in, by area (shared/engine/picks.ts); tests add their own.
-    products_: [], materials_: [], equipment_: [], rooms_: ROOMS.map(([code, area]) => ({ itemId: `room-${code}`, code, name: `${area} room`, version: 1, active: true, area, grade: 'D' })), cut: false,
+    products_: [], materials_: [], equipment_: [], rooms_: ROOMS.map(([code, area]) => ({ itemId: `room-${code}`, code, name: `${area} room`, version: 1, active: true, area, grade: 'D' })), uses_: new Map(), cut: false,
+    uses: async (id: string) => { if (m.cut) throw new ConnectionOff(); const l = m.uses_.get(id); return l ? new Set(l) : null; },
     products: read(() => m.products_), materials: read(() => m.materials_), equipment: read(() => m.equipment_), rooms: read(() => m.rooms_),
   };
   return m;

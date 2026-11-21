@@ -9,4 +9,10 @@ export function masterDataRoutes(app: FastifyInstance) {
   app.get('/api/master/materials', anyUser, async () => app.master.materials());
   app.get('/api/master/equipment', anyUser, async () => app.master.equipment());
   app.get('/api/master/rooms', anyUser, async () => app.master.rooms());
+  // B6: the materials master data lists as used by a product (null: master data publishes no links).
+  app.get<{ Querystring: { product?: string } }>('/api/master/uses', anyUser, async (req) => {
+    const id = String(req.query.product ?? '');
+    const uses = id ? await app.master.uses(id) : null;
+    return { uses: uses ? [...uses] : null };
+  });
 }
