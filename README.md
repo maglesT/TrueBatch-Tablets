@@ -28,7 +28,7 @@ request (`docs/design.md` "LIMS in-process tests"). `reading_v1` (0023, round 46
 done (process parameters and in-process checks, one row per reading) with the master's limits, for Operations'
 continued process verification (`docs/design.md` "Readings for CPV"). `master_lab_field_v1` (0029) lists the in-process lab tests of each master version
 that is not retired, with the codes its batches' lab requests will name, so LIMS can write its in-process
-specification before the first batch. Fix round 21 Nov 2026: bilayer compression, dissolution and in-process lab test
+specification before the first batch. Fix round 21 Nov 2026: bilayer compression, dissolution (and a dissolution profile of up to four time points for extended release, L1 to L3, one LIMS test per time point `dissolution-er.t<n>`, 0033 and 0034) and in-process lab test
 blocks, a tablet layer on formula lines, deleting a draft master, production abandoning a batch before its first step,
 undoing a weighing to weigh another lot (material_use_v1 0031 and reading_v1 0032 leave it out until it is signed again), balances offered within their range, packing lines of several machines.
 

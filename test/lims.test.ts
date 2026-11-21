@@ -6,10 +6,10 @@ import { blockProblems, type Block, type BlockField } from '../shared/blocks/for
 import { answersField, coaRefusal, fieldRefusal, inProcessFit, inProcessText, ipcCodes, labFieldParameters, labRequestId, labTests, requestFits, resultRefusal, type Coa, type QcResult } from '../shared/engine/lims.js';
 import { BLOCKS } from '../shared/blocks/index.js';
 import { masterChecks } from '../shared/master/checks.js';
-import { Dec, roundHalfUp, t14ContentUniformity } from '../shared/templates/index.js';
+import { c6StagedTest, Dec, roundHalfUp, t14ContentUniformity } from '../shared/templates/index.js';
 import { qcReportText } from '../shared/engine/release.js';
 import { batchRecordDoc } from '../server/batch-record.js';
-import { loadBatch, recordInput } from '../server/routes/batches.js';
+import { labRequestOf, loadBatch, recordInput } from '../server/routes/batches.js';
 import { call, freshApp, handLabels, login, proofFor, seedUser, TEST_DATABASE_URL, type TestApp } from './helpers.js';
 import { small } from './engine-fixture.js';
 
@@ -1076,7 +1076,8 @@ describe('A2 more than one in-process lab test in one step (fix round 21 Nov 202
 
 describe('A12 master_lab_field_v1: the in-process lab tests of each master version, for LIMS (fix round 21 Nov 2026)', () => {
   it('the list of in-process fields in the database is the blocks\' (a new in-process field needs a migration replacing lab_field_parameters)', async () => {
-    const db = await t.owner`select block, block_name as "blockName", field, code, label, label_setting as "labelSetting", unit, unit_setting as "unitSetting", individual from lab_field_parameters`;
+    const db = await t.owner`select block, block_name as "blockName", field, code, label, label_setting as "labelSetting", unit, unit_setting as "unitSetting", individual,
+      label_part_setting as "labelPartSetting", label_part as "labelPart", when_setting as "whenSetting" from lab_field_parameters`;
     expect([...db]).toEqual(labFieldParameters(BLOCKS));
   });
   it('one row per test with the code a lab request names (@n for a block twice), the master\'s label and unit; a test without its unit is left out; a retired version not', async () => {
@@ -1102,5 +1103,49 @@ describe('A12 master_lab_field_v1: the in-process lab tests of each master versi
       where table_schema = ${`${t.schema}_report`} and table_name = 'master_lab_field_v1' order by ordinal_position`;
     expect(cols.map((r) => r.c)).toEqual(['product_code text', 'master_version integer', 'master_state text', 'stage_title text', 'step_title text', 'code text', 'label text', 'unit text',
       'individual integer', 'data_as_of timestamp with time zone']);
+  });
+});
+
+describe('fix 1121 B2: dissolution profile of an extended-release tablet (several time points, L1 to L3)', () => {
+  const b = findBlock({ id: 'dissolution-er', version: 1 })!;
+  const pct = (low?: string, high?: string) => ({ ...(low ? { low } : {}), ...(high ? { high } : {}), unit: '%' });
+  const settings = { time1: '1 h', limit1: pct('20', '40'), time2: '4 h', limit2: pct('50', '70'), time3: '8 h', limit3: pct('80') };
+  const er = { block: { id: 'dissolution-er', version: 1 }, checker: true, settings };
+  it('one test per named time point, each a staged list of 6, 6 more and 12 more units, coded as LIMS maps it; an unnamed time point is not asked for', () => {
+    expect(blockProblems(b)).toEqual([]);
+    const doc = small([{ steps: [er] }]);
+    const codes = ipcCodes(doc, 0, 0, b.fields);
+    expect(codes).toMatchObject({ t1: 'dissolution-er.t1', t1More: 'dissolution-er.t1', t1Last: 'dissolution-er.t1', t2: 'dissolution-er.t2', t4Last: 'dissolution-er.t4' });
+    expect(labRequestOf(doc, { stage: 0, sub: 1, step: 0, round: 1 })!.tests).toEqual(['1 h', '4 h', '8 h'].map((h, i) => ({ code: `dissolution-er.t${i + 1}`, name: `t${i + 1}`, unit: '%', individual: 24, stages: [6, 6, 12],
+      label: `Dissolved at ${h}, 6 units (% of label claim), then dissolved at ${h}, 6 more units (% of label claim), then dissolved at ${h}, 12 more units (% of label claim)` })));
+    expect(masterChecks(doc).filter((p) => p.path.includes('settings.'))).toEqual([]);
+  });
+  it('the master names each time point with its range in %, in order', () => {
+    const doc = small([{ steps: [{ ...er, settings: { time1: '1 h', limit1: pct('20', '40'), time2: '4 h', limit3: { low: '80', unit: 'mg' }, time3: '' } }] }]);
+    expect(masterChecks(doc).filter((p) => p.level === 'error' && p.path.startsWith('stages[0].steps[0].settings')).map((p) => p.message)).toEqual([
+      expect.stringContaining('mg is a mass'),
+      'Time point 2 (4 h) has no range: set its range in % of label claim',
+      'Time point 3 has a range but no time: name the time point']);
+  });
+  it('C6 dissolution ER from the time points: L1 every unit in every range; else L2 with 6 more, L3 with 12 more (USP <711>, extended release)', () => {
+    const q = (xs: string[]) => xs.map((value) => ({ value, unit: '%' }));
+    const pt = (time: string, limit: ReturnType<typeof pct>, ...stages: string[][]) => ({ time, limit, stages: stages.map(q) });
+    const six = (x: string) => Array.from({ length: 6 }, () => x);
+    const pass = c6StagedTest({ test: 'dissolution ER', points: [pt('1 h', pct('20', '40'), six('30')), pt('4 h', pct('50', '70'), six('60')), pt('8 h', pct('80'), six('90'))] });
+    expect(pass).toMatchObject({ ok: true, decision: 'pass', stageReached: 1, shown: 'L1: every unit inside every range: PASS' });
+    const out = ['30', '30', '30', '30', '30', '45'];
+    expect(c6StagedTest({ test: 'dissolution ER', points: [pt('1 h', pct('20', '40'), out), pt('4 h', pct('50', '70'), six('60'))] })).toMatchObject({ ok: true, decision: 'next stage', nextStageUnits: 6 });
+    expect(c6StagedTest({ test: 'dissolution ER', points: [pt('1 h', pct('20', '40'), out, six('30')), pt('4 h', pct('50', '70'), six('60'), six('60'))] })).toMatchObject({ ok: true, decision: 'pass', stageReached: 2 });
+    // Every time point needs the same stages and units.
+    expect(c6StagedTest({ test: 'dissolution ER', points: [pt('1 h', pct('20', '40'), out, six('30')), pt('4 h', pct('50', '70'), six('60'))] })).toMatchObject({ ok: false, message: expect.stringContaining('At 4 h 1 stage is recorded, at 1 h 2') });
+  });
+  it('master_lab_field_v1: one row per named time point, labelled with the master\'s time, with the lab request\'s code', async () => {
+    const doc = small([{ steps: [er] }]);
+    doc.stages[0]!.name = 'B2 stage';
+    const res = await as('author', 'POST', '/api/masters', { doc });
+    expect(res.statusCode, res.body).toBe(200);
+    expect(await t.owner.unsafe(`select code, label, unit, individual from ${t.schema}_report.master_lab_field_v1 where stage_title = 'B2 stage' order by code`)).toEqual(['1 h', '4 h', '8 h'].map((h, i) => ({
+      code: `dissolution-er.t${i + 1}`, unit: '%', individual: 24,
+      label: `Dissolved at ${h}, 6 units (% of label claim), then dissolved at ${h}, 6 more units (% of label claim), then dissolved at ${h}, 12 more units (% of label claim)` })));
   });
 });

@@ -86,6 +86,19 @@ describe('reading_v1', () => {
       ['failed', '0', 'units', '0', 'units', 'each'], ['force', '15', 'N', null, null, null], ['good', '980', 'units', null, null, null]]);
   });
 
+  it('B2 a dissolution profile: every unit at every time point, named by the master\'s time, against that time point\'s range', async () => {
+    const e = await batch('READ-ER', [{ key: 'er', block: { id: 'dissolution-er', version: 1 }, checker: true, settings: { time1: '1 h', limit1: { low: '20', high: '40', unit: '%' },
+      time2: '4 h', limit2: { low: '50', high: '70', unit: '%' } } }]);
+    const six = (x: string) => Array.from({ length: 6 }, () => q(x, '%'));
+    await e(0, 1, 'started', {}, '2026-11-20 08:00+00');
+    await e(0, 1, 'value', { values: { t1: six('30'), t2: six('60') } }, '2026-11-20 08:05+00');
+    await e(0, 1, 'done', {}, '2026-11-20 08:06+00');
+    const r = await rows('READ-ER');
+    expect(r).toHaveLength(12);
+    expect([r[0]!, r[6]!].map((x) => [x.parameter, x.field, x.value, x.low_limit, x.high_limit, x.limit_of])).toEqual([
+      ['Dissolved at 1 h, 6 units (% of label claim)', 't1', '30', '20', '40', 'each'], ['Dissolved at 4 h, 6 units (% of label claim)', 't2', '60', '50', '70', 'each']]);
+  });
+
   it('is published in the report schema with its columns, closed to everybody until the platform links a reader', async () => {
     const cols = await t.owner.unsafe(`select column_name || ' ' || data_type as c from information_schema.columns where table_schema = $1 and table_name = 'reading_v1' order by ordinal_position`, [rep()]);
     expect(cols.map((c) => c.c)).toEqual(['reading_id text', 'batch_number text', 'product_code text', 'stage text', 'step text', 'step_name text', 'sub_batch integer', 'round integer',

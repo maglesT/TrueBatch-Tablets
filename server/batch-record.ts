@@ -2,7 +2,7 @@
 // the events, worked out by the engine as on screen; nothing is typed again. Changed values are marked: the original
 // is struck through and kept with the reason, the person and the time.
 import type { Content, TDocumentDefinitions } from 'pdfmake/interfaces.js';
-import { findBlock, type Block } from '../shared/blocks/index.js';
+import { findBlock, labelled, type Block } from '../shared/blocks/index.js';
 import { materialLines, type Step } from '../shared/master/schema.js';
 import { batchView, deviations, exceptions, exceptionText, NOTE_EVENTS, deviationNumber, deviationText, fieldLabel, handFields, lateItems, lineQuantity, notYetText, cutShort, terminatedText, TERMINATED_STATE, openSteps, PROVIDER_NAME, deviationStatusWords, stepTitle, unitName, headline, limitOf, withoutVerdict, statusWords, CERTIFICATE, handWhy, perPackText, trainingOf, trainingText, trainingTyped, skillText, bulkCheckedText, bulkNotCheckedText, bulkOpenText, qcReportText, type BulkDeviations, type DeviationStatus, type EventKind, type Source, type Stored, type StepView, type Value } from '../shared/engine/index.js';
 import type { LoadedBatch } from './routes/batches.js';
@@ -152,7 +152,7 @@ export function batchRecordDoc(r: RecordInput, by: string, printedAt = new Date(
       const block = findBlock(st.block);
       return [
         { stack: [small(stepName(v), { bold: true }), small((ended && TERMINATED_STATE[v.state]) || (STATE[v.state] ?? v.state), { color: v.state === 'not_applicable' ? '#666666' : undefined })] },
-        { stack: block ? valueLines(block, v, who, unitOf(v)) : [] },
+        { stack: block ? valueLines({ ...block, fields: labelled(block.fields, st.settings) }, v, who, unitOf(v)) : [] },
         { stack: block ? resultLines(block, st, v, who, cutShort(ended, v, steps), unitOf(v)) : [] },
         { stack: v.events.filter((e) => e.kind !== 'value').map((e) => {
           // Demo installations only (server/demo.ts).

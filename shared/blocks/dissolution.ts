@@ -5,8 +5,7 @@ import type { Block } from './format.js';
 // pharmacopoeia's acceptance tables in stages). Immediate release and the buffer stage of a delayed-release product
 // against Q (S1-S3, B1-B3); the acid stage against the most that may dissolve (A1-A3). LIMS keeps one result with every
 // value in order (6, 12 or 24); its reported figure is their mean, worked out again here. An extended-release profile
-// (several time points per unit) is not a block: it is one Dissolution step per time point only where the
-// specification sets a Q at that time point.
+// (several time points, each with its range) is its own block (dissolution-er.ts, fix 1121 B2).
 export const dissolution: Block = {
   id: 'dissolution', version: 1, name: 'Dissolution (QC lab)', checker: true,
   instruction: 'Take the units for dissolution as the sampling plan says, label them and send them to QC. Pick the results from LIMS once QC has approved them; if a stage does not pass and QC tested more units, pick those too (typed from the QC report only while LIMS cannot be reached).',

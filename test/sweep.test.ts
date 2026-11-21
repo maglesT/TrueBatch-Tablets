@@ -45,6 +45,8 @@ const SETTINGS: Record<string, Step['settings']> = {
   disintegration: { maxTime: '15', temperatureLimit: { low: '35', high: '39', unit: '°C' } },
   'uniformity-by-weight': { coating: 'uncoated', labelClaim: '50 mg' },
   'content-uniformity': { coating: 'uncoated' },
+  'dissolution-er': { time1: '1 h', limit1: pct('20', '40'), time2: '4 h', limit2: pct('50', '70'), time3: '8 h', limit3: { low: '80', unit: '%' }, time4: '12 h', limit4: { low: '85', unit: '%' },
+    medium: 'Paddle, 900 ml pH 6.8' },
   'lab-tests': { what1: 'Assay of metformin', unit1: '%', limit1: pct('95.0', '105.0'), what2: 'Water', unit2: '%', limit2: { high: '3.0', unit: '%' }, what3: 'pH', unit3: 'pH', limit3: { low: '5.0', high: '7.0', unit: 'pH' } },
   dissolution: { test: 'dissolution IR', q: '80', timePoint: '45 min, 900 ml pH 6.8' },
   coat: { coreWeight: { header: 'coreWeight' }, gainLimit: pct('2.8', '3.2') },

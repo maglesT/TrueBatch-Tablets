@@ -315,7 +315,10 @@ export function inProcessFit(r: Pick<QcResult, 'testName' | 'coaNumber' | 'unit'
  * list: all its stages). db/migrations/0029 keeps the same list as the view lab_field_parameters (not published) for
  * report.master_lab_field_v1; a test compares the two, so a new in-process field needs a migration replacing it.
  */
-export interface LabFieldParameter { block: string; blockName: string; field: string; code: string; label: string; labelSetting: string | null; unit: string | null; unitSetting: string | null; individual: number | null }
+// B2: labelPartSetting/labelPart: the text setting that names part of the label ("time point 1" → "1 h"); whenSetting:
+// the test is asked only when the master sets it (columns added at the end, 0033).
+export interface LabFieldParameter { block: string; blockName: string; field: string; code: string; label: string; labelSetting: string | null; unit: string | null; unitSetting: string | null; individual: number | null;
+  labelPartSetting: string | null; labelPart: string | null; whenSetting: string | null }
 export function labFieldParameters(blocks: readonly { id: string; name: string; fields: readonly BlockField[] }[]): LabFieldParameter[] {
   return blocks.flatMap((b) => {
     const codes = ipcCodes({ stages: [{ steps: [{ block: { id: b.id } }] }] }, 0, 0, b.fields);
@@ -323,7 +326,8 @@ export function labFieldParameters(blocks: readonly { id: string; name: string; 
       const f = b.fields.find((x) => x.name === t.name)!;
       const set = f.unit?.startsWith('$');
       return { block: b.id, blockName: b.name, field: t.name, code: t.code, label: t.label, labelSetting: f.labelFrom ?? null,
-        unit: set ? null : t.unit, unitSetting: set ? f.unit!.slice(1) : null, individual: t.individual };
+        unit: set ? null : t.unit, unitSetting: set ? f.unit!.slice(1) : null, individual: t.individual,
+        labelPartSetting: f.labelPart?.setting ?? null, labelPart: f.labelPart?.replaces ?? null, whenSetting: f.when ?? null };
     });
   });
 }

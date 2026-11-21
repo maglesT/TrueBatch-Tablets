@@ -22,6 +22,12 @@ export const fieldSchema = z.object({
   // Fix round 21 Nov 2026 (A2): the text setting whose value the master gives as this field's label (what a lab test
   // is: "Assay of metformin"); the label above while the master leaves it empty.
   labelFrom: name.optional(),
+  // Fix 1121 B2: part of the label the master step's text setting gives: "time point 1" in "Dissolved at time point 1,
+  // 6 units" becomes the master's "1 h".
+  labelPart: z.object({ setting: name, replaces: z.string().min(1) }).strict().optional(),
+  // Fix 1121 B2: asked only when the master step sets this setting (a second time point): else the step, its lab
+  // request and LIMS's in-process specification leave it out.
+  when: name.optional(),
   kind: z.enum(FIELD_KINDS),
   // number: the unit from the unit list, or "$setting" when the master step names it.
   unit: z.string().optional(),
@@ -117,8 +123,19 @@ export const blockSchema = z.object({
 export type BlockField = z.infer<typeof fieldSchema>;
 /** A2: the block's fields with the labels the master step gives them (labelFrom). */
 export function labelled(fields: readonly BlockField[], settings: Readonly<Record<string, unknown>>): BlockField[] {
-  return fields.map((f) => { const v = f.labelFrom ? settings[f.labelFrom] : undefined; return typeof v === 'string' && v.trim() ? { ...f, label: v.trim() } : f; });
+  return fields.map((f) => {
+    const v = f.labelFrom ? settings[f.labelFrom] : undefined;
+    if (typeof v === 'string' && v.trim()) return { ...f, label: v.trim() };
+    const part = f.labelPart ? settings[f.labelPart.setting] : undefined;
+    return typeof part === 'string' && part.trim() ? { ...f, label: f.label.replace(f.labelPart!.replaces, part.trim()) } : f;
+  });
 }
+/** B2: a field the master step asks for (its `when` setting set, or none). */
+export const asked = (f: BlockField, settings: Readonly<Record<string, unknown>>): boolean => {
+  if (!f.when) return true;
+  const v = settings[f.when];
+  return v !== undefined && v !== null && !(typeof v === 'string' && !v.trim());
+};
 export type BlockSetting = z.infer<typeof settingSchema>;
 export type Block = z.infer<typeof blockSchema>;
 
@@ -168,6 +185,9 @@ export function blockProblems(b: Block): string[] {
     }
   }
   for (const f of b.fields) if (f.labelFrom && b.settings.find((s) => s.name === f.labelFrom)?.kind !== 'text') p.push(`field ${f.name}: its label comes from a text setting`);
+  for (const f of b.fields) if (f.labelPart && b.settings.find((s) => s.name === f.labelPart!.setting)?.kind !== 'text') p.push(`field ${f.name}: part of its label comes from a text setting`);
+  for (const f of b.fields) if (f.labelPart && !f.label.includes(f.labelPart.replaces)) p.push(`field ${f.name}: its label has no "${f.labelPart.replaces}"`);
+  for (const f of b.fields) if (f.when && !b.settings.find((s) => s.name === f.when)?.optional) p.push(`field ${f.name}: it is asked when an optional setting is set`);
   for (const s of b.settings) if (s.options && (s.kind !== 'text' || !s.options.length)) p.push(`setting ${s.name}: only a text setting has a list`);
   for (const s of b.settings) if (s.formulaField && s.kind !== 'quantity') p.push(`setting ${s.name}: only a quantity setting reads a field of a formula line`);
   for (const s of b.settings) if (s.notBatch && s.kind !== 'quantity') p.push(`setting ${s.name}: only a quantity setting is marked not a batch quantity`);

@@ -2,7 +2,7 @@
  * What is open in a batch, and its timers, computed from the master version and the step events. Nothing is stored:
  * the event log is the single source of truth.
  */
-import { findBlock, labelled, type Block } from '../blocks/index.js';
+import { findBlock, labelled, asked, type Block } from '../blocks/index.js';
 import { materialLines, type MasterDoc, type Step } from '../master/schema.js';
 import { keyId, sinceUndo, stepState, type EventKind, type State, type StepEvent, type StepKey } from './state.js';
 import { c1WithinLimits, convert, Dec, findUnit } from '../templates/index.js';
@@ -48,8 +48,8 @@ export function stepTitle(doc: MasterDoc, st: Step): string {
 export function askedFields(doc: MasterDoc, block: Block, st?: { settings: Readonly<Record<string, unknown>> }): Block['fields'] {
   const noLeaflet = block.id === 'carton-check' && doc.pack && !doc.pack.materials.some((x) => x.kind === 'leaflet');
   const fields = noLeaflet ? block.fields.filter((f) => f.name !== 'leaflet') : block.fields;
-  // A2: the labels the master step gives (a lab test's "what is tested").
-  return st ? labelled(fields, st.settings) : fields;
+  // A2: the labels the master step gives (a lab test's "what is tested"); B2: only the fields it asks for.
+  return st ? labelled(fields.filter((f) => asked(f, st.settings)), st.settings) : fields;
 }
 /** Where a step instance is, in words: "Granulation › Dry to an LOD limit (round 2)". */
 export function stepLabel(doc: MasterDoc, k: StepKey): string {

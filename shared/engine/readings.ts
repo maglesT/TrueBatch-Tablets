@@ -24,6 +24,11 @@ const ref = (x: unknown) => (typeof x === 'string' && x.startsWith('$') && !x.st
 
 function limitOf(b: Block, field: string): Pick<ReadingParameter, 'limitSetting' | 'fixedLimit' | 'limitOf'> {
   for (const c of b.calcs) {
+    // B2: a dissolution profile's time point: its range applies to each unit (L1).
+    const points = (c.args as { points?: { limit?: unknown; stages?: unknown[] }[] }).points;
+    const pt = c.template === 'C6' && Array.isArray(points) ? points.find((x) => (x.stages ?? []).some((y) => ref(y) === field)) : undefined;
+    const range = pt && ref(pt.limit);
+    if (range) return { limitSetting: range, fixedLimit: null, limitOf: 'each' };
     const a = c.args as { value?: unknown; readings?: unknown; limit?: unknown };
     const on = c.template === 'C1' ? ref(a.value) : c.template === 'T7' ? ref(a.readings) : undefined;
     if (on !== field || a.limit === undefined) continue;

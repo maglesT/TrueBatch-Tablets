@@ -37,7 +37,33 @@ type Stages<X> =
       /** One array per stage; each unit is one array of values, one per time point. */
       readonly stages: readonly (readonly (readonly string[])[])[];
     };
-export type C6Input = Stages<Item>;
+/**
+ * Fix 1121 B2: the extended-release test as a block records it: per time point, its range (a limit in %) and its own
+ * staged list (6, 6 more, 12 more units, the units in the same order at every time point, as LIMS lists them). Worked
+ * out as the ranges and stages above (unit n at every time point is one unit).
+ */
+export interface ErPoints {
+  readonly test: 'dissolution ER';
+  readonly points: readonly { readonly time: string; readonly limit: { readonly low?: string; readonly high?: string; readonly unit: string }; readonly stages: readonly (readonly Item[])[] }[];
+}
+export type C6Input = Stages<Item> | ErPoints;
+
+const valueOf = (x: Item): string => (typeof x === 'string' ? x : x.value);
+/** ER time points with their staged lists as ranges and units (one array of values per unit, one value per time point). */
+function fromPoints(i: ErPoints): Stages<string> {
+  if (!i.points.length) refuse('Give the time points and their ranges');
+  for (const pt of i.points) if (pt.limit.unit !== '%' && pt.limit.unit !== '') refuse(`The range at ${pt.time} is in ${pt.limit.unit}: write it in % of label claim`);
+  const first = i.points[0]!;
+  for (const pt of i.points.slice(1)) {
+    if (pt.stages.length !== first.stages.length) refuse(`At ${pt.time} ${pt.stages.length} stage${pt.stages.length === 1 ? ' is' : 's are'} recorded, at ${first.time} ${first.stages.length}: every time point needs the same stages`);
+    pt.stages.forEach((st, s) => { if (st.length !== first.stages[s]!.length) refuse(`Stage ${s + 1}: ${st.length} units at ${pt.time}, ${first.stages[s]!.length} at ${first.time}: every time point needs the same units`); });
+  }
+  return {
+    test: 'dissolution ER',
+    ranges: i.points.map((pt) => ({ time: pt.time, ...(pt.limit.low === undefined ? {} : { low: pt.limit.low }), ...(pt.limit.high === undefined ? {} : { high: pt.limit.high }) })),
+    stages: first.stages.map((st, s) => st.map((_, n) => i.points.map((pt) => valueOf(pt.stages[s]![n]!)))),
+  };
+}
 
 export type Decision = 'pass' | 'next stage' | 'fail';
 
@@ -98,9 +124,9 @@ function qRule(Qtext: string, stages: readonly (readonly string[])[], label: str
 /** C6 Staged test. */
 export function c6StagedTest(input: C6Input): Outcome<C6Extra> {
   // A reading with its unit counts as its value: the units of the times and contents are the test's own (min, %).
-  const i = (input.test === 'dissolution ER' ? input
-    : { ...input, stages: input.stages.map((s) => s.map((x) => (typeof x === 'string' ? x : x.value))) }) as Stages<string>;
   const body = (): Outcome<C6Extra> => {
+    const i = ('points' in input ? fromPoints(input) : input.test === 'dissolution ER' ? input
+      : { ...input, stages: input.stages.map((s) => s.map(valueOf)) }) as Stages<string>;
     switch (i.test) {
       case 'disintegration': {
         needCount(i.stages, [6, 12]);

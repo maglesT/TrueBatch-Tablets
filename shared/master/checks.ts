@@ -110,6 +110,14 @@ export function masterChecks(doc: MasterDoc): Problem[] {
         const set = ['what', 'unit', 'limit'].filter((x) => st.settings[`${x}${n}`] !== undefined);
         if (set.length && set.length < 3) error(`${p}.settings.${['what', 'unit', 'limit'].find((x) => !set.includes(x))}${n}`, `Lab test ${n}: set what is tested, its unit and its limits, or none of them`);
       }
+      // B2: a dissolution profile's time point is named with its range, in order (time point 3 only after 2).
+      if (block.id === 'dissolution-er') for (const n of [1, 2, 3, 4]) {
+        const time = typeof st.settings[`time${n}`] === 'string' && (st.settings[`time${n}`] as string).trim();
+        const lim = st.settings[`limit${n}`];
+        if (time && !lim) error(`${p}.settings.limit${n}`, `Time point ${n} (${time}) has no range: set its range in % of label claim`);
+        if (!time && lim && n > 1) error(`${p}.settings.time${n}`, `Time point ${n} has a range but no time: name the time point`);
+        if (n > 1 && time && !(typeof st.settings[`time${n - 1}`] === 'string' && (st.settings[`time${n - 1}`] as string).trim())) error(`${p}.settings.time${n}`, `Time point ${n} is named but time point ${n - 1} is not: name them in order`);
+      }
       // A1 (fix round 21 Nov 2026): a bilayer step's layer limits against the formula's tablet layers (the core lines of
       // each layer, solvents left out): a limit that does not contain its layer's weight per tablet is warned about.
       if (block.id === 'bilayer-compress' && !doc.pack) {
