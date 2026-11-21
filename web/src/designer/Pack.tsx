@@ -1,6 +1,6 @@
 // TrueBatch Tablets Packing: the pack (product, bulk product, pack type and size, shelf life, destination, MRP,
 // serialisation) and its packing materials, picked from master data (TB-P1).
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { MasterData, Product } from '../api-designer.js';
 import { DESTINATIONS, PACK_MATERIAL_KINDS, PACK_TYPES, type MasterDoc, type Pack, type PackMaterial } from '../../../shared/master/schema.js';
 import { newKey, ownProducts, productNote } from './model.js';
@@ -18,19 +18,32 @@ function ProductPick({ label, itemId, code, name, products, onPick }: { label: s
   return <Picker label={label} items={products.map((p) => ({ id: p.itemId, code: p.code, name: p.name, note: productNote(p), off: p.active ? undefined : 'inactive' }))}
     onPick={(i) => { onPick(products.find((p) => p.itemId === i.id)!); setPicking(false); }} />;
 }
+const ruleWords = (r: Pack['expiryRule']) => (r === 'same month' ? 'month of manufacture + shelf life' : 'month of manufacture + shelf life − 1');
+/** B1: master data's shelf life on the pack (as the server does on save, server/routes/masters.ts withShelfLife). */
+function withShelfLife(pack: Pack, p: Product): Pack {
+  const { shelfLifeFrom: _, ...own } = pack;
+  return p.shelfLifeMonths ? { ...own, shelfLifeMonths: p.shelfLifeMonths, expiryRule: p.expiryRule ?? 'month before', shelfLifeFrom: { code: p.code, version: p.version } } : own;
+}
 const whole = (v: string) => (/^\d{1,5}$/.test(v) ? Number(v) : 0);
 
 /** The header of a packing master: the pack product and the bulk it is packed from, the pack and what is printed on it.
  *  products: all of master data's; the pack is picked from the packs, the bulk from the bulk products. */
 export function PackFields({ header, pack, products, onChange }: { header: Header; pack: Pack; products: Product[]; onChange: (h: Header, p: Pack) => void }) {
   const set = (x: Partial<Pack>) => onChange(header, { ...pack, ...x });
+  const fromMd = products.find((p) => p.itemId === header.productItemId && p.shelfLifeMonths);
+  // Keep the document in step with master data, so the plain view and the checks show its shelf life before saving.
+  useEffect(() => {
+    if (!fromMd) return;
+    const next = withShelfLife(pack, fromMd);
+    if (JSON.stringify(next) !== JSON.stringify(pack)) onChange(header, next);
+  }, [fromMd?.itemId, fromMd?.shelfLifeMonths, fromMd?.expiryRule, pack.shelfLifeMonths, pack.expiryRule, pack.shelfLifeFrom?.version]);
   const setH = (x: Partial<Header>) => onChange({ ...header, ...x }, pack);
   const opt = <K extends 'mrp' | 'gtin'>(k: K, v: string) => onChange(header, v ? { ...pack, [k]: v } : (({ [k]: _, ...p }) => p as Pack)(pack));
   return (
     <div className="header-fields">
       <span className="field-label">Pack product</span>
       <ProductPick label="Pack product" itemId={header.productItemId} code={header.productCode} name={header.productName} products={ownProducts(products, 'pack')}
-        onPick={(p) => setH({ productItemId: p.itemId, productCode: p.code, productName: p.name })} />
+        onPick={(p) => onChange({ ...header, productItemId: p.itemId, productCode: p.code, productName: p.name }, withShelfLife(pack, p))} />
       <span className="field-label">Bulk tablets packed (TrueBatch Tablets product)</span>
       <ProductPick label="Bulk product" itemId={pack.bulkItemId} code={pack.bulkCode} name={pack.bulkName} products={ownProducts(products, 'bulk')}
         onPick={(p) => set({ bulkItemId: p.itemId, bulkCode: p.code, bulkName: p.name })} />
@@ -40,9 +53,16 @@ export function PackFields({ header, pack, products, onChange }: { header: Heade
         <label>Packs per carton<Decimal label="Packs per carton" value={String(pack.packsPerCarton)} onChange={(v) => set({ packsPerCarton: whole(v) })} width={5} /></label>
         <label>Standard packing batch (tablets)<Decimal label="Standard packing batch (tablets)" value={header.batchSize} onChange={(v) => setH({ batchSize: v })} width={9} /></label>
         <label>Tablet weight (mg, for counts by weight)<Decimal label="Tablet weight (mg)" value={header.coreWeightMg} onChange={(v) => setH({ coreWeightMg: v })} /></label>
-        <label>Approved shelf life (months)<Decimal label="Approved shelf life (months)" value={String(pack.shelfLifeMonths)} onChange={(v) => set({ shelfLifeMonths: whole(v) })} width={4} /></label>
-        <label>Expiry<select aria-label="Expiry rule" value={pack.expiryRule} onChange={(e) => set({ expiryRule: e.target.value as Pack['expiryRule'] })}>
-          <option value="month before">month of manufacture + shelf life − 1</option><option value="same month">month of manufacture + shelf life</option></select></label>
+        {fromMd ? <>
+          {/* B1: master data owns the shelf life: shown with its source, not typed (the server copies it on save). */}
+          <dl className="fields pulled"><div><dt>Approved shelf life</dt><dd>{fromMd.shelfLifeMonths} months · expiry {ruleWords(fromMd.expiryRule ?? 'month before')}
+            <span className="muted small"> (master data {fromMd.code} v{fromMd.version})</span></dd></div></dl>
+        </> : <>
+          <label>Approved shelf life (months)<Decimal label="Approved shelf life (months)" value={String(pack.shelfLifeMonths)} onChange={(v) => set({ shelfLifeMonths: whole(v) })} width={4} /></label>
+          <label>Expiry<select aria-label="Expiry rule" value={pack.expiryRule} onChange={(e) => set({ expiryRule: e.target.value as Pack['expiryRule'] })}>
+            <option value="month before">{ruleWords('month before')}</option><option value="same month">{ruleWords('same month')}</option></select></label>
+          {header.productItemId && <p className="muted small">Master data has no shelf life for {header.productCode}: the one typed here is used. Once master data holds it, it is taken from there.</p>}
+        </>}
         <label>Destination<select aria-label="Destination" value={pack.destination} onChange={(e) => set({ destination: e.target.value as Pack['destination'] })}>{DESTINATIONS.map((d) => <option key={d}>{d}</option>)}</select></label>
         <label>MRP per pack (Rs.)<Decimal label="MRP per pack" placeholder="no MRP" value={pack.mrp} onChange={(v) => opt('mrp', v)} /></label>
         <label className="check"><input type="checkbox" checked={pack.serialisation} onChange={(e) => set({ serialisation: e.target.checked })} /> Check serialisation (the customer's serialisation system)</label>

@@ -103,7 +103,7 @@ export function describeMaster(doc: MasterDoc, units?: Units, { items = false } 
       ...more,
       { key: 'batch', text: `Standard packing batch ${grouped(h.batchSize)} tablets.` },
       { key: 'pack', text: `${p.type[0]!.toUpperCase()}${p.type.slice(1)} of ${p.unitsPerPack} tablets; ${p.packsPerCarton} packs per carton.` },
-      { key: 'expiry', text: `Approved shelf life ${p.shelfLifeMonths} months; expiry ${p.expiryRule === 'same month' ? 'month of manufacture + shelf life' : 'month of manufacture + shelf life − 1'}.` },
+      { key: 'expiry', text: `Approved shelf life ${p.shelfLifeMonths} months; expiry ${p.expiryRule === 'same month' ? 'month of manufacture + shelf life' : 'month of manufacture + shelf life − 1'}${p.shelfLifeFrom ? ` (from master data, ${p.shelfLifeFrom.code} version ${p.shelfLifeFrom.version})` : ''}.` },
       { key: 'market', text: `For ${p.destination}${p.mrp ? `; MRP Rs. ${p.mrp} per pack` : ''}.` },
       // The GTIN is shown even without serialisation: it is part of the master.
       ...(p.serialisation || p.gtin ? [{ key: 'serialisation', text: `${p.serialisation ? 'Serialisation checked' : 'No serialisation'}${p.gtin ? `; pack GTIN ${p.gtin}` : ''}.` }] : []),

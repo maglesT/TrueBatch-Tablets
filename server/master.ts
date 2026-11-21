@@ -7,7 +7,12 @@ import type { Sql } from './db.js';
 interface Base { itemId: string; code: string; name: string; version: number; active: boolean }
 // kind: 'bulk' (made in TrueBatch Tablets) or 'pack' (packed in TrueBatch Tablets Packing); null when master data does
 // not say (not set yet, or an older platform whose view has no kind column).
-export interface MasterProduct extends Base { strength: string | null; dosageForm: string | null; kind?: 'bulk' | 'pack' | null }
+// shelfLifeMonths and expiryRule (platform 1.26.13): the approved shelf life of the product, owned by master data; null
+// when master data has none (not entered, or an older platform whose view has no such column).
+export interface MasterProduct extends Base {
+  strength: string | null; dosageForm: string | null; kind?: 'bulk' | 'pack' | null;
+  shelfLifeMonths?: number | null; expiryRule?: 'month before' | 'same month' | null;
+}
 export interface MasterMaterial extends Base { category: string | null; unit: string | null }
 export interface MasterEquipment extends Base { kind: 'equipment' | 'instrument'; type: string | null; room: string | null }
 export interface MasterRoom extends Base { area: string | null; grade: string | null }
@@ -41,7 +46,10 @@ export function sqlMaster(md: Sql): Master {
     // kind is read through the row as JSON, so a view without the column (an older platform) gives null, not an error.
     products: () => read(async () => [...await md<MasterProduct[]>`
       select id as "itemId", code, name, version, active, strength, dosage_form as "dosageForm",
-        case when to_jsonb(p)->>'kind' in ('bulk', 'pack') then to_jsonb(p)->>'kind' end as kind
+        case when to_jsonb(p)->>'kind' in ('bulk', 'pack') then to_jsonb(p)->>'kind' end as kind,
+        case when to_jsonb(p)->>'shelf_life_months' ~ '^[0-9]{1,3}$' then
+          case when (to_jsonb(p)->>'shelf_life_months')::int between 1 and 120 then (to_jsonb(p)->>'shelf_life_months')::int end end as "shelfLifeMonths",
+        case when to_jsonb(p)->>'expiry_rule' in ('month before', 'same month') then to_jsonb(p)->>'expiry_rule' end as "expiryRule"
       from report.product_v1 p order by code`]),
     materials: () => read(async () => [...await md<MasterMaterial[]>`
       select id as "itemId", code, name, version, active, category, unit from report.material_v1 order by code`]),

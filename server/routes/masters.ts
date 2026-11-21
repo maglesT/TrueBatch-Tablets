@@ -3,11 +3,11 @@ import { z } from 'zod';
 import type { Sql, Tx } from '../db.js';
 import { audit } from '../audit.js';
 import { parseId, requirePermission, type Permission, type SessionUser } from '../auth.js';
-import { usableItem, type Master } from '../master.js';
+import { usableItem, type Master, type MasterProduct } from '../master.js';
 import { SignError, authenticateSigner, contentHash, sign, type Meaning } from '../signatures.js';
 import { BLOCKS } from '../../shared/blocks/index.js';
 import { blocking, masterChecks } from '../../shared/master/checks.js';
-import { masterSchema, type MasterDoc, type MasterState } from '../../shared/master/schema.js';
+import { masterSchema, type MasterDoc, type MasterState, type Pack } from '../../shared/master/schema.js';
 import { isHand, type Source } from '../../shared/engine/links.js';
 import { CHANGE_STEPS, approvedChange, namesProduct } from '../links.js';
 
@@ -40,12 +40,30 @@ async function withMasterData(master: Master, doc: MasterDoc): Promise<MasterDoc
     // Packing: the bulk product and every packing material too.
     ...(doc.pack ? { pack: (() => {
       const bulk = usableItem(products, doc.pack.bulkItemId, 'bulk product');
-      return { ...doc.pack, bulkCode: bulk.code, bulkName: bulk.name, materials: doc.pack.materials.map((l) => {
+      return { ...withShelfLife(doc.pack, product), bulkCode: bulk.code, bulkName: bulk.name, materials: doc.pack.materials.map((l) => {
         const m = usableItem(materials, l.materialItemId, 'packing material');
         return { ...l, code: m.code, name: m.name };
       }) };
     })() } : {}),
   };
+}
+
+/** Fix 1121 B1: the pack product's shelf life and expiry rule come from master data when it holds them; else the
+ *  master's own (typed) values stay and the source is removed. */
+export function withShelfLife(pack: Pack, product: MasterProduct): Pack {
+  const { shelfLifeFrom: _, ...own } = pack;
+  if (!product.shelfLifeMonths) return own;
+  return { ...own, shelfLifeMonths: product.shelfLifeMonths, expiryRule: product.expiryRule ?? 'month before', shelfLifeFrom: { code: product.code, version: product.version } };
+}
+
+/** The difference between a master's shelf life and master data's now, in words; null when they agree (or master data
+ *  has none and the master's own value is used). Approval and packing batch issue refuse a difference. */
+export function shelfLifeDrift(pack: Pack | undefined, product: MasterProduct | undefined): string | null {
+  if (!pack || !product?.shelfLifeMonths) return null;
+  const rule = product.expiryRule ?? 'month before';
+  // Same values: fine, also on a master made before master data held them (it typed the same).
+  if (pack.shelfLifeMonths === product.shelfLifeMonths && pack.expiryRule === rule) return null;
+  return `Master data now gives ${product.code} a shelf life of ${product.shelfLifeMonths} months (expiry ${rule === 'same month' ? 'month of manufacture + shelf life' : 'month of manufacture + shelf life − 1'}); this master has ${pack.shelfLifeMonths} months${pack.shelfLifeFrom ? '' : ', typed'}.`;
 }
 
 const docBody = z.object({ doc: masterSchema });
@@ -295,6 +313,12 @@ function reviewRoutes(app: FastifyInstance, sql: Sql) {
       const b = body.data as { proof?: string; contentHash?: string; reason?: string; changeControl?: string };
       const user = req.user!;
       try {
+        // B1: a packing master goes forward only with master data's shelf life (when master data holds one).
+        if (action === 'submit' || action === 'approve' || action === 'make-effective') {
+          const v = await masterVersion(sql, id);
+          const drift = v?.doc.pack ? shelfLifeDrift(v.doc.pack, (await app.master.products()).find((p) => p.itemId === v.doc.header.productItemId)) : null;
+          if (drift) throw new ReviewError(409, 'shelf_life_changed', [`${drift} ${v!.state === 'draft' ? 'Save the master again: it takes master data\'s shelf life.' : 'Return it to draft and save it again (or make a new version): it takes master data\'s shelf life.'}`]);
+        }
         const signer = rule.meaning ? await authenticateSigner(sql, app.proofKey, user, { proof: b.proof! }, { objectType: 'master_version', objectId: id, meaning: rule.meaning }) : null;
         const source = b.changeControl ? await changeControlSource(app, b.changeControl, (await masterVersion(sql, id))?.doc.header) : null;
         return await sql.begin(async (tx) => {

@@ -52,6 +52,11 @@ QA release of the packed batch. Built the Logbook way, as TrueBatch Tablets is.
 - **Coded batch number**: the bulk batch number is printed on the packs; the packing record has its own number
   (`TP` + year + counter).
 - **Expiry** (TB-P8): worked out from the date of manufacture (above) and the approved shelf life (T27), never typed.
+  The approved shelf life and expiry rule are master data's (the pack product's `shelf_life_months` and `expiry_rule`
+  in `report.product_v1`, platform 1.26.13) when it holds them: the master copies them on every save with the product
+  version (`pack.shelfLifeFrom`), read-only in the designer. Without them (a customer without that master data) the
+  master's typed shelf life is used and the master check warns. A master whose copy no longer matches master data is
+  not sent for review, approved, made effective or issued: a new version takes master data's value.
 - **Reconciliation** (TB-P6): tablets (count by weight) and every printed material (issued = used + destroyed +
   returned, zero gap); a gap is out of limits, needs a deviation note and blocks release until its number is linked.
 - **Serialisation** (optional per product): checked, never generated. Serial numbers received (typed, with the order

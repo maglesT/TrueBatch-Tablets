@@ -11,6 +11,7 @@ import { PACKING_APP_ROLE } from '../packing/migrate.js';
 import { call, freshApp, handLabels, login, proofFor, seedUser, TEST_DATABASE_URL, type TestApp } from './helpers.js';
 import { packing } from './packing-fixture.js';
 import { openSteps, returnsOf, usesOfLot } from '../shared/engine/index.js';
+import { expiryMonth } from '../shared/templates/index.js';
 
 // TrueBatch Tablets Packing through its own server: its own permission codes, a packing batch issued from a RELEASED
 // bulk batch read from TrueBatch Tablets' batch_fact_v1 (a fake provider schema, read with packing's restricted login),
@@ -492,5 +493,58 @@ describe('a packing batch from a released bulk batch', () => {
     expect(plan.statusCode, plan.body).toBe(200);
     expect((await get((plan.json() as { id: number }).id)).steps[0]!.values.tablets).toEqual({ value: '100000', unit: 'tablets' });
     expect((await offers())[0]).toEqual(['TB260007', '250000', '100000', '150000']);
+  });
+});
+
+describe('fix 1121 B1: the shelf life comes from master data when it holds one', () => {
+  const pk = () => t.master.products_.find((p) => p.code === 'PK-001')!;
+  const setMd = (months: number | null, rule: 'month before' | 'same month' | null = null) => Object.assign(pk(), { shelfLifeMonths: months, expiryRule: rule });
+  afterAll(() => { setMd(null); });
+  const saved = async () => {
+    const res = await as('author', 'POST', '/api/masters', { doc: packing() });
+    expect(res.statusCode, res.body).toBe(200);
+    const { id } = res.json() as { id: number };
+    return { id, doc: ((await as('author', 'GET', `/api/master-versions/${id}`)).json() as { doc: ReturnType<typeof packing> }).doc,
+      problems: ((await as('author', 'GET', `/api/master-versions/${id}/checks`)).json() as { problems: { level: string; message: string }[] }).problems };
+  };
+
+  it('TB-P8 linked: the master takes master data\'s shelf life and expiry rule on save, with its source, over a typed one; no warning', async () => {
+    setMd(36, 'same month');
+    const { doc, problems } = await saved();
+    expect(doc.pack).toMatchObject({ shelfLifeMonths: 36, expiryRule: 'same month', shelfLifeFrom: { code: 'PK-001', version: 1 } });
+    expect(problems.filter((p) => p.message.includes('shelf life'))).toEqual([]);
+    // The expiry is worked out from it: 3 Nov 2026 + 36 months, same month.
+    expect(expiryMonth('2026-11-03', String(doc.pack!.shelfLifeMonths), doc.pack!.expiryRule)).toBe('2029-11');
+  });
+
+  it('TB-P8 standalone: master data has none, so the typed shelf life stays (no source) and the master check warns', async () => {
+    setMd(null);
+    const { doc, problems } = await saved();
+    expect(doc.pack).toMatchObject({ shelfLifeMonths: 24, expiryRule: 'month before' });
+    expect(doc.pack!.shelfLifeFrom).toBeUndefined();
+    expect(problems).toContainEqual(expect.objectContaining({ level: 'warning', message: expect.stringContaining('Master data has no shelf life for PK-001: the 24 months typed here are used') }));
+  });
+
+  it('TB-P8 a master whose shelf life master data has since changed is not sent for review, nor issued', async () => {
+    setMd(36, 'same month');
+    const { id } = await saved();
+    setMd(30, 'same month');
+    const sub = await as('author', 'POST', `/api/master-versions/${id}/submit`, { proof: proofFor('author'), contentHash: '0'.repeat(64) });
+    expect(sub.statusCode).toBe(409);
+    expect(sub.json()).toMatchObject({ error: 'shelf_life_changed', message: expect.stringContaining('Master data now gives PK-001 a shelf life of 30 months') });
+    for (const s of ['in_review', 'approved', 'effective']) await t.owner`update master_versions set state = ${s} where id = ${id}`;
+    const res = await as('issuer', 'POST', '/api/batches', { masterVersionId: id, proof: proofFor('issuer'), values: { ...handLabels('line', 'machine'), line: 'ln-3', bulk: 'TB260004', tablets: '1000' } });
+    expect(res.statusCode).toBe(409);
+    expect(res.json()).toMatchObject({ error: 'shelf_life_changed' });
+    await t.owner`update master_versions set state = 'retired' where id = ${id}`;
+  });
+
+  it('TB-P8 an effective master made before master data held the shelf life still issues when the values are the same', async () => {
+    setMd(null);
+    const { id } = await saved();
+    setMd(24, 'month before');
+    for (const s of ['in_review', 'approved', 'effective']) await t.owner`update master_versions set state = ${s} where id = ${id}`;
+    const res = await as('issuer', 'POST', '/api/batches', { masterVersionId: id, proof: proofFor('issuer'), values: { ...handLabels('line', 'machine'), line: 'ln-3', bulk: 'TB260004', tablets: '1000' } });
+    expect(res.json()).not.toMatchObject({ error: 'shelf_life_changed' });
   });
 });

@@ -1,6 +1,6 @@
 /**
  * Packing master checks (TrueBatch Tablets Packing, docs/rules.md TB-P1 to TB-P9): what a packing master must hold
- * before it can be approved. Each problem is an error. The tablet formula and calculation checks do not apply to it.
+ * before it can be approved. Each problem is an error (but the warning that master data has no shelf life). The tablet formula and calculation checks do not apply to it.
  */
 import { findBlock, GENERAL_BLOCKS } from '../blocks/index.js';
 import type { Problem } from './checks.js';
@@ -31,6 +31,8 @@ export function packingChecks(doc: MasterDoc): Problem[] {
   else if (!p.materials.some((m) => m.coded)) error('pack.materials', 'No packing material carries the batch coding: mark the materials the batch number, dates and MRP are printed on', 'TB-P1');
   p.materials.forEach((m, i) => p.materials.findIndex((x) => x.key === m.key) !== i && error(`pack.materials[${i}]`, `The key ${m.key} is used twice`, 'TB-P1'));
   if (p.destination === 'India domestic' && !p.mrp) error('pack.mrp', 'A pack for India domestic needs its MRP: it is printed on the pack and checked', 'TB-P9');
+  // B1: the shelf life is master data's when it holds one (the server copies it on save); else the typed one is used.
+  if (!p.shelfLifeFrom) out.push({ level: 'warning', path: 'pack.shelfLifeMonths', rule: 'TB-P8', message: `Master data has no shelf life for ${doc.header.productCode || 'the pack product'}: the ${p.shelfLifeMonths} months typed here are used for the expiry. Ask for the shelf life to be entered on the product in master data, then save the master again` });
   if (p.serialisation && !p.gtin) error('pack.gtin', 'Checking serialisation needs the pack GTIN', 'TB-P5');
   for (const x of steps) {
     const b = findBlock(x.t.block);

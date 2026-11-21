@@ -8,7 +8,7 @@ import { dispensingRooms, isBalance, machineRefusal, roomRefusal } from '../../s
 import { weighTarget } from '../../shared/engine/values.js';
 import { handProblem, lineOf, mfgDateProblem, pullBulk, pullCoa, pullInProcess, pullItem, pullLot, pullQcResult, pulledWords, usableCoas, usableInProcess, usableResults } from '../pull.js';
 import { SignError, authenticateSigner, contentHash, sign, signBody } from '../signatures.js';
-import { masterVersion } from './masters.js';
+import { masterVersion, shelfLifeDrift } from './masters.js';
 import { batchRecordDoc, type RecordInput, type Signature } from '../batch-record.js';
 import { render, sendPdf } from '../pdf.js';
 import { findBlock, labelled } from '../../shared/blocks/index.js';
@@ -522,6 +522,10 @@ export function batchRoutes(app: FastifyInstance, sql: Sql) {
         // So does one approved before it had to name its dispensing rooms: its balances are those of the Dispensing area.
         const errors = masterChecks(v.doc).filter((p) => blocking(p) && !(p.rule === 'TB-11' && (p.path.endsWith('.roomTypes') || p.path === 'header.dispensingRooms')));
         if (errors.length) throw new StepError(409, 'master_has_errors', errors.map((p) => `${p.path}: ${p.message}`));
+        // B1: the expiry of a packing batch is worked out from master data's shelf life; a master made before master
+        // data's value changed is not packed with the old one.
+        const drift = v.doc.pack ? shelfLifeDrift(v.doc.pack, (await app.master.products()).find((p) => p.itemId === v.doc.header.productItemId)) : null;
+        if (drift) throw new StepError(409, 'shelf_life_changed', [`${drift} Make a new version of the master (it takes master data's shelf life), then issue the batch.`]);
         const atIssue = findBlock(v.doc.stages[0]?.steps[0]?.block ?? { id: '', version: 0 })?.atIssue;
         const facts = atIssue ? await issueValues(app, tx, v.doc, b.data.values, (await tx<{ now: Date }[]>`select now() as now`)[0]!.now) : null;
         const [c] = await tx<{ n: number; yy: string }[]>`

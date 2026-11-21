@@ -174,6 +174,10 @@ export const packSchema = z.object({
   shelfLifeMonths: z.number().int().min(1).max(120),
   // "month before": expiry = month of manufacture + shelf life − 1 (use before the end of that month).
   expiryRule: z.enum(['month before', 'same month']).default('month before'),
+  // Set by the server when master data holds the pack product's shelf life (platform 1.26.13): the two values above are
+  // then master data's, copied on every save (read-only in the designer), with the product version they came from.
+  // Absent: master data has none, so the shelf life typed on the master is used (and the master check warns).
+  shelfLifeFrom: z.object({ code: text(), version: z.number().int().min(1) }).strict().optional(),
   destination: z.enum(DESTINATIONS),
   // Maximum retail price per pack in rupees (India domestic, TB-P9).
   mrp: decimal.optional(),

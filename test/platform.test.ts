@@ -166,6 +166,23 @@ describe('master data through the platform views', () => {
     expect(await sqlMaster(md).products()).toMatchObject([{ code: 'PRD-001', kind: null }]);
   });
 
+  it('products: the shelf life and expiry rule (platform 1.26.13) are read when the view has them; an older view gives none', async () => {
+    expect(await sqlMaster(md).products()).toMatchObject([{ code: 'PRD-001', shelfLifeMonths: null, expiryRule: null }]);
+    await mdAdmin.unsafe(`
+      create or replace view report.product_v1 as select id, code, name, version, active, f->>'strength' as strength, f->>'dosageForm' as dosage_form,
+        (f->>'shelfLifeMonths')::int as shelf_life_months, f->>'expiryRule' as expiry_rule from item where kind = 'product';
+      update item set f = f || '{"shelfLifeMonths": 36, "expiryRule": "same month"}' where code = 'PRD-001';`);
+    try {
+      expect(await sqlMaster(md).products()).toMatchObject([{ code: 'PRD-001', shelfLifeMonths: 36, expiryRule: 'same month' }]);
+    } finally {
+      await mdAdmin.unsafe(`
+        drop view report.product_v1;
+        create view report.product_v1 as select id, code, name, version, active, f->>'strength' as strength, f->>'dosageForm' as dosage_form from item where kind = 'product';
+        grant select on report.product_v1 to truebatch_app;
+        update item set f = f - 'shelfLifeMonths' - 'expiryRule' where code = 'PRD-001';`);
+    }
+  });
+
   it('PL-08: after the link is cut the next read says "connection off", even on an open connection', async () => {
     await mdAdmin.unsafe('revoke select on all tables in schema report from truebatch_app');
     try {
