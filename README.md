@@ -30,7 +30,7 @@ continued process verification (`docs/design.md` "Readings for CPV"). `master_la
 that is not retired, with the codes its batches' lab requests will name, so LIMS can write its in-process
 specification before the first batch. Fix round 21 Nov 2026: bilayer compression, dissolution and in-process lab test
 blocks, a tablet layer on formula lines, deleting a draft master, production abandoning a batch before its first step,
-undoing a weighing to weigh another lot, balances offered within their range, packing lines of several machines.
+undoing a weighing to weigh another lot (material_use_v1 0031 and reading_v1 0032 leave it out until it is signed again), balances offered within their range, packing lines of several machines.
 
 ## TrueBatch Tablets Packing
 The packing batch record is a separate product on the platform, built from this repository on the same engine and

@@ -476,7 +476,10 @@ describe('A5 production abandons a batch before any step is recorded (fix round 
 describe('A7 a weighing is undone to weigh another lot, before the next step uses it (fix round 21 Nov 2026)', () => {
   it('undo with a reason and a signature: the values stay in the record as undone, another lot is weighed and signed; MMS sees only the new lot', async () => {
     const { id, batchNo } = await issue(await effectiveMaster());
-    const weigh = (lot: string) => act('asha', id, '0.1.0.1', 'record', { values: { lot, ...handLabels('lot', 'lot'), balance: 'eq-bal', ...handLabels('balance', 'machine'), gross: '1.350', tare: '0.350' } });
+    const weigh = (lot: string, gross = '1.350', tare = '0.350') => act('asha', id, '0.1.0.1', 'record', { values: { lot, ...handLabels('lot', 'lot'), balance: 'eq-bal', ...handLabels('balance', 'machine'), gross, tare } });
+    // B3: reading_v1 shows the readings of the weighing signed done since it was last undone.
+    const readings = async () => (await t.owner.unsafe(`select field, value::text from ${t.schema}_report.reading_v1 where batch_number = $1 and block = 'weigh' order by field`, [batchNo]))
+      .map((r) => `${r.field} ${r.value}`);
     await act('asha', id, '0.1.0.1', 'start');
     expect((await stepOf(id, '0.1.0.1')).actions).not.toContain('undo');
     expect((await weigh('PVP-2611')).statusCode).toBe(200);
@@ -485,17 +488,22 @@ describe('A7 a weighing is undone to weigh another lot, before the next step use
     await sign('ravi', id, '0.1.0.1', 'check');
     const used = () => t.owner.unsafe(`select lot_number, quantity::text from ${t.schema}_report.material_use_v1 where batch_number = $1`, [batchNo]);
     expect(await used()).toEqual([{ lot_number: 'PVP-2611', quantity: '1' }]);
+    expect(await readings()).toEqual(['gross 1.350', 'tare 0.350']);
     expect((await sign('asha', id, '0.1.0.1', 'undo')).statusCode).toBe(400);
     const u = await sign('asha', id, '0.1.0.1', 'undo', { reason: 'Wrong lot: PVP-2612 is the one released for this batch' });
     expect(u.statusCode, u.body).toBe(200);
     const s = (await as('asha', 'GET', `/api/batches/${id}`)).json() as { steps: { id: string; state: string; values: object; actions: string[] }[] };
     expect(s.steps.find((x) => x.id === '0.1.0.1')).toMatchObject({ state: 'in_progress', values: {} });
     expect(await used()).toEqual([]);
+    expect(await readings()).toEqual([]);
     const h = (await as('asha', 'GET', `/api/batches/${id}/steps/0.1.0.1/events`)).json() as { replaced: { field: string; now: unknown; reason: string }[] };
     expect(h.replaced.find((r) => r.field === 'lot')).toMatchObject({ now: 'undone', reason: 'Wrong lot: PVP-2612 is the one released for this batch' });
-    expect((await weigh('PVP-2612')).statusCode).toBe(200);
-    expect((await sign('asha', id, '0.1.0.1', 'done')).statusCode).toBe(200);
+    expect((await weigh('PVP-2612', '1.352', '0.352')).statusCode).toBe(200);
+    expect(await readings()).toEqual([]);
+    const done = await sign('asha', id, '0.1.0.1', 'done');
+    expect(done.statusCode, done.body).toBe(200);
     expect(await used()).toEqual([{ lot_number: 'PVP-2612', quantity: '1' }]);
+    expect(await readings()).toEqual(['gross 1.352', 'tare 0.352']);
     // The next step recorded: no undo any more.
     await sign('ravi', id, '0.1.0.1', 'check');
     await act('asha', id, '0.1.1.1', 'start');
