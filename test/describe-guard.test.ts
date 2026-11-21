@@ -167,7 +167,7 @@ function fullTablet(): MasterDoc {
 // A packing master with serialisation, a GTIN and an MRP; it also carries the tablet header fields and a formula line,
 // which a packing master does not use, so a packing master that has them still shows them.
 function fullPacking(): MasterDoc {
-  const doc = packing({ serialisation: true, gtin: GTIN });
+  const doc = packing({ serialisation: true, gtin: GTIN, shelfLifeFrom: { code: 'PK-001', version: 2 } });
   Object.assign(doc.header, { coatedWeightMg: '257.5', dieAreaMm2: '80.0', dispensingRooms: ['DSP-01'], otherStrengths: [{ name: 'Examplol 50 mg tablets', labelClaim: '50 mg', coreWeightMg: '125.0' }] });
   doc.formula = [{ key: 'api', materialItemId: 'mat-api', code: 'MAT-001', name: 'Examplol', mgPerTablet: '100.0', role: 'api', place: 'coating', layer: 1 }];
   return masterSchema.parse(doc);
