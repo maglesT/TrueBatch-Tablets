@@ -46,7 +46,8 @@ export function App() {
     return () => { window.removeEventListener('pointerdown', used); window.removeEventListener('keydown', used); };
   }, [refresh]);
   // A batch opened from another page (a batch just issued from the master records) shows on the floor screens.
-  useEffect(() => { if (route.batch) setPage('home'); }, [route.batch]);
+  // A batch or a release page is never under Master records (sweep 1121 item 8).
+  useEffect(() => { if (route.batch || release) setPage('home'); }, [route.batch, release]);
 
   if (me === undefined) return <>{banner}<main className="page">Loading…</main></>;
   if (me === null) return <>{banner}<Login /></>;
@@ -69,7 +70,7 @@ export function App() {
             <button className={release ? 'tab on' : 'tab'} onClick={() => { setPage('home'); go('#/release'); }}>To review</button>
           )}
           {['master.author', 'master.check', 'master.approve', 'batch.issue', 'view'].some((c) => can(me, c)) && (
-            <button className={page === 'masters' && !release ? 'tab on' : 'tab'} onClick={() => { setPage('masters'); go('#/'); }}>{product.masters}</button>
+            <button className={page === 'masters' && !release && !route.batch ? 'tab on' : 'tab'} onClick={() => { setPage('masters'); go('#/'); }}>{product.masters}</button>
           )}
         </nav>
         <span className="who">

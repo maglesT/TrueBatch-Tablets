@@ -16,14 +16,18 @@ export function ToReview({ me }: { me: Me }) {
   const [rows, setRows] = useState<ReviewItem[] | null>(null);
   const [error, setError] = useState('');
   const [tick, setTick] = useState(0);
+  // Sweep 1121 item 7: a person without QC approval or QA release (an old link or bookmark) is told so, without asking.
+  const allowed = ['qc.approve', 'qa.release'].some((c) => can(me, c));
   useEffect(() => {
+    if (!allowed) return;
     let live = true;
     const load = (background: boolean) => api<ReviewItem[]>('GET', '/api/batches/to-review', undefined, background)
       .then((r) => { if (live) { setRows(r); setError(''); } }, (e) => live && setError(plainError(e)));
     void load(false);
     const t = setInterval(() => void load(true), 30_000);
     return () => { live = false; clearInterval(t); };
-  }, [tick]);
+  }, [tick, allowed]);
+  if (!allowed) return <div className="fl"><h1>To review</h1><p className="notice">This list is for QC and QA: it shows the batches waiting for QC approval or QA release. Open your batches from My work.</p></div>;
 
   const groups = ([['QC', 'Waiting for QC approval', 'production approved; QC signs with the QC report number', can(me, 'qc.approve')],
     ['QA', 'Waiting for QA release', 'QC approved; QA reviews the record and its audit trail, then releases or rejects', can(me, 'qa.release')],
