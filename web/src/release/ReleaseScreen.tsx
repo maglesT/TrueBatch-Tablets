@@ -124,7 +124,7 @@ export function ReleaseScreen({ me, id }: { me: Me; id: number }) {
         <Kpi n={r.sentBack.length} label="Sent back by the checker" tone="warn" />
         <Kpi n={r.late.length} label="Late (timers ran over)" tone="bad" />
         <Kpi n={r.outOfLimits.length} label="Out of limits" tone="bad" />
-        <Kpi n={openDevs.length + bulkOpen.length} label={r.deviations.length ? `Open deviations (${r.deviations.length} in all)` : 'Open deviations'} tone="bad" />
+        <Kpi n={openDevs.length + bulkOpen.length} label={r.deviations.length > openDevs.length ? `Open deviations (${r.deviations.length - openDevs.length} closed)` : 'Open deviations'} tone="bad" />
         <Kpi n={r.hand.length} label="Typed by hand, not pulled through a link" tone="warn" />
       </div>
       {r.deviationsLink === 'down' && <p className="notice warn">The Deviations link is down: the deviation statuses shown are TrueBatch's own (closed by hand).</p>}

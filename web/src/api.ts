@@ -8,7 +8,8 @@ export class ApiError extends Error {
     // Validation problems listed by the server, shown to the user.
     public problems: string[] = [],
   ) {
-    super(message ?? code);
+    // A bare error code is never shown: a missing record (an old link, a wrong number) says so in words.
+    super(message ?? (status === 404 ? 'Not found: the link may be old or the number wrong.' : status === 403 ? 'You do not have the permission for this.' : code));
   }
 }
 
