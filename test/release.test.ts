@@ -214,11 +214,12 @@ describe('the review list for QA', () => {
     const record = (batchEvents: BatchEvent[]) => JSON.stringify(batchRecordDoc({ batch: { id: 1, batchNo: 'TB260099', masterVersionId: 1, issuedBy: 1, issuedAt: at(0) }, doc: d,
       events: events.map((e) => ({ ...e, personName: 'RAMESH' })), batchEvents: batchEvents.map((b) => ({ ...b, personName: 'MEERA' })), now: at(1000), versionNo: 1, issuedByName: 'SUPER', signatures: [] }, 'QA'));
     const ended = record([be('rejected', { terminated: true, reason: 'The dryer broke down' })]);
-    expect(ended.match(/pH = 9: not yet, the rounds go on/g)).toHaveLength(1);
+    // The worked line says the reading; the verdict line under it says once whether the rounds go on (pre-demo sweep).
+    expect(ended.match(/the rounds go on/g)).toHaveLength(1);
     expect(ended.match(/NOT YET: the rounds go on/g)).toHaveLength(1);
-    expect(ended.match(/pH = 9: not reached \(terminated\)/g)).toHaveLength(1);
+    expect(ended.match(/not reached \(terminated\)/g)).toBeNull();
     expect(ended.match(/NOT REACHED: terminated/g)).toHaveLength(1);
-    expect(ended.indexOf('the rounds go on')).toBeLessThan(ended.indexOf('not reached (terminated)'));
+    expect(ended.indexOf('NOT YET: the rounds go on')).toBeLessThan(ended.indexOf('NOT REACHED: terminated'));
     // In production both rounds read as before.
     const live = record([]);
     expect(live.match(/NOT YET: the rounds go on/g)).toHaveLength(2);

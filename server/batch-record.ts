@@ -265,7 +265,10 @@ function resultLines(block: Block, st: Step, v: StepView, who: (id: number | nul
     // A round whose stop check is not reached yet is not out of limits: the rounds go on.
     const notYet = name === v.notYet;
     const counted = (t: string) => t.replace(/\bunits\b/g, unitName('units', stockUnit));
-    const text = (t: string) => counted(plantText(notYet ? notYetText(t, terminated) : t, true));
+    // The verdict line under it says "NOT YET: the rounds go on" (or "NOT REACHED: terminated"): the worked line does not
+    // say it a second time (pre-demo sweep, 21 Nov 2026).
+    const once = (t: string) => t.replace(/:\s*not yet, the rounds go on/g, '').replace(/, the rounds go on/g, '').replace(/:\s*not reached \(terminated\)/g, '');
+    const text = (t: string) => counted(plantText(notYet ? once(notYetText(t, terminated)) : t, true));
     // A check's worked line may start with its own question ("Packing finished: no", "Line clear after packing: …"):
     // the label is not said twice.
     // A figure leads, with its limit (owner, 17 Nov 2026); the worked lines follow without their verdict, which the

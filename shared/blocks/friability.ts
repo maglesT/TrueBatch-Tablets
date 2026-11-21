@@ -13,7 +13,7 @@ export const friability: Block = {
   settings: [{ name: 'lossLimit', label: 'Friability limit', kind: 'limit' }],
   calcs: [
     { name: 'loss', label: 'Friability', template: 'T5', args: { before: '$before', after: '$after', mode: 'loss', base: 'start' } },
-    { name: 'lossCheck', label: 'Friability against the limit', template: 'C1', args: { value: '$loss', limit: '$lossLimit' } },
+    { name: 'lossCheck', label: 'Friability, rounded as the limit is written', template: 'C1', args: { value: '$loss', limit: '$lossLimit' } },
     { name: 'intactCheck', label: 'Tablets intact', template: 'C4', args: { question: 'No tablet broken, cracked or split', answers: ['$intact'], expected: ['yes'] } },
   ],
 };
