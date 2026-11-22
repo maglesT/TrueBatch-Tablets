@@ -17,6 +17,8 @@ function resultKind(c: Block['calcs'][number]): Kind | undefined | null {
   if (['T3', 'T4', 'T5', 'T22'].includes(c.template)) return 'fraction';
   if (c.template === 'T13') return 'time';
   if (c.template === 'T23') return (c.args as { mode?: string }).mode === 'ribbon' ? 'number' : 'pressure';
+  if (c.template === 'T24') return 'specific energy';
+  if (c.template === 'T8' && (c.args as { mode?: string }).mode === 'percent') return 'mass';
   if (c.template === 'T25') return undefined; // g/kg or g/m³: the master's choice of "per"
   if (c.template !== 'T6') return null;
   const a = c.args as { mode?: string; unit?: unknown };
@@ -51,6 +53,13 @@ export function neededKind(block: Block, setting: string, settings: Step['settin
   for (const c of block.calcs) {
     const refs = refsIn(c.args);
     if (!refs.includes(setting)) continue;
+    // T24 (extruder energy) and T8's % of a batch: what each argument is, whatever the first reference in the arguments.
+    if (c.template === 'T24' || (c.template === 'T8' && (c.args as { mode?: string }).mode === 'percent')) {
+      const T24: Record<string, Kind> = c.template === 'T24' ? { motorPower: 'power', maxScrewSpeed: 'rotation speed', screwSpeed: 'rotation speed', feedRate: 'mass rate', torquePercent: 'fraction' }
+        : { percent: 'fraction', batch: 'mass' };
+      const key = Object.entries(c.args).find(([k, v]) => T24[k] && refsIn(v).includes(setting))?.[0];
+      if (key) return T24[key];
+    }
     // T23: the diameter and the thicknesses are lengths, the true density a density, the weight a mass.
     if (c.template === 'T23') {
       const T23: Record<string, Kind> = { diameter: 'length', wallThickness: 'length', thickness: 'length', trueDensity: 'density', envelopeDensity: 'density', weight: 'mass', force: 'force' };

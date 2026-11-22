@@ -22,6 +22,10 @@ import { granulate } from './granulate.js';
 import { lineClearance } from './line-clearance.js';
 import { labTests } from './lab-tests.js';
 import { lubricate } from './lubricate.js';
+import { curing } from './curing.js';
+import { drugLayering } from './drug-layering.js';
+import { hotMeltExtrusion } from './hot-melt-extrusion.js';
+import { mill } from './mill.js';
 import { mix } from './mix.js';
 import { mixToTarget } from './mix-to-target.js';
 import { polishPrint } from './polish-print.js';
@@ -34,6 +38,7 @@ import { sieveAnalysis } from './sieve-analysis.js';
 import { sieve } from './sieve.js';
 import { sift } from './sift.js';
 import { sprayCoat } from './spray-coat.js';
+import { sugarCoat } from './sugar-coat.js';
 import { stageYield } from './stage-yield.js';
 import { subBatchCombine } from './sub-batch-combine.js';
 import { tabletReconciliation } from './tablet-reconciliation.js';
@@ -62,9 +67,9 @@ export { asked, labelled } from './format.js';
 // In the order of a process: dispensing and preparation, granulation and blending, compression and its tests,
 // coating, then the steps of any stage.
 export const BLOCKS: readonly Block[] = [
-  weigh, charge, sift, binderSolution, coatingSuspension, dryMix, mix, mixToTarget, granulate, rollerCompact, dry, dryConstant, sieve, lubricate,
+  weigh, charge, sift, binderSolution, coatingSuspension, dryMix, mix, mixToTarget, granulate, rollerCompact, hotMeltExtrusion, mill, dry, dryConstant, curing, sieve, lubricate,
   subBatchCombine, blendUniformity, densityFlow, sieveAnalysis, punchDieCheck, pressSetup, compressionRelease, compress, bilayerCompress,
-  friability, disintegration, dissolution, dissolutionEr, uniformityByWeight, contentUniformity, labTests, coat, sprayCoat, polishPrint, check, qaSample,
+  friability, disintegration, dissolution, dissolutionEr, uniformityByWeight, contentUniformity, labTests, coat, sprayCoat, sugarCoat, drugLayering, polishPrint, check, qaSample,
   stageYield, tabletReconciliation, lineClearance,
   // Any edition: assembling devices (autoinjectors, safety syringes, inhalers) from a component lot.
   deviceAssembly,

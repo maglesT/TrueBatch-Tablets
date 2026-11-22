@@ -37,8 +37,9 @@ const perTablet = (label: string, what: string) => `${label} is a weight per tab
 describe('not a batch quantity (notBatch)', () => {
   it('is set on the coats\' core weight and the reconciliations\' mean tablet weight (per tablet), and the drying tolerance', () => {
     const marked = BLOCKS.flatMap((b) => b.settings.filter((s) => s.notBatch).map((s) => `${b.id}.${s.name}: ${s.notBatch}`)).sort();
-    expect(marked).toEqual(['coat.coreWeight: tablet', 'compress.tabletDiameter: tolerance', 'compress.wallThickness: tolerance', 'dry-constant.maxChange: tolerance', 'finished-goods.meanWeight: tablet',
-      'mix-to-target.target: tolerance', 'roller-compact.trueDensity: tolerance', 'spray-coat.coreWeight: tablet', 'tablet-reconciliation.meanWeight: tablet']);
+    expect(marked).toEqual(['coat.coreWeight: tablet', 'compress.tabletDiameter: tolerance', 'compress.wallThickness: tolerance', 'drug-layering.drugInSuspension: tolerance',
+      'dry-constant.maxChange: tolerance', 'finished-goods.meanWeight: tablet', 'hot-melt-extrusion.maxScrewSpeed: tolerance', 'hot-melt-extrusion.motorPower: tolerance',
+      'mix-to-target.target: tolerance', 'roller-compact.trueDensity: tolerance', 'spray-coat.coreWeight: tablet', 'sugar-coat.coreWeight: tablet', 'tablet-reconciliation.meanWeight: tablet']);
     for (const b of BLOCKS) expect(blockProblems(b)).toEqual([]);
   });
 

@@ -298,6 +298,17 @@ export function evaluate(doc: MasterDoc, events: readonly StepEvent[], key: Step
     for (const [k, v] of Object.entries(b.values)) inputs[`batch.${k}`] = v;
     for (const [k, r] of Object.entries(b.results)) if (r.ok) inputs[`batch.${k}`] = asQ(r);
   }
+  // "$rounds.name": the readings of every round so far with their times, for T13's accumulated time (two or more).
+  for (const name of new Set([...calcs.matchAll(/"\$rounds\.([a-zA-Z0-9]+)/g)].map((m) => m[1]!))) {
+    const list: { time: string; value: { value: string; unit: string } }[] = [];
+    for (let r = 1; r <= key.round; r++) {
+      const vals = r === key.round ? values : latestValues(events, key.stage, key.sub, key.step, uses, r).values;
+      const v = vals[name];
+      const t = vals[`${name}At`];
+      if (v && typeof v === 'object' && !Array.isArray(v) && 'value' in v && typeof t === 'string') list.push({ time: t, value: { value: v.value, unit: v.unit } });
+    }
+    if (list.length >= 2) inputs[`rounds.${name}`] = list;
+  }
   for (const name of new Set([...calcs.matchAll(/"\$earlier\.([a-zA-Z0-9]+)/g)].map((m) => m[1]!))) {
     const seen: string[] = [];
     for (let r = 1; r < key.round; r++) { const v = latestValues(events, key.stage, key.sub, key.step, uses, r).values[name]; if (typeof v === 'string') seen.push(v); }

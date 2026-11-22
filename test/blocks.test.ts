@@ -38,6 +38,11 @@ const NEW: [string, Record<string, unknown>, object?][] = [
   ['polish-print', { print: 'Logo in black' }],
   ['qa-sample', { sampleLimit: { low: '50', high: '60', unit: 'tablets' } }, { flow: { kind: 'qa-hold' } }],
   ['tablet-reconciliation', { theoretical: { header: 'batchSize' }, meanWeight: '100.0 mg', yieldLimit: pct('97.0', '100.5'), accountabilityLimit: pct('99.0', '100.5') }],
+  ['mill', { screen: '1.0 mm', accountabilityLimit: pct('98.0', '100.5') }],
+  ['hot-melt-extrusion', { motorPower: '11 kW', maxScrewSpeed: '400 rpm', smeLimit: { low: '0.1', high: '0.5', unit: 'kWh/kg' }, barrelLimit: { low: '120', high: '160', unit: '°C' }, dieLimit: { low: '110', high: '150', unit: '°C' } }, { everyMinutes: 15, flow: { kind: 'repeat-until', maxRounds: 20 } }],
+  ['curing', { tempLimit: { low: '40', high: '50', unit: '°C' }, timeLimit: { low: '24', unit: 'h' } }, { everyMinutes: 60, flow: { kind: 'repeat-until', maxRounds: 40 } }],
+  ['sugar-coat', { coreWeight: { header: 'coreWeight' }, base: 'start', gainLimit: pct('30.0', '60.0'), inletLimit: { low: '40', high: '60', unit: '°C' } }, { everyMinutes: 15, flow: { kind: 'repeat-until', maxRounds: 40 } }],
+  ['drug-layering', { drugTarget: { formula: 'x' }, drugInSuspension: '10 %', depositLimit: pct('98.0', '102.0'), inletLimit: { low: '40', high: '60', unit: '°C' }, bedLimit: { low: '30', high: '45', unit: '°C' } }, { everyMinutes: 15, flow: { kind: 'repeat-until', maxRounds: 40 } }],
   ['mix-to-target', { property: 'fines below 125 µm', unit: '%', target: '20.0 %', tolerance: '2.0', mixTimeLimit: minutes }],
 ];
 const using = (id: string, settings: object, options: object = {}): MasterDoc => {

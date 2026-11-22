@@ -29,6 +29,7 @@ function input(block: Block, x: unknown): Part {
   if (typeof x !== 'string' || !x.startsWith('$')) return written(block, x);
   const raw = x.slice(1).replace(/\?$/, '');
   if (FACTS[raw]) return FACTS[raw];
+  if (raw.startsWith('rounds.')) return `the ${lower(block.fields.find((f) => f.name === raw.slice(7))?.label ?? raw)} read in every round`;
   if (raw.startsWith('earlier.')) return `the ${lower(block.fields.find((f) => f.name === raw.slice(8))?.label ?? raw)} read in earlier rounds`;
   if (raw.startsWith('prev.')) return { prev: raw.slice(5) };
   if (block.settings.some((s) => s.name === raw)) return { setting: raw };
@@ -73,7 +74,8 @@ export function sentence(block: Block, c: Calc): Part[] {
     case 'T5': return [`The ${label} ${is} the ${a.mode === 'loss' ? 'loss' : 'gain'} from `, p(a.before), ' to ', p(a.after),
       `, as a percentage of ${a.base === 'start' ? 'the starting weight' : a.base === 'final' ? 'the final weight' : 'the named stage'}`, ...limit(), '.'];
     case 'T7': return [`The ${label} ${is} the mean of `, p(a.readings), ...limit(', which must be '), ...(a.rsdLimit ? ['; the RSD must be ', p(a.rsdLimit)] : []), '.'];
-    case 'T13': return [`The ${label} ${is} the time from `, p(a.start), ' to ', p(a.end), ...limit(), '.'];
+    case 'T13': if (a.mode === 'accumulated') return [`The ${label} ${is} the time that `, p(a.readings), ' stayed ', p(a.inside), ...limit(), '.'];
+      return [`The ${label} ${is} the time from `, p(a.start), ' to ', p(a.end), ...limit(), '.'];
     case 'C1': {
       const around = a.around as { centre: unknown; plusMinusPercent?: unknown; plusMinus?: unknown } | undefined;
       if (around) return [p(a.value), ' must be within ± ', p(around.plusMinusPercent ?? around.plusMinus), around.plusMinusPercent ? ' % of ' : ' of ', p(around.centre), '.'];

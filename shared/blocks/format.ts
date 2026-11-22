@@ -5,7 +5,8 @@
  *
  * Calculation arguments are the template's own input object, written as JSON. A string "$name" is replaced by the
  * value of this step's field, setting or earlier calculation of that name; everything else is passed as written.
- * "$name?" names an optional setting or field (left out when it is not set, and left out of a list). "$prev.name" is the
+ * "$rounds.name" is the list of a number field's readings in every round so far, each with its time ({ time, value }; the
+ * time is the timer field "<name>At" of that round), for T13's accumulated time. "$name?" names an optional setting or field (left out when it is not set, and left out of a list). "$prev.name" is the
  * same field or calculation in the previous round of a repeat-until step (in round 1 the calculation waits).
  */
 import { z } from 'zod';
@@ -197,6 +198,13 @@ export function blockProblems(b: Block): string[] {
   for (const s of b.settings) if (s.notBatch && s.formulaField) p.push(`setting ${s.name}: a setting that is not a batch quantity does not read a field of a formula line`);
   const known = new Set([...b.fields.map((f) => f.name), ...b.settings.map((s) => s.name), ...PACK_FACTS.map((x) => `pack.${x}`), ...BATCH_FACTS.map((x) => `batch.${x}`)]);
   for (const f of b.atIssue ?? []) if (!b.fields.some((x) => x.name === f)) p.push(`atIssue: no field ${f}`);
+  // "$rounds.name": a number field's readings of every round so far with the time of each (the timer field "<name>At"), for
+  // the accumulated time of T13; the calculation waits for two readings.
+  for (const f of b.fields) if (f.kind === 'number' && !f.count) known.add(`rounds.${f.name}`);
+  for (const r of new Set(b.calcs.flatMap((c) => refsIn(c.args, true)).filter((x) => x.startsWith('rounds.')))) {
+    const n = r.slice('rounds.'.length);
+    if (!b.fields.some((f) => f.name === `${n}At` && f.kind === 'timer')) p.push(`"$${r}" needs the timer field ${n}At (the time of each reading)`);
+  }
   const roundNames = new Set([...b.fields.map((f) => f.name), ...b.calcs.map((c) => c.name)]);
   for (const c of b.calcs) {
     if (!(c.template in TEMPLATES)) p.push(`calculation ${c.name}: unknown template ${c.template}`);
