@@ -190,4 +190,7 @@
 }
 
 .all-go { display: flex; align-items: center; gap: 14px; white-space: nowrap; }
-@media (max-width: 700px) { .all-go { flex-wrap: wrap; grid-column: 2; } }
+@media (max-width: 700px) { .all-go { flex-wrap: wrap; grid-column: 2; white-space: normal; gap: 6px 16px; } }
+.all-filter { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+.all-filter input, .all-filter select { min-width: 0; max-width: 100%; flex: 1 1 180px; }
+.pending-what strong, .pending-what small { overflow-wrap: anywhere; }
