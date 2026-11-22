@@ -215,6 +215,7 @@ export function ReleaseScreen({ me, id }: { me: Me; id: number }) {
             <button className="big soft-bad" disabled={!rejectWhy.trim() || openDevs.length > 0} onClick={() => setSigning({ meaning: 'rejected', action: 'reject' })}>Sign: rejected</button>
           </div>
         </>) : <p className="notice">The batch waits for QA release: it needs the QA release permission.</p>)}
+        {decided && <p className="all-good"><span aria-hidden="true">✓</span> The record is {statusText(d.batch.status)}: it is closed to changes.</p>}
         {!qcTurn && !qaTurn && !decided && <p className="notice">The batch is {statusText(d.batch.status)}: production approves it before QC and QA.</p>}
       </section>
 
