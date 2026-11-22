@@ -51,7 +51,7 @@ export interface T26Extra {
   readonly donorVolume?: Dec;
 }
 
-const NOT_BY_MASS: Partial<Record<Kind, string>> = {
+export const NOT_BY_MASS: Partial<Record<Kind, string>> = {
   length: 'a particle size (D50, D90) is a percentile, not an average: predict the mix with T22 (mixed-lot particle size)',
   force: 'a hardness or force', 'Strong-Cobb hardness': 'a hardness', pressure: 'a pressure', number: 'a plain number such as pH',
 };

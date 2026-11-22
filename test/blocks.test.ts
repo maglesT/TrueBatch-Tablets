@@ -38,6 +38,7 @@ const NEW: [string, Record<string, unknown>, object?][] = [
   ['polish-print', { print: 'Logo in black' }],
   ['qa-sample', { sampleLimit: { low: '50', high: '60', unit: 'tablets' } }, { flow: { kind: 'qa-hold' } }],
   ['tablet-reconciliation', { theoretical: { header: 'batchSize' }, meanWeight: '100.0 mg', yieldLimit: pct('97.0', '100.5'), accountabilityLimit: pct('99.0', '100.5') }],
+  ['mix-to-target', { property: 'fines below 125 µm', unit: '%', target: '20.0 %', tolerance: '2.0', mixTimeLimit: minutes }],
 ];
 const using = (id: string, settings: object, options: object = {}): MasterDoc => {
   const b = findBlock({ id, version: 1 })!;

@@ -4,7 +4,7 @@
  * The calculation checks (calculationChecks below) are error-proofing of the calculations, not GMP rules.
  */
 import { findBlock, type Block } from '../blocks/index.js';
-import { Dec, c1WithinLimits, findUnit, t10Compensating, t11SaltFactor, t2Total, t8BatchScaling, type Q } from '../templates/index.js';
+import { Dec, NOT_BY_MASS, c1WithinLimits, findUnit, t10Compensating, t11SaltFactor, t2Total, t8BatchScaling, type Q } from '../templates/index.js';
 import { decimalsOf } from '../templates/core.js';
 import { evaluate, limitInReadingUnit, lineField, lineQuantity, QUANTITY } from '../engine/values.js';
 import { materialLines, PER_TABLET_HEADERS, type Answer, type FormulaLine, type Limit, type MasterDoc, type SettingValue } from './schema.js';
@@ -115,6 +115,9 @@ export function masterChecks(doc: MasterDoc): Problem[] {
         const set = ['what', 'unit', 'limit'].filter((x) => st.settings[`${x}${n}`] !== undefined);
         if (set.length && set.length < 3) error(`${p}.settings.${['what', 'unit', 'limit'].find((x) => !set.includes(x))}${n}`, `Lab test ${n}: set what is tested, its unit and its limits, or none of them`);
       }
+      // Mix to a target (T26): the refusals are checked here, before any batch. A property that does not mix by mass, an
+      // alcohol strength not in %, values on different bases, a second marker set in part, a target of another kind.
+      if (block.id === 'mix-to-target') mixToTargetChecks(st.settings, p, error);
       // B2: a dissolution profile's time point is named with its range, in order (time point 3 only after 2).
       if (block.id === 'dissolution-er') for (const n of [1, 2, 3, 4]) {
         const time = typeof st.settings[`time${n}`] === 'string' && (st.settings[`time${n}`] as string).trim();
@@ -189,6 +192,24 @@ export function masterChecks(doc: MasterDoc): Problem[] {
     });
   });
   return out.map((p) => ({ ...p, message: plainWords(p.message) }));
+}
+
+/** The master-time refusals of the mix-to-target block (the template refuses the same at batch time). */
+function mixToTargetChecks(settings: Record<string, SettingValue>, p: string, error: (path: string, message: string, rule?: string) => void): void {
+  const text = (k: string) => (typeof settings[k] === 'string' ? (settings[k] as string).trim() : '');
+  const unit = settings.unit === undefined ? undefined : findUnit(text('unit'));
+  const what = text('property') || 'This property';
+  if (unit && unit.kind !== 'fraction' && NOT_BY_MASS[unit.kind] !== undefined) error(`${p}.settings.unit`, `${what} does not mix by mass: ${NOT_BY_MASS[unit.kind]}. A mix to a target works only for a content, a fraction or a strength`);
+  if (unit && unit.kind === 'temperature') error(`${p}.settings.unit`, `${what}: temperatures are not mixed by mass balance`);
+  if (text('scale') === 'ethanol % v/v' && unit && unit.kind !== 'fraction') error(`${p}.settings.unit`, `${what}: an alcohol strength is a % v/v: choose %`);
+  const tu = typeof settings.target === 'string' ? QUANTITY.exec(settings.target)?.[3] : undefined;
+  if (unit && tu !== undefined && findUnit(tu)?.kind !== unit.kind) error(`${p}.settings.target`, `The target is in ${tu || 'no unit'} but ${what} is in ${unit.symbol}: use the same unit`);
+  const bases = ['basisMain', 'basisDonor', 'basisTarget'].map(text);
+  if (bases.some(Boolean) && (bases.some((b) => !b) || new Set(bases).size > 1)) error(`${p}.settings.basisMain`, `The values are not on the same basis (main lot: ${bases[0] || 'not set'}; donor: ${bases[1] || 'not set'}; target: ${bases[2] || 'not set'}): give each the basis of the target, or set none`, 'F0027');
+  const second = ['secondMarker', 'secondUnit', 'secondLimit'].filter((k) => settings[k] !== undefined && text(k) !== '' || typeof settings[k] === 'object');
+  if (second.length && second.length < 3) error(`${p}.settings.secondMarker`, 'A second marker is set in full (its name, unit and limits) or not at all');
+  const su = text('secondUnit') ? findUnit(text('secondUnit')) : undefined;
+  if (su && NOT_BY_MASS[su.kind] !== undefined) error(`${p}.settings.secondUnit`, `${text('secondMarker') || 'The second marker'} does not mix by mass: ${NOT_BY_MASS[su.kind]}`);
 }
 
 /** The formula: the core materials (not coating, not a solvent removed in processing) make the core weight. */

@@ -23,6 +23,8 @@ const SETTINGS: Record<string, Step['settings']> = {
   'coating-suspension': { powder: { formula: 'x' }, targetSolids: '12 %', tolerance: '1.0', mixTimeLimit: minutes },
   'dry-mix': { speedLimit: { low: '10', high: '20', unit: 'rpm' }, mixTimeLimit: minutes },
   mix: { speedLimit: { low: '10', high: '20', unit: 'rpm' } },
+  'mix-to-target': { property: 'fines below 125 µm', unit: '%', target: '20.0 %', scale: 'ethanol % v/v', basisMain: 'as is', basisDonor: 'as is', basisTarget: 'as is',
+    secondMarker: 'Isomer B', secondUnit: '%', secondLimit: pct('0.0', '50.0'), tolerance: '2.0', mixTimeLimit: minutes },
   granulate: { endPointLimit: { low: '8.0', high: '12.0', unit: 'kW' } },
   'roller-compact': { forceUnit: 'kN/cm', forceLimit: { low: '6', high: '10', unit: 'kN/cm' }, gapLimit: { low: '2.0', high: '3.0', unit: 'mm' },
     rollSpeedLimit: { low: '3', high: '8', unit: 'rpm' }, feedSpeedLimit: { low: '20', high: '60', unit: 'rpm' }, screen: '1.0 mm', thicknessLimit: { low: '2.0', high: '3.2', unit: 'mm' },

@@ -4,7 +4,7 @@ export { checkLimit, roundHalfUp, writtenDecimals, type Check, type Limit, type 
 export { convert, findUnit, UNIT_LIST, type Kind, type Unit } from './units.js';
 export { t1Difference, t2Total, t3PercentOfTarget, t4Accountability, t5PercentChange, t6Ratio, t21LesserGreater } from './basic.js';
 export { t7Statistics, c1WithinLimits, c2Count, c3AllIndividual, c4Observation, noFurtherChange } from './series.js';
-export { t26MixToTarget, ethanolWw, ethanolDensity } from './mixing.js';
+export { t26MixToTarget, ethanolWw, ethanolDensity, NOT_BY_MASS } from './mixing.js';
 export {
   t8BatchScaling, t9PotencyAdjusted, c5SameBasis, t10Compensating, t11SaltFactor, t12DryBasis,
   t15Rescale, t16Overage, t18ContentAdjusted, t19Split, t20MultiLot,

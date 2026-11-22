@@ -49,6 +49,13 @@ export function neededKind(block: Block, setting: string, settings: Step['settin
   for (const c of block.calcs) {
     const refs = refsIn(c.args);
     if (!refs.includes(setting)) continue;
+    // T26: the target is of the kind of the main lot's value, the second marker's limits of the second marker's.
+    if (c.template === 'T26') {
+      const a = c.args as { target?: unknown; others?: { limit?: unknown; a?: unknown }[] };
+      if (refsIn(a.target).includes(setting)) return kindOf(block, refsIn((c.args as { a?: unknown }).a)[0] ?? '', settings, new Set(seen));
+      const o = a.others?.find((x) => refsIn(x.limit).includes(setting));
+      if (o) return kindOf(block, refsIn(o.a)[0] ?? '', settings, new Set(seen));
+    }
     if (s?.kind === 'limit') {
       if (c.template === 'F2') return undefined;
       if (refsIn((c.args as { rsdLimit?: unknown }).rsdLimit).includes(setting)) return 'fraction';

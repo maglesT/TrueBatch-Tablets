@@ -23,6 +23,7 @@ import { lineClearance } from './line-clearance.js';
 import { labTests } from './lab-tests.js';
 import { lubricate } from './lubricate.js';
 import { mix } from './mix.js';
+import { mixToTarget } from './mix-to-target.js';
 import { polishPrint } from './polish-print.js';
 import { pressSetup } from './press-setup.js';
 import { rollerCompact } from './roller-compact.js';
@@ -61,7 +62,7 @@ export { asked, labelled } from './format.js';
 // In the order of a process: dispensing and preparation, granulation and blending, compression and its tests,
 // coating, then the steps of any stage.
 export const BLOCKS: readonly Block[] = [
-  weigh, charge, sift, binderSolution, coatingSuspension, dryMix, mix, granulate, rollerCompact, dry, dryConstant, sieve, lubricate,
+  weigh, charge, sift, binderSolution, coatingSuspension, dryMix, mix, mixToTarget, granulate, rollerCompact, dry, dryConstant, sieve, lubricate,
   subBatchCombine, blendUniformity, densityFlow, sieveAnalysis, punchDieCheck, pressSetup, compressionRelease, compress, bilayerCompress,
   friability, disintegration, dissolution, dissolutionEr, uniformityByWeight, contentUniformity, labTests, coat, sprayCoat, polishPrint, check, qaSample,
   stageYield, tabletReconciliation, lineClearance,
