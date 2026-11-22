@@ -27,9 +27,11 @@ export function AllBatches() {
                   <strong><a href={batchLink(b.id)}>{b.batchNo} · {b.productName}</a></strong>
                   <small>{b.productCode} · issued {plainClock(b.issuedAt)}</small>
                 </span>
-                <span className={`chip ${STATUS_CHIP[b.status] ?? ''}`}>{statusText(b.status, true)}</span>
-                <button className="link" onClick={() => go(batchLink(b.id))}>Batch</button>
-                {b.status !== 'in production' && <button className="link" onClick={() => go(releaseLink(b.id))}>Release</button>}
+                <span className="all-go">
+                  <span className={`chip ${STATUS_CHIP[b.status] ?? ''}`}>{statusText(b.status, true)}</span>
+                  <button className="link" onClick={() => go(batchLink(b.id))}>Batch</button>
+                  {b.status !== 'in production' && <button className="link" onClick={() => go(releaseLink(b.id))}>Release</button>}
+                </span>
               </div>
             ))}
           </div>

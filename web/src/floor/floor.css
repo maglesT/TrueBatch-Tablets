@@ -188,3 +188,6 @@
   .pending-row { grid-template-columns: 12px minmax(0, 1fr); } .pending-go { display: none; }
   .returns label { grid-template-columns: 1fr; }
 }
+
+.all-go { display: flex; align-items: center; gap: 14px; white-space: nowrap; }
+@media (max-width: 700px) { .all-go { flex-wrap: wrap; grid-column: 2; } }
