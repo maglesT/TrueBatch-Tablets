@@ -201,26 +201,60 @@ function recordedAdjusted(doc: MasterDoc, events: readonly StepEvent[], here: St
  * order: T11 salt factor, T9 potency (with the lot's assay, water, LOD from this step) or T18 content, T16 overage,
  * or T10 for a filler that compensates other lines. The worked lines are joined.
  */
-export function lineQuantity(doc: MasterDoc, events: readonly StepEvent[], here: StepKey, line: FormulaLine, adjusted: boolean, values: Record<string, Value>, uses: number[] = []): Stored {
+export function lineQuantity(doc: MasterDoc, events: readonly StepEvent[], here: StepKey, line: FormulaLine, adjusted: boolean, values: Record<string, Value>, uses: number[] = [], portion?: string): Stored {
   let q: Outcome<object> = perBatch(line.mgPerTablet, doc);
   const shown: string[] = [];
   const next = (o: Outcome<object>) => { if (q.ok) shown.push(q.shown); q = o; };
   const a = adjusted ? line.adjust : undefined;
   const certificate = (k: string) => values[k] as Q | undefined;
-  if (a?.salt && q.ok) next(callTemplate('T11', { quantity: exact(q.value, q.unit), from: a.salt.from, to: a.salt.to, unit: 'kg' }));
+  if (a?.salt && q.ok) {
+    // F0018: a form whose molecular weight is an average that varies by lot takes the lot's certificate value.
+    const lm = certificate('lotMw'); const lotMw = typeof lm === 'object' ? lm.value : lm;
+    next(callTemplate('T11', { quantity: exact(q.value, q.unit), from: a.salt.from, to: a.salt.to, ...(lotMw !== undefined ? { lotMw } : {}), unit: 'kg' }));
+  }
   if (a?.potency && q.ok) {
     next(callTemplate('T9', { ...a.potency, standard: a.salt ? q : exact(q.value, q.unit),
       assay: certificate('assay'), water: certificate('water'), lod: certificate('lod'), unit: 'kg' }));
   } else if (a?.content && q.ok) {
-    next(callTemplate('T18', { ...a.content, target: exact(q.value, q.unit), content: certificate('content'), unit: 'kg' }));
+    const { second, partLots, ...content } = a.content;
+    const target = exact(q.value, q.unit);
+    const earlier = certificate('earlierWeighed');
+    const earlierContent = certificate('earlierContent');
+    if (partLots && earlier && earlierContent) {
+      // T20: the quantity of pure material is taken from an earlier lot first; the rest comes from this lot's content.
+      next(callTemplate('T20', { required: target, lots: [{ name: `lot ${typeof values.earlierLot === 'string' ? values.earlierLot : 'before'}`, weighed: earlier, content: earlierContent },
+        { name: 'this lot', content: certificate('content') }], unit: 'kg' }));
+    } else {
+      const other = second ? doc.formula.find((l) => l.key === second.line) : undefined;
+      const otherQ = other ? store(perBatch(other.mgPerTablet, doc)) : undefined;
+      next(callTemplate('T18', { ...content, target, content: certificate('content'), unit: 'kg',
+        ...(second && other && otherQ?.ok && certificate('content2') ? { second: { name: other.name, content: certificate('content2'), target: exact(otherQ.value, otherQ.unit), limit: { low: second.low, high: second.high, unit: '%' } } } : {}) }));
+    }
   }
   if (a?.overage && q.ok) next(callTemplate('T16', { quantity: exact(q.value, q.unit), overagePercent: a.overage.percent, maxOveragePercent: a.overage.maxPercent, unit: 'kg' }));
   if (a?.compensates?.length && q.ok) {
     const others = a.compensates.map((k) => ({ k, l: doc.formula.find((f) => f.key === k), r: recordedAdjusted(doc, events, here, k, uses) }));
     const missing = others.find((o) => !o.r?.ok);
     if (missing) return { ok: false, message: `Weigh ${missing.l?.name ?? missing.k} first: ${line.name} compensates its adjusted quantity` };
-    next(callTemplate('T10', { fillers: [{ name: line.name, standard: exact(q.value, q.unit) }], unit: 'kg',
-      adjusted: others.map((o) => ({ name: o.l?.name ?? o.k, standard: perBatchQ(doc, o.l), adjusted: asQ(o.r!) })) }));
+    // Several fillers share the excess in a ratio (T10): every filler that compensates the same lines and has a ratio.
+    const mates = a.ratio === undefined ? [line] : doc.formula.filter((f) => f.key === line.key || (f.adjust?.ratio !== undefined && f.adjust.compensates?.join() === a.compensates!.join()));
+    const fillers = mates.map((f) => { const r = f.key === line.key ? q : store(perBatch(f.mgPerTablet, doc)); return { f, r }; });
+    if (fillers.some((x) => !x.r.ok)) return { ok: false, message: `The quantity of a filler sharing the excess with ${line.name} cannot be worked out` };
+    const t10 = callTemplate('T10', { fillers: fillers.map((x) => ({ name: x.f.name, standard: exact((x.r as { value: string }).value, (x.r as { unit: string }).unit), ...(a.ratio === undefined ? {} : { ratio: x.f.adjust!.ratio ?? a.ratio }) })), unit: 'kg',
+      adjusted: others.map((o) => ({ name: o.l?.name ?? o.k, standard: perBatchQ(doc, o.l), adjusted: asQ(o.r!) })) });
+    // This line's own share: the filler list is in the order of the formula; T10's total is the first filler's, so take ours.
+    if (t10.ok && mates.length > 1) {
+      const mine = (t10 as unknown as { fillers: { value: Dec }[] }).fillers[mates.findIndex((f) => f.key === line.key)]!;
+      next({ ...t10, value: mine.value, shown: t10.shown } as Outcome<object>);
+    } else next(t10);
+  }
+  // T19: the quantity is split into portions; this step weighs the named one.
+  if (portion !== undefined && line.portions && q.ok) {
+    const r = callTemplate('T19', { total: exact(q.value, q.unit), portions: line.portions.map((p) => ({ name: p.name, ...(p.percent !== undefined ? { percent: p.percent } : { remainder: true }) })), unit: 'kg' });
+    const mine = r.ok ? (r as unknown as { portions: { name: string; value: Dec }[] }).portions.find((p) => p.name === portion) : undefined;
+    if (!r.ok) return store(r);
+    if (!mine) return { ok: false, message: `${line.name} has no portion called ${portion}` };
+    next({ ok: true, value: mine.value, unit: r.unit, shown: `${portion}: ${r.shown}` } as Outcome<object>);
   }
   const r = store(q);
   return r.ok && shown.length ? { ...r, shown: [...shown, r.shown].join('; then ') } : r;
@@ -270,7 +304,7 @@ export function evaluate(doc: MasterDoc, events: readonly StepEvent[], key: Step
     if ('formula' in v) {
       const line = doc.formula.find((l) => l.key === v.formula);
       if (s.kind === 'material' || !line) continue;
-      results[s.name] = s.formulaField ? lineField(line, s.formulaField, s.label) : lineQuantity(doc, events, key, line, v.adjusted ?? false, values, uses);
+      results[s.name] = s.formulaField ? lineField(line, s.formulaField, s.label) : lineQuantity(doc, events, key, line, v.adjusted ?? false, values, uses, s.name === 'target' && typeof step.settings.portion === 'string' ? step.settings.portion : undefined);
     } else {
       const h = headerValue(doc, v.header);
       if (typeof h === 'string') { inputs[s.name] = h; continue; }

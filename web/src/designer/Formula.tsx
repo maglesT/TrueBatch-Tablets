@@ -98,7 +98,7 @@ function Total({ label, value, target, what }: { label: string; value: Dec | nul
 
 function adjustSummary(a: Adjust | undefined): string {
   if (!a) return 'None';
-  const parts = [a.salt && 'salt factor', a.potency && `assay (${a.potency.basis})`, a.content && 'content', a.overage && `overage ${a.overage.percent} %`, a.compensates?.length && 'compensating filler'].filter(Boolean);
+  const parts = [a.salt && 'salt factor', a.potency && `assay (${a.potency.basis})`, a.content && 'content', a.overage && `overage ${a.overage.percent} %`, a.compensates?.length && 'compensating filler', a.content?.partLots && 'several lots', a.content?.second && 'second API'].filter(Boolean);
   return parts.length ? parts.join(', ') : 'None';
 }
 
@@ -122,6 +122,7 @@ function AdjustPanel({ doc, line, onChange, problems, onAnswer }: { doc: MasterD
         <label>Molecular weight<Decimal label={`${label} molecular weight`} value={f.mw} onChange={(mw) => setF({ mw })} /></label>
         <label>Drug molecules per formula unit<input type="number" min={1} max={4} aria-label={`${label} molecules per formula unit`} value={f.moleculesPerUnit ?? 1} onChange={(e) => setF({ moleculesPerUnit: Number(e.target.value) > 1 ? Number(e.target.value) : undefined })} /></label>
         {which === 'from' && <label>Ion charge (for mEq)<input type="number" min={1} max={4} aria-label={`${label} ion charge`} value={f.charge ?? ''} onChange={(e) => setF({ charge: Number(e.target.value) || undefined })} /></label>}
+        <label className="check"><input type="checkbox" aria-label={`${label} molecular weight varies by lot`} checked={!!f.mwFromLot} onChange={(e) => setF({ mwFromLot: e.target.checked || undefined })} />The molecular weight is an average that varies by lot (from the certificate)</label>
         {which === 'to' && <label className="check"><input type="checkbox" checked={!!f.hydrateOrSolvate} onChange={(e) => setF({ hydrateOrSolvate: e.target.checked || undefined })} />Its molecular weight includes crystal water or solvent</label>}
       </div>
     );
@@ -169,6 +170,13 @@ function AdjustPanel({ doc, line, onChange, problems, onAnswer }: { doc: MasterD
                 <label>Nominal content (%)<Decimal label="Nominal content" value={a.content.nominalContent} onChange={(v) => put({ ...a, content: { ...a.content!, nominalContent: v || undefined } })} /></label>
                 <label>The content comes from<select value={a.content.contentSource ?? 'certificate'} onChange={(e) => put({ ...a, content: { ...a.content!, contentSource: e.target.value === 'certificate' ? undefined : 'in-process result' } })}>
                   <option value="certificate">the lot's certificate</option><option value="in-process result">an in-process result (granule or blend assay)</option></select></label>
+                <label className="check"><input type="checkbox" checked={!!a.content.partLots} onChange={(e) => put({ ...a, content: { ...a.content!, partLots: e.target.checked || undefined } })} />The quantity may come from more than one lot</label>
+                <label>A second API in the same material<select aria-label="Second API" value={a.content.second?.line ?? ''}
+                  onChange={(e) => put({ ...a, content: { ...a.content!, second: e.target.value ? { line: e.target.value, low: a.content!.second?.low ?? '95.0', high: a.content!.second?.high ?? '105.0' } : undefined } })}>
+                  <option value="">(none)</option>{doc.formula.filter((l) => l.key !== line.key && l.role === 'api').map((l) => <option key={l.key} value={l.key}>{l.name}</option>)}</select></label>
+                {a.content.second && <label>It may deliver (% of its target)<span className="row">
+                  <Decimal label="Second API lowest" value={a.content.second.low} onChange={(v) => put({ ...a, content: { ...a.content!, second: { ...a.content!.second!, low: v } } })} />
+                  {' to '}<Decimal label="Second API highest" value={a.content.second.high} onChange={(v) => put({ ...a, content: { ...a.content!, second: { ...a.content!.second!, high: v } } })} /></span></label>}
                 {a.content.contentSource === 'in-process result' && <label>The in-process result is<select value={a.content.resultType ?? ''} onChange={(e) => put({ ...a, content: { ...a.content!, resultType: (e.target.value || undefined) as 'content' } })}>
                   <option value="">(not stated)</option><option value="content">the content (% w/w)</option><option value="percent of theoretical">% of theoretical (nominal content above)</option></select></label>}
               </div>
@@ -192,8 +200,22 @@ function AdjustPanel({ doc, line, onChange, problems, onAnswer }: { doc: MasterD
               onChange={(e) => put({ ...a, compensates: e.target.checked ? [...(a.compensates ?? []), o.key] : a.compensates?.filter((k) => k !== o.key) })} />
               {line.name} makes up for the adjusted quantity of {o.name}</label>
           )) : <p className="muted small">No adjusted material to compensate.</p>}
+          {!!a.compensates?.length && <label>Share of the excess with other fillers (parts, e.g. 60 of 60 : 40; empty: this filler alone)<Decimal label="Filler share" placeholder="alone" value={a.ratio}
+            onChange={(v) => put({ ...a, ratio: v || undefined })} /></label>}
         </fieldset>
       )}
+      <fieldset className="checklist">
+        <legend>Split into portions</legend>
+        <label className="check"><input type="checkbox" checked={!!line.portions} onChange={(e) => { const { portions: _, ...rest } = line; onChange(e.target.checked ? { ...rest, portions: [{ name: 'Intragranular', percent: '50' }, { name: 'Extragranular' }] } : rest); }} />
+          The quantity is weighed in portions (each portion has its own weighing step)</label>
+        {line.portions?.map((p, n) => (
+          <div key={n} className="form-grid">
+            <label>Portion {n + 1}<input aria-label={`Portion ${n + 1} name`} value={p.name} onChange={(e) => onChange({ ...line, portions: line.portions!.map((x, j) => (j === n ? { ...x, name: e.target.value } : x)) })} /></label>
+            {n < line.portions!.length - 1 ? <label>% of the quantity<Decimal label={`Portion ${n + 1} percent`} value={p.percent} onChange={(v) => onChange({ ...line, portions: line.portions!.map((x, j) => (j === n ? { ...x, percent: v } : x)) })} /></label> : <span className="muted small">what is left</span>}
+          </div>
+        ))}
+        {line.portions && line.portions.length < 6 && <button type="button" className="link dark small" onClick={() => onChange({ ...line, portions: [...line.portions!.slice(0, -1), { name: `Portion ${line.portions!.length}`, percent: '10' }, line.portions![line.portions!.length - 1]!] })}>+ Add a portion</button>}
+      </fieldset>
       <fieldset className="checklist">
         <legend>As written in the source (checked, never used)</legend>
         <div className="form-grid">

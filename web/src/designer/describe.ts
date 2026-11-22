@@ -17,7 +17,7 @@ const ROLE: Record<FormulaLine['role'], string> = { api: 'API', excipient: 'exci
 
 type Form = NonNullable<NonNullable<FormulaLine['adjust']>['salt']>['from'];
 /** A salt form in words: "Metformin hydrochloride (MW 165.6, 1 per unit, with crystal water or solvent, ion charge 1)". */
-const formText = (f: Form, or: string) => `${f.name || or} (MW ${f.mw}${f.moleculesPerUnit ? `, ${f.moleculesPerUnit} per unit` : ''}${f.hydrateOrSolvate ? ', with crystal water or solvent' : ''}${f.charge ? `, ion charge ${f.charge}` : ''})`;
+const formText = (f: Form, or: string) => `${f.name || or} (MW ${f.mw}${f.moleculesPerUnit ? `, ${f.moleculesPerUnit} per unit` : ''}${f.hydrateOrSolvate ? ', with crystal water or solvent' : ''}${f.charge ? `, ion charge ${f.charge}` : ''}${f.mwFromLot ? ', the molecular weight an average from the lot certificate' : ''})`;
 
 function adjustText(doc: MasterDoc, l: FormulaLine): string {
   const a = l.adjust;
@@ -26,8 +26,11 @@ function adjustText(doc: MasterDoc, l: FormulaLine): string {
   if (a.salt) out.push(`converted from the ${formText(a.salt.from, 'formula form')} to the ${formText(a.salt.to, 'dispensed form')}${a.salt.factor ? ` (salt factor written as ${a.salt.factor})` : ''}`);
   if (a.potency) out.push(`adjusted for the lot's assay on the ${a.potency.basis} basis${a.potency.assayExpressedAs ? ` (the assay expressed on the ${a.potency.assayExpressedAs})` : ''}${a.potency.standardIs ? `, the formula quantity being the ${a.potency.standardIs} weight` : ''}${a.potency.potencyAs ? `, potency stated as ${a.potency.potencyAs}` : ''}${a.potency.assayAbove100 === 'treat as 100' ? ', an assay above 100 % taken as 100 %' : a.potency.assayAbove100 === 'use' ? ', an assay above 100 % used as found' : ''}`);
   if (a.content) out.push(`adjusted for the ${a.content.contentSource === 'in-process result' ? 'in-process' : "lot's"} content${a.content.contentSource === 'certificate' ? ' from its certificate' : ''}, the formula quantity being of the ${a.content.formulaQuantityIs === 'dry' ? 'pure material' : 'material as supplied'}${a.content.nominalContent ? ` (nominal ${a.content.nominalContent} %)` : ''}${a.content.resultType ? `, the result being ${a.content.resultType === 'content' ? 'the content' : '% of theoretical'}` : ''}`);
+  if (a.content?.partLots) out.push('the quantity may come from more than one lot (the earlier lot weighed and its content recorded, the rest worked out from this lot)');
+  if (a.content?.second) out.push(`with ${doc.formula.find((x) => x.key === a.content!.second!.line)?.name ?? a.content.second.line} in the same material, its delivered % of target checked (${a.content.second.low} to ${a.content.second.high} %)`);
   if (a.overage) out.push(`with ${a.overage.percent} % overage${a.overage.maxPercent ? ` (at most ${a.overage.maxPercent} %)` : ''}`);
   if (a.compensates?.length) out.push(`reduced or increased to make up for the adjusted quantity of ${a.compensates.map((k) => doc.formula.find((x) => x.key === k)?.name ?? k).join(' and ')}`);
+  if (a.ratio) out.push(`sharing the excess with the other compensating fillers in the ratio ${a.ratio}`);
   return `; at dispensing ${out.join(', then ')}`;
 }
 
@@ -93,7 +96,7 @@ export function describeMaster(doc: MasterDoc, units?: Units, { items = false } 
     ...(h.otherStrengths ?? []).map((x, n) => ({ key: `strength:${n}`, text: `Also compressed from the same blend: ${x.name}, label claim ${x.labelClaim}, core weight ${x.coreWeightMg} mg.` })),
   ];
   const formula: Section = { key: 'formula', title: 'Formula', lines: doc.formula.map((l) => ({ key: l.key,
-    text: `${l.name} (${l.code}), ${ROLE[l.role]}, ${PLACE[l.place]}${l.layer ? (l.place === 'coating' ? ` layer ${l.layer}` : `, tablet layer ${l.layer}`) : ''}: ${l.mgPerTablet} mg per tablet${l.labelClaim ? ` (label claim ${l.labelClaim})` : ''}${l.batchQuantity ? ` (batch quantity written as ${l.batchQuantity})` : ''}${adjustText(doc, l)}.` })) };
+    text: `${l.name} (${l.code}), ${ROLE[l.role]}, ${PLACE[l.place]}${l.layer ? (l.place === 'coating' ? ` layer ${l.layer}` : `, tablet layer ${l.layer}`) : ''}: ${l.mgPerTablet} mg per tablet${l.labelClaim ? ` (label claim ${l.labelClaim})` : ''}${l.batchQuantity ? ` (batch quantity written as ${l.batchQuantity})` : ''}${l.portions ? `, weighed in portions: ${l.portions.map((p) => `${p.name} ${p.percent ? `${p.percent} %` : '(what is left)'}`).join(', ')}` : ''}${adjustText(doc, l)}.` })) };
   // A packing master (TB-P1) in packing words: the pack and its packing materials, no formula or coating.
   const top: Section[] = p ? [
     { key: 'header', title: 'Pack', lines: [

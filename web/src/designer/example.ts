@@ -51,7 +51,7 @@ function defaults(doc: MasterDoc, si: number, ti: number): Record<string, Value>
 }
 
 const EXAMPLE_START = '2026-11-15 08:00';
-const CERTIFICATE: Record<string, string> = { assay: '99.0', water: '0.5', lod: '0.5', content: '98.0' };
+const CERTIFICATE: Record<string, string> = { assay: '99.0', water: '0.5', lod: '0.5', content: '98.0', content2: '100.0' };
 const asNum = (v: unknown): Num | undefined => {
   if (isNum(v)) return v;
   const m = typeof v === 'string' ? /^([+-]?\d+(?:\.\d+)?)\s*(.*)$/.exec(v.trim()) : null;
@@ -114,6 +114,9 @@ export function workedExample(doc: MasterDoc, si: number, ti: number, typed: Rec
     if ('formula' in v && v.adjusted) {
       const line = doc.formula.find((l) => l.key === v.formula);
       for (const f of b.fields) if (CERTIFICATE[f.name] && line?.adjust && !line.adjust.compensates?.length) values[f.name] = { value: CERTIFICATE[f.name]!, unit: '%' };
+      // A salt whose molecular weight is the lot's: the example takes the nominal one.
+      const lotForm = line?.adjust?.salt?.from.mwFromLot ? line.adjust.salt.from : line?.adjust?.salt?.to.mwFromLot ? line.adjust.salt.to : undefined;
+      if (lotForm) values.lotMw = { value: lotForm.mw, unit: 'g/mol' };
       for (const k of line?.adjust?.compensates ?? []) doc.stages.forEach((s, rs) => s.steps.forEach((t, rt) => {
         if (Object.values(t.settings).some((x) => typeof x === 'object' && 'formula' in x && x.formula === k && x.adjusted)) add(rs, rt);
       }));

@@ -83,6 +83,9 @@ const form = z.object({
   name: text().min(1), mw: decimal, moleculesPerUnit: z.number().int().min(1).optional(), hydrateOrSolvate: z.boolean().optional(),
   // The ion's charge, for a label claim in mEq (F0393).
   charge: z.number().int().min(1).max(4).optional(),
+  // The molecular weight is an average that varies by lot (HP-β-cyclodextrin): the lot's certificate gives it (F0018);
+  // `mw` is then the nominal value.
+  mwFromLot: z.boolean().optional(),
 }).strict();
 
 export const lineSchema = z.object({
@@ -116,10 +119,22 @@ export const lineSchema = z.object({
       formulaQuantityIs: z.enum(['dry', 'wet']), nominalContent: z.string().optional(), contentSource: z.enum(['certificate', 'in-process result']).optional(),
       // What an in-process result is: the content, or a relative assay in % of theoretical (F0205).
       resultType: z.enum(['content', 'percent of theoretical']).optional(),
+      // Another API in the same material (layered particles, F0187): its formula line, and the % of its target the
+      // weighed quantity may deliver; the lot's content of it is asked at dispensing.
+      second: z.object({ line: keySchema, low: decimal, high: decimal }).strict().optional(),
+      // The quantity may be taken from more than one lot (T20): the earlier lot's weight and content are recorded and the
+      // rest is worked out from this lot.
+      partLots: z.boolean().optional(),
     }).strict().optional(),
     overage: z.object({ percent: decimal, maxPercent: decimal.optional() }).strict().optional(),
     compensates: z.array(keySchema).max(20).optional(),
+    // Several fillers share the excess in a ratio (T10): this filler's part (e.g. "60" of 60 : 40). Every filler that
+    // compensates the same lines then has one.
+    ratio: decimal.optional(),
   }).strict().optional(),
+  // The quantity is split into portions (T19: intra and extra granular, geometric dilution): each a % of the quantity;
+  // the last has none and is what is left. A weighing step names the portion it weighs.
+  portions: z.array(z.object({ name: text(40).min(1), percent: decimal.optional() }).strict()).min(2).max(6).optional(),
 }).strict();
 
 export const headerSchema = z.object({

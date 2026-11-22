@@ -49,7 +49,12 @@ export function askedFields(doc: MasterDoc, block: Block, st?: { settings: Reado
   const noLeaflet = block.id === 'carton-check' && doc.pack && !doc.pack.materials.some((x) => x.kind === 'leaflet');
   const fields = noLeaflet ? block.fields.filter((f) => f.name !== 'leaflet') : block.fields;
   // A2: the labels the master step gives (a lab test's "what is tested"); B2: only the fields it asks for.
-  return st ? labelled(fields.filter((f) => asked(f, st.settings)), st.settings) : fields;
+  const line = (target: unknown) => (typeof target === 'object' && target !== null && 'formula' in target ? doc.formula.find((l) => l.key === (target as { formula: string }).formula) : undefined);
+  const need = (f: Block['fields'][number]) => {
+    const a = line(st?.settings.target)?.adjust;
+    return f.forLine === 'lotMw' ? !!(a?.salt?.from.mwFromLot || a?.salt?.to.mwFromLot) : f.forLine === 'second' ? !!a?.content?.second : !!a?.content?.partLots;
+  };
+  return st ? labelled(fields.filter((f) => asked(f, st.settings) && (!f.forLine || need(f))), st.settings) : fields.filter((f) => !f.forLine);
 }
 /** Where a step instance is, in words: "Granulation › Dry to an LOD limit (round 2)". */
 export function stepLabel(doc: MasterDoc, k: StepKey): string {

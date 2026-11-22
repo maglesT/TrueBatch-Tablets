@@ -184,6 +184,11 @@ function Slot({ doc, si, ti, block, settings, name, onChange }: {
       return <select className={cls} aria-label={s.label} value={typeof v === 'string' ? v : '?'} onChange={(e) => onChange(e.target.value === '?' ? undefined : e.target.value)}>
         <option value="?">(choose a unit)</option>{(s.options ?? unitsOf().map((u) => u.symbol)).map((u) => <option key={u} value={u}>{unitLabel(u)}</option>)}</select>;
     }
+    // The portion a weighing step weighs: picked from the portions of the formula line it weighs.
+    const target = block.settings.some((x) => x.name === 'target') ? settings.target : undefined;
+    const portions = name === 'portion' && typeof target === 'object' && 'formula' in target ? doc.formula.find((l) => l.key === target.formula)?.portions : undefined;
+    if (portions) return <select className={cls} aria-label={s.label} value={typeof v === 'string' ? v : ''} onChange={(e) => onChange(e.target.value || undefined)}>
+      <option value="">(the whole quantity)</option>{portions.map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}</select>;
     return <input className={cls} aria-label={s.label} value={typeof v === 'string' ? v : ''} onChange={(e) => onChange(e.target.value || undefined)} />;
   }
   if (s.kind === 'material') {

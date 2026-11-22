@@ -31,7 +31,7 @@ export const blocking = (p: Problem) => p.level === 'error' || (p.question !== u
 
 const DECIMAL = /^\d+(\.\d+)?$/;
 // Neutral certificate values for checking a formula line's adjustment settings with the templates themselves.
-const SAMPLE = { assay: { value: '100.0', unit: '%' }, water: { value: '0', unit: '%' }, lod: { value: '0', unit: '%' } };
+const SAMPLE = { assay: { value: '100.0', unit: '%' }, water: { value: '0', unit: '%' }, lod: { value: '0', unit: '%' }, content2: { value: '100.0', unit: '%' } };
 const HERE = { stage: 0, sub: 1, step: 0, round: 1 };
 
 export function masterChecks(doc: MasterDoc): Problem[] {
@@ -84,6 +84,11 @@ export function masterChecks(doc: MasterDoc): Problem[] {
         const listed = !bs?.options || (typeof v === 'string' && bs.options.includes(v));
         const why = !bs ? `The block ${block.name} has no setting ${name}` : listed ? settingProblem(doc, si, ti, block, bs, st.settings, v) : `${bs.label}: choose one of ${bs.options!.join(', ')}`;
         if (why) error(`${p}.settings.${name}`, why);
+        if (name === 'portion' && typeof v === 'string' && block.id === 'weigh') {
+          const t = st.settings.target;
+          const ln = typeof t === 'object' && 'formula' in t ? doc.formula.find((x) => x.key === t.formula) : undefined;
+          if (!ln?.portions?.some((x) => x.name === v)) error(`${p}.settings.portion`, `${v} is not a portion of ${ln?.name ?? 'the material'}: name the portions on the formula line first`);
+        }
         // TB-01: a limit (or a typed target) in a unit of another kind than the value it checks.
         const unit = typeof v === 'object' && 'unit' in v ? v.unit : typeof v === 'string' && bs?.kind === 'quantity' ? QUANTITY.exec(v)?.[3] : undefined;
         const wrong = !why && unit !== undefined ? unitKindProblem(block, name, st.settings, unit) : null;
@@ -199,11 +204,28 @@ function formulaChecks(doc: MasterDoc, out: Problem[], error: (path: string, mes
   if (doc.header.coatedWeightMg && new Dec(doc.header.coatedWeightMg).lt(doc.header.coreWeightMg)) error('header.coatedWeightMg', 'The coated weight is below the core weight');
   if (doc.formula.some((l) => l.place === 'coating') && !doc.header.coatedWeightMg) error('header.coatedWeightMg', 'A coated product needs the theoretical coated weight');
   doc.formula.forEach((l, i) => {
+    if (l.portions) {
+      const names = l.portions.map((p) => p.name.trim().toLowerCase());
+      if (new Set(names).size !== names.length) error(`formula[${i}].portions`, `${l.name}: two portions have the same name`);
+      const given = l.portions.slice(0, -1);
+      if (given.some((p) => !p.percent) || l.portions.at(-1)!.percent) error(`formula[${i}].portions`, `${l.name}: every portion but the last has a % of the quantity; the last is what is left`);
+      else if (given.reduce((t, p) => t.plus(p.percent!), new Dec(0)).gte(100)) error(`formula[${i}].portions`, `${l.name}: the portions add up to 100 % or more, nothing is left for the last portion`);
+    }
     const a = l.adjust;
     if (!a) return;
     if (a.potency && a.content) error(`formula[${i}].adjust`, 'A line is adjusted for potency (T9) or for content (T18), not both');
     for (const k of a.compensates ?? []) if (k === l.key || !doc.formula.some((x) => x.key === k)) error(`formula[${i}].adjust.compensates`, `No other formula line ${k} to compensate`);
-    const values = { ...SAMPLE, content: nominal(l) };
+    const sampleMw = a.salt?.from.mwFromLot ? a.salt.from.mw : a.salt?.to.mwFromLot ? a.salt.to.mw : undefined;
+    const values = { ...SAMPLE, content: nominal(l), ...(sampleMw ? { lotMw: { value: sampleMw, unit: 'g/mol' } } : {}) };
+    if (a.content?.second && (!doc.formula.some((x) => x.key === a.content!.second!.line && x.key !== l.key) || new Dec(a.content.second.low).gte(a.content.second.high))) {
+      error(`formula[${i}].adjust.content`, `The second API of ${l.name}: choose another formula line and give its limits (lowest below highest, in % of its target)`);
+    }
+    if (a.content?.partLots && a.content.contentSource === 'in-process result') error(`formula[${i}].adjust.content`, `${l.name}: a quantity from more than one lot needs the content of each lot's certificate, not an in-process result`);
+    if (a.ratio !== undefined && !a.compensates?.length) error(`formula[${i}].adjust.ratio`, `${l.name} has a share of the excess but compensates no line`);
+    if (a.ratio !== undefined && a.compensates?.length) {
+      const mates = doc.formula.filter((x) => x.adjust?.compensates?.length && x.adjust.compensates.join() === a.compensates!.join());
+      if (mates.some((x) => x.adjust?.ratio === undefined)) error(`formula[${i}].adjust.ratio`, `${l.name} shares the excess with ${mates.filter((x) => x.adjust?.ratio === undefined).map((x) => x.name).join(' and ')}, which has no share: give every compensating filler of the same lines its share, or none`);
+    }
     if (a.content?.contentSource === 'in-process result' && !a.content.resultType) {
       error(`formula[${i}].adjust`, `State what the in-process result for ${l.name} is: the content (% w/w) or a relative assay in % of theoretical (F0205: a % of theoretical read as the content gives about a third of the dose)`);
     }

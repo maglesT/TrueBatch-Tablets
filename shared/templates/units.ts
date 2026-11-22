@@ -14,7 +14,7 @@ export type Kind =
   | 'fraction' | 'mass concentration' | 'density' | 'rotation speed' | 'angle' | 'mass per area' | 'Strong-Cobb hardness'
   | 'mass rate' | 'volume rate' | 'count rate' | 'current' | 'power' | 'specific energy'
   | 'relative humidity' | 'absolute humidity' | 'absolute humidity per volume' | 'log' | 'frequency' | 'rpm per Hz' | 'charge'
-  | 'IU' | 'CFU' | 'activity units' | 'IU per mass' | 'CFU per mass' | 'activity units per mass' | 'mass per IU';
+  | 'IU' | 'CFU' | 'activity units' | 'IU per mass' | 'CFU per mass' | 'activity units per mass' | 'mass per IU' | 'molar mass';
 
 export interface Unit {
   readonly symbol: string;
@@ -79,6 +79,8 @@ const TABLE: [string, Kind, Dec | string, string?][] = [
   ['CFU/g', 'CFU per mass', '1'], ['CFU/mg', 'CFU per mass', '1000'],
   ['U/g', 'activity units per mass', '1'], ['U/mg', 'activity units per mass', '1000'],
   ['mg/IU', 'mass per IU', '1'],
+  // A molecular weight (an average that varies by lot, from the certificate).
+  ['g/mol', 'molar mass', '1'],
 ];
 
 /** Other spellings people type. */

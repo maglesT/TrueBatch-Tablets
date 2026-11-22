@@ -142,12 +142,13 @@ function fullTablet(): MasterDoc {
   Object.assign(doc.formula[0]!, {
     labelClaim: '100 mg', batchQuantity: '10.000 kg',
     adjust: {
-      salt: { from: { name: 'Examplol hydrochloride', mw: '399.9', moleculesPerUnit: 1, hydrateOrSolvate: true, charge: 1 }, to: { name: 'Examplol base', mw: '363.4', moleculesPerUnit: 2, hydrateOrSolvate: true, charge: 2 }, factor: '1.1004' },
+      salt: { from: { name: 'Examplol hydrochloride', mw: '399.9', moleculesPerUnit: 1, hydrateOrSolvate: true, charge: 1, mwFromLot: true }, to: { name: 'Examplol base', mw: '363.4', moleculesPerUnit: 2, hydrateOrSolvate: true, charge: 2, mwFromLot: true }, factor: '1.1004' },
       potency: { basis: 'dried', standardIs: 'anhydrous', assayExpressedAs: 'anhydrous substance', potencyAs: 'parent', assayAbove100: 'treat as 100' },
-      content: { formulaQuantityIs: 'dry', nominalContent: '95.0', contentSource: 'certificate', resultType: 'content' },
+      content: { formulaQuantityIs: 'dry', nominalContent: '95.0', contentSource: 'certificate', resultType: 'content', partLots: true, second: { line: 'lactose', low: '95.0', high: '105.0' } },
       overage: { percent: '2.0', maxPercent: '5.0' },
     },
   });
+  Object.assign(doc.formula[1]!, { adjust: { compensates: ['api'], ratio: '60' }, portions: [{ name: 'Intragranular', percent: '50' }, { name: 'Middle', percent: '10' }, { name: 'Extragranular' }] });
   doc.formula.push({ key: 'senna', materialItemId: 'mat-sen', code: 'MAT-008', name: 'Senna leaf powder', mgPerTablet: '1.0', role: 'excipient', place: 'extragranular' });
   doc.stages[1]!.roomTypes = ['Granulation room'];
   doc.stages[1]!.steps.push({ key: 'check-all', block: { id: 'check', version: 1 }, name: 'Appearance of the granules', instruction: 'Look at the granules.',

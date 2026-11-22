@@ -16,7 +16,7 @@ const weights = { meanLimit: { low: '95.0', high: '105.0', unit: 'mg' }, weightB
   thicknessLimit: { low: '2.8', high: '3.2', unit: 'mm' } };
 // Every setting of every block that has settings, optional ones too.
 const SETTINGS: Record<string, Step['settings']> = {
-  weigh: { target: { formula: 'x', adjusted: true }, tolerance: '0.5' },
+  weigh: { target: { formula: 'x', adjusted: true }, tolerance: '0.5', portion: 'Intragranular' },
   charge: { material: { formula: 'x' } },
   sift: { sieve: '40 mesh (425 µm)' },
   'binder-solution': { binder: { formula: 'x' }, binder2: '0.020 kg', binder3: '0.010 kg', targetSolids: '10 %', tolerance: '1.0', mixTimeLimit: minutes },

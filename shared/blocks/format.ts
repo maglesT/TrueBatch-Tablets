@@ -61,6 +61,9 @@ export const fieldSchema = z.object({
   // LIMS keeps one result with every value in order (10, then 30 after the second stage): this field takes the first
   // values, the next stage's field the rest.
   nextStage: name.optional(),
+  // Template round 22 Nov 2026: asked only when the formula line the step weighs has this adjustment (the lot's average
+  // molecular weight; a second API's content; an earlier lot of the same material): else the screen leaves it out.
+  forLine: z.enum(['lotMw', 'second', 'partLots']).optional(),
 }).strict();
 // A packing line: master data's blister and strip packers, forming machines and bottle lines' tablet counters.
 export const PACKING_LINE = ['blister', 'strip pack', 'forming', 'tablet counter', 'packing line'];
