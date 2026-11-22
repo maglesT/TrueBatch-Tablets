@@ -30,6 +30,7 @@ function adjustText(doc: MasterDoc, l: FormulaLine): string {
   if (a.content?.second) out.push(`with ${doc.formula.find((x) => x.key === a.content!.second!.line)?.name ?? a.content.second.line} in the same material, its delivered % of target checked (${a.content.second.low} to ${a.content.second.high} %)`);
   if (a.overage) out.push(`with ${a.overage.percent} % overage${a.overage.maxPercent ? ` (at most ${a.overage.maxPercent} %)` : ''}`);
   if (a.compensates?.length) out.push(`reduced or increased to make up for the adjusted quantity of ${a.compensates.map((k) => doc.formula.find((x) => x.key === k)?.name ?? k).join(' and ')}`);
+  if (a.rangePercent) out.push(`within the formula range of ± ${a.rangePercent} %`);
   if (a.ratio) out.push(`sharing the excess with the other compensating fillers in the ratio ${a.ratio}`);
   return `; at dispensing ${out.join(', then ')}`;
 }
@@ -94,6 +95,7 @@ export function describeMaster(doc: MasterDoc, units?: Units, { items = false } 
   const weights = `${h.coatedWeightMg ? `coated weight ${h.coatedWeightMg} mg` : 'uncoated'}${h.dieAreaMm2 ? `; die bore area ${h.dieAreaMm2} mm²` : ''}`;
   const more: Line[] = [
     ...(h.dispensingRooms?.length ? [{ key: 'dispensing', text: `Weighed in the dispensing rooms ${h.dispensingRooms.join(', ')}.` }] : []),
+    ...(h.ratios ?? []).map((r, n) => ({ key: `ratio:${n}`, text: `The ratio of ${doc.formula.find((l) => l.key === r.first)?.name ?? r.first} to ${doc.formula.find((l) => l.key === r.second)?.name ?? r.second} stays between ${r.low} and ${r.high}.` })),
     ...(h.otherStrengths ?? []).map((x, n) => ({ key: `strength:${n}`, text: `Also compressed from the same blend: ${x.name}, label claim ${x.labelClaim}, core weight ${x.coreWeightMg} mg.` })),
   ];
   const formula: Section = { key: 'formula', title: 'Formula', lines: doc.formula.map((l) => ({ key: l.key,

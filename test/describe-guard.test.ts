@@ -138,7 +138,7 @@ const describedChange = (prev: MasterDoc, next: MasterDoc) =>
 // with every step setting.
 function fullTablet(): MasterDoc {
   const doc = tablet();
-  Object.assign(doc.header, { dieAreaMm2: '80.0', otherStrengths: [{ name: 'Examplol 50 mg tablets', labelClaim: '50 mg', coreWeightMg: '125.0' }] });
+  Object.assign(doc.header, { dieAreaMm2: '80.0', ratios: [{ first: 'lactose', second: 'mcc', low: '1.0', high: '10.0' }], otherStrengths: [{ name: 'Examplol 50 mg tablets', labelClaim: '50 mg', coreWeightMg: '125.0' }] });
   Object.assign(doc.formula[0]!, {
     labelClaim: '100 mg', batchQuantity: '10.000 kg',
     adjust: {
@@ -148,7 +148,7 @@ function fullTablet(): MasterDoc {
       overage: { percent: '2.0', maxPercent: '5.0' },
     },
   });
-  Object.assign(doc.formula[1]!, { adjust: { compensates: ['api'], ratio: '60' }, portions: [{ name: 'Intragranular', percent: '50' }, { name: 'Middle', percent: '10' }, { name: 'Extragranular' }] });
+  Object.assign(doc.formula[1]!, { adjust: { compensates: ['api'], ratio: '60', rangePercent: '5.0' }, portions: [{ name: 'Intragranular', percent: '50' }, { name: 'Middle', percent: '10' }, { name: 'Extragranular' }] });
   doc.formula.push({ key: 'senna', materialItemId: 'mat-sen', code: 'MAT-008', name: 'Senna leaf powder', mgPerTablet: '1.0', role: 'excipient', place: 'extragranular' });
   doc.stages[1]!.roomTypes = ['Granulation room'];
   doc.stages[1]!.steps.push({ key: 'check-all', block: { id: 'check', version: 1 }, name: 'Appearance of the granules', instruction: 'Look at the granules.',

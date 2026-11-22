@@ -136,6 +136,9 @@ export const lineSchema = z.object({
     // Several fillers share the excess in a ratio (T10): this filler's part (e.g. "60" of 60 : 40). Every filler that
     // compensates the same lines then has one.
     ratio: decimal.optional(),
+    // The formula gives a range (± 5 %) for a compensating filler (F0036): the range is only the limit the compensation must
+    // stay within, never a quantity the operator picks.
+    rangePercent: decimal.optional(),
   }).strict().optional(),
   // The quantity is split into portions (T19: intra and extra granular, geometric dilution): each a % of the quantity;
   // the last has none and is what is left. A weighing step names the portion it weighs.
@@ -156,6 +159,9 @@ export const headerSchema = z.object({
   // TB-11: the rooms of master data (codes) where this product's materials are weighed; a balance is offered there or
   // in a room the stage allows (shared/engine/picks.ts). A version made before this setting has none.
   dispensingRooms: z.array(text()).max(20).optional(),
+  // Materials whose ratio sets the exposure (F0494: release-controlling excipients): the ratio first : second of their
+  // adjusted quantities must stay within low to high (second = 1).
+  ratios: z.array(z.object({ first: keySchema, second: keySchema, low: decimal, high: decimal }).strict()).max(5).optional(),
 }).strict();
 
 // The author's answer to a calculation warning (checks.ts), keyed by the warning and its item. `about` is the warning

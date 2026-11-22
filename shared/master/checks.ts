@@ -216,6 +216,52 @@ export function masterChecks(doc: MasterDoc): Problem[] {
   return out.map((p) => ({ ...p, message: plainWords(p.message) }));
 }
 
+type Ask = (path: string, key: string, message: string, options: string[], needsReason?: boolean) => string | undefined;
+/**
+ * The cheap calculation checks of the formulation test that had no code (template round 22 Nov 2026): two APIs on one
+ * tablet weight (F0121, F0187), an addition to the blend after
+ * compression began (F0181), a label claim from several salts (F0487), the ratio of two materials (F0494). A formula
+ * range (F0036) is the line's `rangePercent`, worked out in lineQuantity.
+ */
+function extraChecks(doc: MasterDoc, ask: Ask, refuse: (path: string, message: string) => void): void {
+  const core = doc.formula.filter((l) => l.place !== 'coating' && l.role !== 'solvent');
+  const apis = core.filter((l) => l.role === 'api');
+  const names = [...new Set(apis.map((l) => l.name))];
+  // Two APIs, one tablet weight: moving the weight to correct one changes the other's dose by the same %.
+  if (names.length >= 2) {
+    ask('formula', 'controlling-api', `${names.join(' and ')} share one tablet weight: moving the weight to correct the dose of one changes the dose of the other by the same %. Which API controls the tablet weight? The other's content at that weight must stay within its limits.`, names);
+  }
+  // A label claim from several salts is the sum of each salt's mEq, never put on one salt.
+  const mEq = apis.filter((l) => quantityOf(l.labelClaim)?.u.kind === 'charge');
+  if (mEq.length >= 2) {
+    const total = mEq.reduce((t, l) => t.plus(quantityOf(l.labelClaim)!.v), new Dec(0));
+    ask('formula', 'claim-from-salts', `${mEq.map((l) => `${l.name} ${l.labelClaim}`).join(', ')} give ${total.toString()} mEq together. Is the label claim the sum of the salts (never the whole claim on one salt)?`, ['the label claim is the sum of the salts', 'the claim is on one salt']);
+  }
+  // The ratio of two materials that sets the exposure.
+  (doc.header.ratios ?? []).forEach((r, n) => {
+    const a = doc.formula.find((l) => l.key === r.first);
+    const b = doc.formula.find((l) => l.key === r.second);
+    const path = `header.ratios[${n}]`;
+    if (!a || !b || a.key === b.key) return void refuse(path, 'The ratio names two different formula lines');
+    if (new Dec(r.low).gte(r.high)) return void refuse(path, 'The ratio limits: the lowest must be below the highest');
+    const at = (l: FormulaLine) => { const x = lineQuantity(doc, [], HERE, l, true, { ...SAMPLE, content: nominal(l) }); const y = x.ok ? x : lineQuantity(doc, [], HERE, l, false, {}); return y.ok ? new Dec(y.value).times(findUnit(y.unit)?.factor ?? 1) : undefined; };
+    const [qa, qb] = [at(a), at(b)];
+    if (!qa || !qb || qb.isZero()) return;
+    const ratio = qa.div(qb);
+    if (ratio.lt(r.low) || ratio.gt(r.high)) refuse(path, `The ratio of ${a.name} to ${b.name} is ${ratio.toFixed(2, Dec.ROUND_HALF_UP)} : 1, outside ${r.low} to ${r.high} (F0494: a ratio of release-controlling materials can change the exposure by a half or more)`);
+  });
+  doc.stages.forEach((s, si) => {
+    const press = s.steps.findIndex((t) => /compress|compact/.test(t.block.id) && t.block.id !== 'roller-compact');
+    s.steps.forEach((t, ti) => {
+      const p = `stages[${si}].steps[${ti}]`;
+      // F0181: a material added to the blend after compression began dilutes the drug; the target weight would be too old.
+      if (press >= 0 && ti > press && ['weigh', 'charge', 'lubricate'].includes(t.block.id)) {
+        ask(p, `late-addition/${s.key}/${t.key}`, `${t.name ?? t.block.id} adds material after compression has started in ${s.name}: the blend is diluted and tablets kept at the old target weight are low by the added fraction (F0181). Add it before compression, or confirm that a new target weight is worked out from the new blend mass, under a deviation.`, ['new target weight worked out under a deviation'], true);
+      }
+    });
+  });
+}
+
 /** The master-time refusals of the mix-to-target block (the template refuses the same at batch time). */
 function mixToTargetChecks(settings: Record<string, SettingValue>, p: string, error: (path: string, message: string, rule?: string) => void): void {
   const text = (k: string) => (typeof settings[k] === 'string' ? (settings[k] as string).trim() : '');
@@ -391,6 +437,7 @@ function calculationChecks(doc: MasterDoc, out: Problem[]): void {
       }
     }
   });
+  extraChecks(doc, ask, refuse);
   // (c) a ratio or % in a step instruction that involves the API
   doc.stages.forEach((s, si) => s.steps.forEach((t, ti) => {
     const m = RATIO.exec(t.instruction ?? '');

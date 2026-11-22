@@ -243,6 +243,13 @@ export function lineQuantity(doc: MasterDoc, events: readonly StepEvent[], here:
     const t10 = callTemplate('T10', { fillers: fillers.map((x) => ({ name: x.f.name, standard: exact((x.r as { value: string }).value, (x.r as { unit: string }).unit), ...(a.ratio === undefined ? {} : { ratio: x.f.adjust!.ratio ?? a.ratio }) })), unit: 'kg',
       adjusted: others.map((o) => ({ name: o.l?.name ?? o.k, standard: perBatchQ(doc, o.l), adjusted: asQ(o.r!) })) });
     // This line's own share: the filler list is in the order of the formula; T10's total is the first filler's, so take ours.
+    if (t10.ok && a.rangePercent !== undefined) {
+      const mine = mates.length > 1 ? (t10 as unknown as { fillers: { value: Dec }[] }).fillers[mates.findIndex((f) => f.key === line.key)]!.value : new Dec(t10.value);
+      const std = fillers.find((x) => x.f.key === line.key)!.r as { value: string; unit: string };
+      const low = new Dec(std.value).times(new Dec(100).minus(a.rangePercent)).div(100);
+      const high = new Dec(std.value).times(new Dec(100).plus(a.rangePercent)).div(100);
+      if (mine.lt(low) || mine.gt(high)) return { ok: false, message: `${line.name} would be ${mine.toFixed(3)} kg, outside the formula range of ± ${a.rangePercent} % of ${new Dec(std.value).toFixed(3)} kg (${low.toFixed(3)} to ${high.toFixed(3)} kg): the range limits the compensation, it is not for the operator to choose within. Raise a deviation` };
+    }
     if (t10.ok && mates.length > 1) {
       const mine = (t10 as unknown as { fillers: { value: Dec }[] }).fillers[mates.findIndex((f) => f.key === line.key)]!;
       next({ ...t10, value: mine.value, shown: t10.shown } as Outcome<object>);

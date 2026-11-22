@@ -80,8 +80,33 @@ export function FormulaTable({ doc, onChange, md, masters, selected, onSelect, p
           </div>
         ) : <div className="row"><button type="button" onClick={() => setAdding(true)}>+ Add a material</button></div>}
       </div>
+      <Ratios doc={doc} onChange={onChange} />
       {sel && selected !== undefined && <AdjustPanel doc={doc} line={sel} onChange={(l) => put(selected, l)} problems={problems.filter((p) => p.path.startsWith(`formula[${selected}]`))} onAnswer={onAnswer} />}
     </>
+  );
+}
+
+/** F0494: the ratio of two materials that sets the exposure, kept within limits (checked on the formula at its nominal values). */
+function Ratios({ doc, onChange }: { doc: MasterDoc; onChange: (d: MasterDoc) => void }) {
+  const list = doc.header.ratios ?? [];
+  const put = (next: typeof list) => onChange({ ...doc, header: next.length ? { ...doc.header, ratios: next } : (({ ratios: _, ...h }) => h)(doc.header) });
+  if (doc.formula.length < 2) return null;
+  return (
+    <div className="card">
+      <div className="d-section-head"><h2>Ratios of two materials</h2><span className="muted small">For two materials whose ratio sets the release or the dose: the master check refuses a ratio outside the limits.</span></div>
+      {list.map((r, n) => (
+        <div key={n} className="form-grid">
+          <label>First material<select aria-label={`Ratio ${n + 1} first material`} value={r.first} onChange={(e) => put(list.map((x, j) => (j === n ? { ...x, first: e.target.value } : x)))}>
+            {doc.formula.map((l) => <option key={l.key} value={l.key}>{l.name}</option>)}</select></label>
+          <label>to the second material<select aria-label={`Ratio ${n + 1} second material`} value={r.second} onChange={(e) => put(list.map((x, j) => (j === n ? { ...x, second: e.target.value } : x)))}>
+            {doc.formula.map((l) => <option key={l.key} value={l.key}>{l.name}</option>)}</select></label>
+          <label>Lowest ratio<Decimal label={`Ratio ${n + 1} lowest`} value={r.low} onChange={(v) => put(list.map((x, j) => (j === n ? { ...x, low: v } : x)))} /></label>
+          <label>Highest ratio<Decimal label={`Ratio ${n + 1} highest`} value={r.high} onChange={(v) => put(list.map((x, j) => (j === n ? { ...x, high: v } : x)))} /></label>
+          <button type="button" className="link dark small" onClick={() => put(list.filter((_, j) => j !== n))}>Remove</button>
+        </div>
+      ))}
+      {list.length < 5 && <button type="button" onClick={() => put([...list, { first: doc.formula[0]!.key, second: doc.formula[1]!.key, low: '', high: '' }])}>+ Add a ratio</button>}
+    </div>
   );
 }
 
@@ -202,6 +227,8 @@ function AdjustPanel({ doc, line, onChange, problems, onAnswer }: { doc: MasterD
           )) : <p className="muted small">No adjusted material to compensate.</p>}
           {!!a.compensates?.length && <label>Share of the excess with other fillers (parts, e.g. 60 of 60 : 40; empty: this filler alone)<Decimal label="Filler share" placeholder="alone" value={a.ratio}
             onChange={(v) => put({ ...a, ratio: v || undefined })} /></label>}
+          {!!a.compensates?.length && <label>The formula gives a range of ± % for this filler (the compensation must stay within it)<Decimal label="Filler formula range" placeholder="no range" value={a.rangePercent}
+            onChange={(v) => put({ ...a, rangePercent: v || undefined })} /></label>}
         </fieldset>
       )}
       <fieldset className="checklist">
