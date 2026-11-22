@@ -19,12 +19,19 @@ export const compress: Block = {
     { name: 'weightOuterBand', label: 'No tablet outside (± % of the mean)', kind: 'number' },
     { name: 'hardnessLimit', label: 'Hardness limits', kind: 'limit' },
     { name: 'thicknessLimit', label: 'Thickness limits', kind: 'limit' },
+    // Tensile strength of the tablets (T23), from the mean hardness and thickness of the round: optional. The shape and
+    // the diameter of the tablet are the master's; a convex tablet needs its wall (band) thickness.
+    { name: 'tensileShape', label: 'Tensile strength: tablet shape', kind: 'text', options: ['flat round', 'convex round', 'fracture area'], optional: true },
+    { name: 'tabletDiameter', label: 'Tablet diameter', kind: 'quantity', notBatch: 'tolerance', optional: true },
+    { name: 'wallThickness', label: 'Wall (band) thickness of a convex tablet', kind: 'quantity', notBatch: 'tolerance', optional: true },
+    { name: 'tensileLimit', label: 'Tensile strength limits', kind: 'limit', optional: true },
   ],
   calcs: [
     { name: 'meanWeight', label: 'Mean weight', template: 'T7', args: { readings: '$weights', limit: '$meanLimit' } },
     { name: 'individualWeights', label: 'Individual weights', template: 'C3', args: { readings: '$weights', band: { plusMinusPercent: '$weightBand', of: 'mean' }, allowedOutside: 2, outer: { plusMinusPercent: '$weightOuterBand', of: 'mean' }, noun: 'tablets', meanLimit: '$meanLimit' } },
     { name: 'meanHardness', label: 'Hardness', template: 'T7', args: { readings: '$hardness', limit: '$hardnessLimit' } },
     { name: 'meanThickness', label: 'Thickness', template: 'T7', args: { readings: '$thickness', limit: '$thicknessLimit' } },
+    { name: 'tensile', label: 'Tensile strength', template: 'T23', args: { mode: 'compact', shape: '$tensileShape', force: '$meanHardness', diameter: '$tabletDiameter', thickness: '$meanThickness', wallThickness: '$wallThickness?', limit: '$tensileLimit?' } },
     { name: 'finished', label: 'Compression finished', template: 'C4', args: { question: 'Compression finished', answers: ['$compressionDone'], expected: ['yes'] } },
   ],
 };

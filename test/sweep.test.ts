@@ -14,6 +14,7 @@ const pct = (low: string, high: string) => ({ low, high, unit: '%' });
 const minutes = { low: '10', high: '12', unit: 'min' };
 const weights = { meanLimit: { low: '95.0', high: '105.0', unit: 'mg' }, weightBand: '5.0', weightOuterBand: '10.0', hardnessLimit: { low: '40', high: '80', unit: 'N' },
   thicknessLimit: { low: '2.8', high: '3.2', unit: 'mm' } };
+const tensile = { tensileShape: 'flat round', tabletDiameter: '8.0 mm', wallThickness: '1.0 mm', tensileLimit: { low: '0.5', high: '3.0', unit: 'MPa' } };
 // Every setting of every block that has settings, optional ones too.
 const SETTINGS: Record<string, Step['settings']> = {
   weigh: { target: { formula: 'x', adjusted: true }, tolerance: '0.5', portion: 'Intragranular' },
@@ -28,10 +29,10 @@ const SETTINGS: Record<string, Step['settings']> = {
   granulate: { endPointLimit: { low: '8.0', high: '12.0', unit: 'kW' } },
   'roller-compact': { forceUnit: 'kN/cm', forceLimit: { low: '6', high: '10', unit: 'kN/cm' }, gapLimit: { low: '2.0', high: '3.0', unit: 'mm' },
     rollSpeedLimit: { low: '3', high: '8', unit: 'rpm' }, feedSpeedLimit: { low: '20', high: '60', unit: 'rpm' }, screen: '1.0 mm', thicknessLimit: { low: '2.0', high: '3.2', unit: 'mm' },
-    densityLimit: { low: '0.9', high: '1.2', unit: 'g/cm³' }, finesLimit: { high: '30', unit: '%' } },
+    densityLimit: { low: '0.9', high: '1.2', unit: 'g/cm³' }, finesLimit: { high: '30', unit: '%' }, trueDensity: '1.5 g/cm³', solidFractionLimit: { low: '0.6', high: '0.9', unit: '' } },
   'device-assembly': { component: { formula: 'x' }, theoretical: '1000 units', functionSample: '5', forceLimit: { low: '10', high: '25', unit: 'N' }, level: 'II',
     criticalAql: '0', majorAql: '0.65', minorAql: '2.5', yieldLimit: pct('97.0', '100.5'), accountabilityLimit: pct('99.0', '100.5'), componentLimit: pct('99.0', '100.5') },
-  dry: { lodLimit: { high: '2.0', unit: '%' } },
+  dry: { lodLimit: { high: '2.0', unit: '%' }, humidityPer: 'm³ air', humidityLimit: { low: '3', high: '12', unit: 'g/m³' } },
   'dry-constant': { maxChange: '0.5 g' },
   lubricate: { lubricant: { formula: 'x' }, granuleWeight: '0.098 kg', theoretical: '0.100 kg', window: pct('90.0', '102.0'), tolerance: '1.0', mixTimeLimit: minutes },
   'sub-batch-combine': { accountabilityLimit: pct('99.0', '100.5') },
@@ -41,7 +42,7 @@ const SETTINGS: Record<string, Step['settings']> = {
     recoveryLimit: pct('98.0', '102.0') },
   'press-setup': { toolingType: '8.0 mm round', pressureLimit: { low: '100', high: '250', unit: 'MPa' }, speedLimit: { low: '10', high: '60', unit: 'rpm' } },
   'compression-release': weights,
-  compress: weights,
+  compress: { ...weights, ...tensile },
   'bilayer-compress': { ...weights, layerOneLimit: { low: '68.0', high: '72.0', unit: 'mg' }, layerOneBand: '5.0', layerTwoLimit: { low: '28.0', high: '32.0', unit: 'mg' } },
   friability: { lossLimit: { high: '1.0', unit: '%' } },
   disintegration: { maxTime: '15', temperatureLimit: { low: '35', high: '39', unit: '°C' } },
@@ -53,7 +54,7 @@ const SETTINGS: Record<string, Step['settings']> = {
   dissolution: { test: 'dissolution IR', q: '80', timePoint: '45 min, 900 ml pH 6.8' },
   coat: { coreWeight: { header: 'coreWeight' }, gainLimit: pct('2.8', '3.2') },
   'spray-coat': { coreWeight: { header: 'coreWeight' }, base: 'start', gainLimit: pct('2.8', '3.2'), inletLimit: { low: '50', high: '70', unit: '°C' },
-    bedLimit: { low: '35', high: '45', unit: '°C' }, sprayRateLimit: { low: '50', high: '150', unit: 'g/min' } },
+    bedLimit: { low: '35', high: '45', unit: '°C' }, sprayRateLimit: { low: '50', high: '150', unit: 'g/min' }, humidityPer: 'kg dry air', humidityLimit: { low: '4', high: '14', unit: 'g/kg' } },
   'polish-print': { print: 'Logo in black' },
   check: { what: 'Weight', unit: 'mg', limit: { low: '95', high: '105', unit: 'mg' } },
   'qa-sample': { sampleLimit: { low: '50', high: '60', unit: 'tablets' } },

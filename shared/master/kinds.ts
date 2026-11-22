@@ -16,6 +16,8 @@ const T6_MODES: Record<string, Kind> = { carr: 'fraction', hausner: 'number', 'a
 function resultKind(c: Block['calcs'][number]): Kind | undefined | null {
   if (['T3', 'T4', 'T5', 'T22'].includes(c.template)) return 'fraction';
   if (c.template === 'T13') return 'time';
+  if (c.template === 'T23') return (c.args as { mode?: string }).mode === 'ribbon' ? 'number' : 'pressure';
+  if (c.template === 'T25') return undefined; // g/kg or g/m³: the master's choice of "per"
   if (c.template !== 'T6') return null;
   const a = c.args as { mode?: string; unit?: unknown };
   return T6_MODES[a.mode ?? ''] ?? (typeof a.unit === 'string' ? kindOfUnit(a.unit) : undefined);
@@ -49,6 +51,12 @@ export function neededKind(block: Block, setting: string, settings: Step['settin
   for (const c of block.calcs) {
     const refs = refsIn(c.args);
     if (!refs.includes(setting)) continue;
+    // T23: the diameter and the thicknesses are lengths, the true density a density, the weight a mass.
+    if (c.template === 'T23') {
+      const T23: Record<string, Kind> = { diameter: 'length', wallThickness: 'length', thickness: 'length', trueDensity: 'density', envelopeDensity: 'density', weight: 'mass', force: 'force' };
+      const key = Object.entries(c.args).find(([k, v]) => T23[k] && refsIn(v).includes(setting))?.[0];
+      if (key) return T23[key];
+    }
     // T26: the target is of the kind of the main lot's value, the second marker's limits of the second marker's.
     if (c.template === 'T26') {
       const a = c.args as { target?: unknown; others?: { limit?: unknown; a?: unknown }[] };
@@ -77,7 +85,7 @@ export const what = (k: Kind) => (k === 'number' ? 'a plain number' : k === 'fra
 export function unitKindProblem(block: Block, name: string, settings: Step['settings'], unit: string): string | null {
   const s = block.settings.find((x) => x.name === name);
   const target = block.calcs.some((c) => c.template === 'C1' && refsIn((c.args as { around?: { centre?: unknown } }).around?.centre).includes(name));
-  if (!s || (s.kind !== 'limit' && !target)) return null;
+  if (!s || (s.kind !== 'limit' && !target && !(s.kind === 'quantity' && s.notBatch === 'tolerance'))) return null;
   const need = neededKind(block, name, settings);
   const u = findUnit(unit);
   if (!need || !u || u.kind === need || (need === 'temperature difference' && u.kind === 'temperature')) return null;

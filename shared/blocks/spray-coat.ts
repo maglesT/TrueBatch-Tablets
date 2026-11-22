@@ -10,6 +10,7 @@ export const sprayCoat: Block = {
   fields: [
     { name: 'machine', label: 'Coater', kind: 'machine', types: ['coat'] },
     { name: 'inletTemp', label: 'Inlet temperature', kind: 'number', unit: '°C' },
+    { name: 'inletRh', label: 'Relative humidity of the inlet air', kind: 'number', unit: '%RH', optional: true },
     { name: 'bedTemp', label: 'Product temperature', kind: 'number', unit: '°C' },
     { name: 'sprayRate', label: 'Spray rate', kind: 'number', unit: 'g/min' },
     { name: 'airPressure', label: 'Atomising air pressure', kind: 'number', unit: 'bar' },
@@ -24,11 +25,14 @@ export const sprayCoat: Block = {
     { name: 'inletLimit', label: 'Inlet temperature limits', kind: 'limit', optional: true },
     { name: 'bedLimit', label: 'Product temperature limits', kind: 'limit', optional: true },
     { name: 'sprayRateLimit', label: 'Spray rate limits', kind: 'limit', optional: true },
+    { name: 'humidityPer', label: 'Inlet air humidity per', kind: 'text', options: ['kg dry air', 'm³ air'], optional: true },
+    { name: 'humidityLimit', label: 'Inlet air humidity limits (g per kg dry air, or g per m³ of air)', kind: 'limit', optional: true },
   ],
   calcs: [
     { name: 'inletCheck', label: 'Inlet temperature', template: 'C1', args: { value: '$inletTemp', limit: '$inletLimit' } },
     { name: 'bedCheck', label: 'Product temperature', template: 'C1', args: { value: '$bedTemp', limit: '$bedLimit' } },
     { name: 'sprayRateCheck', label: 'Spray rate', template: 'C1', args: { value: '$sprayRate', limit: '$sprayRateLimit' } },
+    { name: 'humidity', label: 'Inlet air absolute humidity', template: 'T25', args: { relativeHumidity: '$inletRh', temperature: '$inletTemp', per: '$humidityPer?', limit: '$humidityLimit?' } },
     { name: 'gain', label: 'Weight gain', template: 'T5', args: { before: '$coreWeight', after: '$meanWeight', mode: 'gain', base: '$base', limit: '$gainLimit' } },
   ],
 };

@@ -33,6 +33,9 @@ export const rollerCompact: Block = {
     { name: 'thicknessLimit', label: 'Ribbon thickness limits', kind: 'limit', optional: true },
     { name: 'densityLimit', label: 'Ribbon density limits', kind: 'limit', optional: true },
     { name: 'finesLimit', label: 'Fines limits', kind: 'limit' },
+    // Solid fraction of the ribbon (T23): its density over the true density of the blend; optional.
+    { name: 'trueDensity', label: 'True density of the blend', kind: 'quantity', notBatch: 'tolerance', optional: true },
+    { name: 'solidFractionLimit', label: 'Ribbon solid fraction limits', kind: 'limit', optional: true },
   ],
   calcs: [
     { name: 'forceCheck', label: 'Roll force', template: 'C1', args: { value: '$rollForce', limit: '$forceLimit' } },
@@ -41,6 +44,7 @@ export const rollerCompact: Block = {
     { name: 'feedSpeedCheck', label: 'Feed screw speed', template: 'C1', args: { value: '$feedSpeed', limit: '$feedSpeedLimit' } },
     { name: 'meanThickness', label: 'Ribbon thickness', template: 'T7', args: { readings: '$ribbonThickness', limit: '$thicknessLimit?' } },
     { name: 'densityCheck', label: 'Ribbon density', template: 'C1', args: { value: '$ribbonDensity', limit: '$densityLimit' } },
+    { name: 'solidFraction', label: 'Ribbon solid fraction', template: 'T23', args: { mode: 'ribbon', envelopeDensity: '$ribbonDensity', trueDensity: '$trueDensity', limit: '$solidFractionLimit?' } },
     { name: 'finesCheck', label: 'Fines', template: 'C1', args: { value: '$fines', limit: '$finesLimit' } },
     { name: 'screenCheck', label: 'Mill screen', template: 'C4', args: { question: 'Mill screen as shown and intact', answers: ['$screenOk'], expected: ['yes'] } },
     { name: 'finished', label: 'Compaction finished', template: 'C4', args: { question: 'Compaction finished', answers: ['$compactionDone'], expected: ['yes'] } },
