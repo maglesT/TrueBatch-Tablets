@@ -483,10 +483,10 @@ async function stockProblem(app: FastifyInstance, tx: Tx, l: LoadedBatch, v: Ste
   const all = r.value.stockAfterUse ? Dec.max(new Dec(r.value.stockAfterUse).plus(mine), 0) : null;
   const available = all && all.lte(own) ? all : own;
   if (want.lte(available)) return null;
-  const why = available === all ? 'after use in all TrueBatch products'
-    : `${stock} ${unit} in stock less ${used} ${unit} already used in ${app.product.name}`;
-  return `Lot ${lot} has ${available} ${unit} available in MMS (${why}): `
-    + `${want} ${unit} cannot be taken from it. ${available.gt(0) ? `Take at most ${available} ${unit}, or another lot.` : 'Take another lot.'}`;
+  const n = (d: Dec) => Number(d.toString()).toLocaleString('en-IN', { maximumFractionDigits: 6 });
+  // Plain words (owner, 22 Nov 2026): what is left, and what to enter.
+  return available.gt(0) ? `Lot ${lot} has only ${n(available)} ${unit} left; enter ${n(available)} or less, or take another lot.`
+    : `Lot ${lot} has no ${unit} left; take another lot.`;
 }
 
 /**

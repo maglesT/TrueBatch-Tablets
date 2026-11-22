@@ -86,8 +86,7 @@ describe('a packing material lot is not issued beyond what MMS shows available',
   it('TB-P4 a quantity within MMS\'s stock is issued; one above it is refused, with what MMS has and what is already used', async () => {
     const over = await record(first, { lot: 'CTN-1', issued: '1200', matches: 'yes' });
     expect(over.statusCode).toBe(409);
-    expect(over.json()).toMatchObject({ problems: ['Lot CTN-1 has 1000 nos available in MMS (1000 nos in stock less 0 nos already used in TrueBatch Tablets Packing): '
-      + '1200 nos cannot be taken from it. Take at most 1000 nos, or another lot.'] });
+    expect(over.json()).toMatchObject({ problems: ['Lot CTN-1 has only 1,000 nos left; enter 1,000 or less, or take another lot.'] });
     expect((await record(first, { lot: 'CTN-1', issued: '600', matches: 'yes' })).statusCode).toBe(200);
     const done = await as('op1', 'POST', `/api/batches/${first}/steps/${CARTON}/done`, { proof: proofFor('op1'), contentHash: await hash(first, CARTON) });
     expect(done.statusCode, done.body).toBe(200);
@@ -95,14 +94,14 @@ describe('a packing material lot is not issued beyond what MMS shows available',
 
   it('TB-P4 what packing already used of the lot is taken off; a step\'s own quantity is not counted twice', async () => {
     expect((await record(second, { lot: 'CTN-1', issued: '500', matches: 'yes' })).json()).toMatchObject({ problems: [
-      'Lot CTN-1 has 400 nos available in MMS (1000 nos in stock less 600 nos already used in TrueBatch Tablets Packing): 500 nos cannot be taken from it. Take at most 400 nos, or another lot.'] });
+      'Lot CTN-1 has only 400 nos left; enter 400 or less, or take another lot.'] });
     expect((await record(second, { lot: 'CTN-1', issued: '400', matches: 'yes' })).statusCode).toBe(200);
     // Typing the quantity again counts it once: still within the stock.
     expect((await record(second, { issued: '400' })).statusCode).toBe(200);
     // Signing it done checks again: MMS's balance fell meanwhile (e.g. an issue in MMS).
     await t.owner.unsafe(`update ${MMS}.lot_v1 set stock = 900 where lot_number = 'CTN-1'`);
     const done = await as('op1', 'POST', `/api/batches/${second}/steps/${CARTON}/done`, { proof: proofFor('op1'), contentHash: await hash(second, CARTON) });
-    expect(done.json()).toMatchObject({ error: 'not_in_stock', problems: [expect.stringMatching(/^Lot CTN-1 has 300 nos available in MMS .*Take at most 300 nos, or another lot\.$/)] });
+    expect(done.json()).toMatchObject({ error: 'not_in_stock', problems: ['Lot CTN-1 has only 300 nos left; enter 300 or less, or take another lot.'] });
     await t.owner.unsafe(`update ${MMS}.lot_v1 set stock = 1000 where lot_number = 'CTN-1'`);
   });
 
@@ -126,7 +125,7 @@ describe('a packing material lot is not issued beyond what MMS shows available',
       returns: [{ lot: 'TB260001', value: '100000', unit: 'tablets' }, { lot: 'CTN-1', value: '200', unit: 'nos' }] });
     expect(r.statusCode, r.body).toBe(200);
     // 1000 in stock less 400 still used by the terminated batch: 600 available for the other one.
-    expect((await record(second, { lot: 'CTN-1', issued: '601', matches: 'yes' })).json()).toMatchObject({ problems: [expect.stringMatching(/^Lot CTN-1 has 600 nos available in MMS \(1000 nos in stock less 400 nos already used/)] });
+    expect((await record(second, { lot: 'CTN-1', issued: '601', matches: 'yes' })).json()).toMatchObject({ problems: ['Lot CTN-1 has only 600 nos left; enter 600 or less, or take another lot.'] });
     expect((await record(second, { lot: 'CTN-1', issued: '600', matches: 'yes' })).statusCode).toBe(200);
   });
 
@@ -141,27 +140,27 @@ describe('a packing material lot is not issued beyond what MMS shows available',
     const correct = (values: object) => as('op1', 'POST', `/api/batches/${third}/steps/${CARTON}/correct`, { values, reason: 'Wrong quantity' });
     try {
       expect((await record(third, { lot: 'CTN-2', issued: '1500', matches: 'yes' })).json()).toMatchObject({ error: 'not_in_stock', problems: [
-        'Lot CTN-2 has 1490 nos available in MMS (after use in all TrueBatch products): 1500 nos cannot be taken from it. Take at most 1490 nos, or another lot.'] });
+        'Lot CTN-2 has only 1,490 nos left; enter 1,490 or less, or take another lot.'] });
       expect((await record(third, { lot: 'CTN-2', issued: '1490', matches: 'yes' })).statusCode).toBe(200);
       const done = await as('op1', 'POST', `/api/batches/${third}/steps/${CARTON}/done`, { proof: proofFor('op1'), contentHash: await hash(third, CARTON) });
       expect(done.statusCode, done.body).toBe(200);
       // MMS has read this use: 0 left after use. A correction of the same step counts its own quantity once.
       await after('CTN-2', 0);
-      expect((await correct({ issued: '1491' })).json()).toMatchObject({ problems: [expect.stringMatching(/^Lot CTN-2 has 1490 nos available in MMS \(after use in all TrueBatch products\): 1491 nos/)] });
+      expect((await correct({ issued: '1491' })).json()).toMatchObject({ problems: ['Lot CTN-2 has only 1,490 nos left; enter 1,490 or less, or take another lot.'] });
       expect((await correct({ issued: '1490' })).statusCode).toBe(200);
       // MMS has not read this product's latest use yet (stock_after_use still the full stock): its own use counts live.
       // CTN-1: 1000 in stock, 400 used by the terminated batch.
       await after('CTN-1', 1000);
       expect((await correct({ lot: 'CTN-1', issued: '700' })).json()).toMatchObject({ problems: [
-        'Lot CTN-1 has 600 nos available in MMS (1000 nos in stock less 400 nos already used in TrueBatch Tablets Packing): 700 nos cannot be taken from it. Take at most 600 nos, or another lot.'] });
+        'Lot CTN-1 has only 600 nos left; enter 600 or less, or take another lot.'] });
       // Once MMS has read the uses, another product's (100 nos) too, the next issue is refused with MMS's figure.
       await after('CTN-1', 500);
       expect((await correct({ lot: 'CTN-1', issued: '600' })).json()).toMatchObject({ problems: [
-        'Lot CTN-1 has 500 nos available in MMS (after use in all TrueBatch products): 600 nos cannot be taken from it. Take at most 500 nos, or another lot.'] });
+        'Lot CTN-1 has only 500 nos left; enter 500 or less, or take another lot.'] });
       // Another product used all of it: nothing to take.
       await after('CTN-1', -138);
       expect((await correct({ lot: 'CTN-1', issued: '1' })).json()).toMatchObject({ problems: [
-        'Lot CTN-1 has 0 nos available in MMS (after use in all TrueBatch products): 1 nos cannot be taken from it. Take another lot.'] });
+        'Lot CTN-1 has no nos left; take another lot.'] });
       // MMS gives no figure (a link of MMS down, or not read lately): this product's own use only, as before.
       await after('CTN-1', null);
       expect((await correct({ lot: 'CTN-1', issued: '600' })).statusCode).toBe(200);
