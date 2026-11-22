@@ -483,10 +483,11 @@ async function stockProblem(app: FastifyInstance, tx: Tx, l: LoadedBatch, v: Ste
   const all = r.value.stockAfterUse ? Dec.max(new Dec(r.value.stockAfterUse).plus(mine), 0) : null;
   const available = all && all.lte(own) ? all : own;
   if (want.lte(available)) return null;
+  const word = unit === 'nos' ? 'units' : unit;
   const n = (d: Dec) => Number(d.toString()).toLocaleString('en-IN', { maximumFractionDigits: 6 });
   // Plain words (owner, 22 Nov 2026): what is left, and what to enter.
-  return available.gt(0) ? `Lot ${lot} has only ${n(available)} ${unit} left; enter ${n(available)} or less, or take another lot.`
-    : `Lot ${lot} has no ${unit} left; take another lot.`;
+  return available.gt(0) ? `Lot ${lot} has only ${n(available)} ${word} left; enter ${n(available)} or less, or take another lot.`
+    : `Lot ${lot} has nothing left; take another lot.`;
 }
 
 /**
