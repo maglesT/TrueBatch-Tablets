@@ -105,3 +105,13 @@ describe('a QA hold', () => {
     expect((await act('asha', h.id, '0.1.1.1', 'start')).statusCode).toBe(200);
   });
 });
+
+describe('All batches', () => {
+  it('lists every batch, newest first, with status words and no step detail, for any signed-in person', async () => {
+    const a = await issue(small([{ steps: [{ checker: true }, { block: { id: 'stage-yield', version: 1 }, checker: true, settings: { theoretical: '0.100 kg', yieldLimit: { low: '97.0', high: '100.5', unit: '%' } } }] }]));
+    const b = await issue(small([{ steps: [{ checker: true }, { block: { id: 'stage-yield', version: 1 }, checker: true, settings: { theoretical: '0.100 kg', yieldLimit: { low: '97.0', high: '100.5', unit: '%' } } }] }]));
+    const rows = (await as('viewer', 'GET', '/api/batches/all')).json() as { id: number; batchNo: string; status: string; issuedAt: string }[];
+    expect(rows.findIndex((r) => r.id === b.id)).toBeLessThan(rows.findIndex((r) => r.id === a.id));
+    expect(rows.find((r) => r.id === a.id)).toMatchObject({ batchNo: a.batchNo, status: 'in production' });
+  });
+});

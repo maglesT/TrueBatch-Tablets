@@ -130,8 +130,8 @@ function Overview({ me, d, blocks, now, reload }: { me: Me; d: BatchDetail; bloc
           ended={ended} stepName={(k) => k} onDone={async () => reload()} />
       </section>}
       {!d.batch.terminated && <section className="dash-panel" aria-label="Production approval">
-        <div className="panel-head"><h2>Production approval</h2><span className="muted">when every stage is closed</span></div>
-        <button className="big" onClick={() => go(`${batchLink(d.batch.id)}/approve`)}>{d.batch.status === 'manufacturing complete' ? 'Review and approve the record' : 'See what is still open'}</button>
+        <div className="panel-head"><h2>Production approval</h2><span className="muted">{['in production', 'manufacturing complete'].includes(d.batch.status) ? 'when every stage is closed' : 'signed: the record is closed to changes'}</span></div>
+        <button className="big" onClick={() => go(`${batchLink(d.batch.id)}/approve`)}>{d.batch.status === 'manufacturing complete' ? 'Review and approve the record' : d.batch.status === 'in production' ? 'See what is still open' : 'See the approved record'}</button>
       </section>}
       {d.batch.actions.includes('abandon') && (
         <section className="dash-panel" aria-label="Abandon the batch">
