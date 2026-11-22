@@ -160,7 +160,7 @@ describe('a packing material lot is not issued beyond what MMS shows available',
       // Another product used all of it: nothing to take.
       await after('CTN-1', -138);
       expect((await correct({ lot: 'CTN-1', issued: '1' })).json()).toMatchObject({ problems: [
-        'Lot CTN-1 has no units left; take another lot.'] });
+        'Lot CTN-1 has nothing left; take another lot.'] });
       // MMS gives no figure (a link of MMS down, or not read lately): this product's own use only, as before.
       await after('CTN-1', null);
       expect((await correct({ lot: 'CTN-1', issued: '600' })).statusCode).toBe(200);
