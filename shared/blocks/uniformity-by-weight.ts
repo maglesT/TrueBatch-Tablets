@@ -9,7 +9,7 @@ import type { Block } from './format.js';
 // it: its assay is typed (round 43, "started before LIMS in-process requests").
 export const uniformityByWeight: Block = {
   id: 'uniformity-by-weight', version: 1, name: 'Uniformity by weight variation', checker: true,
-  instruction: 'Weigh 10 tablets one by one and record each weight. Send a composite sample of the tablets to QC for the assay and pick its result from LIMS once QC has approved it (typed from the QC report only while LIMS cannot be reached).',
+  instruction: 'Weigh 10 tablets one by one and record each weight. Send a composite sample of the tablets to QC for the assay and pick its result from QLIMS once QC has approved it (typed from the QC report only while QLIMS cannot be reached).',
   fields: [
     { name: 'balance', label: 'Balance', kind: 'machine', types: ['balance'], notTypes: ['analytical', 'micro'] },
     { name: 'weights', label: 'Weights of 10 tablets', kind: 'number', unit: 'mg', count: 10 },

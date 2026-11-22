@@ -52,7 +52,7 @@ export function usesChecks(doc: MasterDoc, uses: ReadonlySet<string> | null): Pr
     ...(doc.pack?.materials ?? []).map((m, i) => ({ id: m.materialItemId, code: m.code, path: `pack.materials[${i}]` }))];
   if (!lines.length) return [];
   const product = doc.header.productCode;
-  if (!uses.size) return [{ level: 'warning', path: 'header', message: `Master data lists no materials as used by ${product}: LIMS and MMS rely on these links; ask the master data editor to add them` }];
+  if (!uses.size) return [{ level: 'warning', path: 'header', message: `Master data lists no materials as used by ${product}: QLIMS and MMS rely on these links; ask the master data editor to add them` }];
   return lines.filter((l, i) => !uses.has(l.id) && lines.findIndex((x) => x.id === l.id) === i)
-    .map((l) => ({ level: 'warning', path: l.path, message: `Master data does not list ${l.code} as used by ${product}: LIMS and MMS rely on it; ask the master data editor to add it` }));
+    .map((l) => ({ level: 'warning', path: l.path, message: `Master data does not list ${l.code} as used by ${product}: QLIMS and MMS rely on it; ask the master data editor to add it` }));
 }

@@ -169,3 +169,12 @@ dl.details dd { margin: 0; }
 .brand img.brand-mark { height: 38px; }
 .placeholder { border-style: dashed; color: var(--muted); }
 .placeholder p { margin: 0; }
+
+/* Narrow screens (a phone): the demo band, then the brand and the person on one line, the tabs on one line below. */
+@media (max-width: 640px) {
+  .demo-banner { font-size: 0.72rem; letter-spacing: 0.02em; padding: 3px 10px; }
+  .bar { padding: 6px 12px 9px; gap: 4px 12px; }
+  .bar nav { order: 3; flex: 1 1 100%; flex-wrap: nowrap; overflow-x: auto; }
+  .bar .tab { padding: 8px 10px; font-size: 0.9rem; white-space: nowrap; }
+  .who { margin-left: auto; font-size: 0.85rem; gap: 6px; }
+}

@@ -24,12 +24,12 @@ export function OpsScore({ id }: { id: number }) {
   if (!s) return null;
   const range = (a: string | null, b: string | null, f: (x: string) => string) => (a && b ? ` (${f(a)} to ${f(b)})` : '');
   return (
-    <aside className="notice info ops-score" aria-label="Operations scoring (information only)">
+    <aside className="notice info ops-score" aria-label="RISE scoring (information only)">
       <p><b>Compared with good batches: {LEVEL[s.level]}</b>{s.reasons.length && s.level !== 'usual' ? ` (${s.reasons.join('; ')})` : ''}
         {s.valuesTotal ? <span className="muted small"> · {s.valuesSeen ?? 0} of {s.valuesTotal} values seen</span> : null}</p>
       {s.expectedFinishAt && <p>Expected finish {plainClock(s.expectedFinishAt)}{range(s.finishFrom, s.finishTo, plainClock)}</p>}
       {s.expectedYieldPercent && <p>Expected yield {pct(s.expectedYieldPercent)}{range(s.yieldFrom, s.yieldTo, pct)}</p>}
-      <p className="muted small">From Operations{s.stageTitle ? `, at ${s.stageTitle}${s.stepTitle ? ` › ${s.stepTitle}` : ''}` : ''}{s.scoredAt ? `, as of ${plainClock(s.scoredAt)}` : ''}. Information only: it does not decide anything in this record.</p>
+      <p className="muted small">From RISE{s.stageTitle ? `, at ${s.stageTitle}${s.stepTitle ? ` › ${s.stepTitle}` : ''}` : ''}{s.scoredAt ? `, as of ${plainClock(s.scoredAt)}` : ''}. Information only: it does not decide anything in this record.</p>
     </aside>
   );
 }

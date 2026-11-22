@@ -8,7 +8,7 @@ import type { Block } from './format.js';
 // (several time points, each with its range) is its own block (dissolution-er.ts, fix 1121 B2).
 export const dissolution: Block = {
   id: 'dissolution', version: 1, name: 'Dissolution (QC lab)', checker: true,
-  instruction: 'Take the units for dissolution as the sampling plan says, label them and send them to QC. Pick the results from LIMS once QC has approved them; if a stage does not pass and QC tested more units, pick those too (typed from the QC report only while LIMS cannot be reached).',
+  instruction: 'Take the units for dissolution as the sampling plan says, label them and send them to QC. Pick the results from QLIMS once QC has approved them; if a stage does not pass and QC tested more units, pick those too (typed from the QC report only while QLIMS cannot be reached).',
   fields: [
     { name: 'results', label: 'Dissolved, 6 units (% of label claim)', kind: 'number', unit: '%', count: 6, qc: 'in_process', figure: 'mean', nextStage: 'moreResults' },
     { name: 'moreResults', label: 'Dissolved, 6 more units (% of label claim)', kind: 'number', unit: '%', count: 6, optional: true, qc: 'in_process', figure: 'mean', nextStage: 'lastResults' },

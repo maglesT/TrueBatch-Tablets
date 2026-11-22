@@ -19,7 +19,7 @@ const stagesOf = (n: number): BlockField[] => {
 
 export const dissolutionEr: Block = {
   id: 'dissolution-er', version: 1, name: 'Dissolution profile, extended release (QC lab)', checker: true,
-  instruction: 'Take the units for dissolution as the sampling plan says, label them and send them to QC. Pick the results of every time point from LIMS once QC has approved them; if a stage does not pass and QC tested more units, pick those too (typed from the QC report only while LIMS cannot be reached).',
+  instruction: 'Take the units for dissolution as the sampling plan says, label them and send them to QC. Pick the results of every time point from QLIMS once QC has approved them; if a stage does not pass and QC tested more units, pick those too (typed from the QC report only while QLIMS cannot be reached).',
   fields: POINTS.flatMap(stagesOf),
   settings: [
     ...POINTS.flatMap((n) => [

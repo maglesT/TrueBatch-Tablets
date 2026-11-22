@@ -6,7 +6,7 @@ import type { Block } from './format.js';
 // more); its reported figure is the acceptance value, worked out again here.
 export const contentUniformity: Block = {
   id: 'content-uniformity', version: 1, name: 'Content uniformity sampling', checker: true,
-  instruction: 'Take the tablets for content uniformity as the sampling plan says, label them and send them to QC. Pick the content of each tablet from LIMS once QC has approved it; if the first 10 do not pass and QC tested 20 more, pick those too (typed from the QC report only while LIMS cannot be reached).',
+  instruction: 'Take the tablets for content uniformity as the sampling plan says, label them and send them to QC. Pick the content of each tablet from QLIMS once QC has approved it; if the first 10 do not pass and QC tested 20 more, pick those too (typed from the QC report only while QLIMS cannot be reached).',
   fields: [
     { name: 'results', label: 'Content of 10 tablets (% of label claim)', kind: 'number', unit: '%', count: 10, qc: 'in_process', figure: 'AV', nextStage: 'moreResults' },
     { name: 'moreResults', label: 'Content of 20 more tablets (% of label claim)', kind: 'number', unit: '%', count: 20, optional: true, qc: 'in_process', figure: 'AV' },

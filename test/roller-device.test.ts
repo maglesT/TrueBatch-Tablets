@@ -165,8 +165,8 @@ describe('round 47 with the new blocks: a deviation note without a number waits 
     const refusal = (b: BatchEvent[]) => batchRefusal('release', batchView(doc, events, b, at(1000)), qa)?.problems ?? null;
     const yieldRule = 'The yield of Dry granulation › Device assembly: M is out of limits: a deviation note with its reference is needed';
     expect(refusal(approved)).toEqual([
-      'Deviation note “Roll gap drifted” (Dry granulation › Roller compaction with periodic checks (round 1)) waits for a decision: close it here or send it to Deviations',
-      'Deviation note “One device did not lock” (Dry granulation › Device assembly: M) waits for a decision: close it here or send it to Deviations', yieldRule]);
+      'Deviation note “Roll gap drifted” (Dry granulation › Roller compaction with periodic checks (round 1)) waits for a decision: close it here or send it to DIVE',
+      'Deviation note “One device did not lock” (Dry granulation › Device assembly: M) waits for a decision: close it here or send it to DIVE', yieldRule]);
     const closed = [...approved, be('exception_closed', { note: gap.id, reason: 'Gap reset at once' }), be('exception_closed', { note: dev.id, reason: 'Device rejected, line adjusted' })];
     expect(refusal(closed)).toEqual([yieldRule]);
   });

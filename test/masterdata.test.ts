@@ -59,7 +59,7 @@ describe('fix 1121 B6: materials master data does not list as used by the produc
     expect(usesChecks(doc, null)).toEqual([]);
     expect(usesChecks(doc, new Set(ids))).toEqual([]);
     const missing = usesChecks(doc, new Set(ids.slice(1)));
-    expect(missing).toEqual([{ level: 'warning', path: 'formula[0]', message: `Master data does not list ${doc.formula[0]!.code} as used by ${doc.header.productCode}: LIMS and MMS rely on it; ask the master data editor to add it` }]);
+    expect(missing).toEqual([{ level: 'warning', path: 'formula[0]', message: `Master data does not list ${doc.formula[0]!.code} as used by ${doc.header.productCode}: QLIMS and MMS rely on it; ask the master data editor to add it` }]);
     expect(usesChecks(doc, new Set())).toEqual([{ level: 'warning', path: 'header', message: expect.stringContaining(`Master data lists no materials as used by ${doc.header.productCode}`) }]);
   });
   it('the designer reads the links of a product; a product without published links gives null', async () => {

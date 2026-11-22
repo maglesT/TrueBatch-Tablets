@@ -32,7 +32,7 @@ export function Exceptions({ me, batchId, batchNo, exceptions, contentHash, devi
             <small>{exceptionText(x, plainClock)}</small>
             {may && x.decision === 'open' && <span className="ex-actions">
               <button onClick={() => { setReason(''); setClosing(x); }}>Close here…</button>
-              {deviationsLink !== 'absent' && <button onClick={() => void send(x)}>Send to Deviations</button>}
+              {deviationsLink !== 'absent' && <button onClick={() => void send(x)}>Send to DIVE</button>}
             </span>}
           </li>
         ))}
@@ -42,7 +42,7 @@ export function Exceptions({ me, batchId, batchNo, exceptions, contentHash, devi
           onCancel={() => setClosing(null)} onSubmit={async (r) => setReason(r)} />
       )}
       {closing && reason && (
-        <SignDialog meaning="exception_closed" what={`Batch ${batchNo}: the deviation note is closed here, in the batch record, and not sent to Deviations.`}
+        <SignDialog meaning="exception_closed" what={`Batch ${batchNo}: the deviation note is closed here, in the batch record, and not sent to DIVE.`}
           onCancel={() => setClosing(null)}
           onSign={async ({ proof }) => {
             await api('POST', `/api/batches/${batchId}/close-exception`, { proof, contentHash, note: closing.note, reason });

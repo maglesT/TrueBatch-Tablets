@@ -12,7 +12,7 @@ const schema = z.object({
   MASTER_DATA_DATABASE_URL: z.string().url(),
   // The optional links (PL-08), written by apply only while each link is on; unset, people go on by hand.
   DEVIATIONS_DATABASE_URL: optionalUrl,
-  QMS_DATABASE_URL: optionalUrl,
+  ASSURE_DATABASE_URL: optionalUrl,
   LOGBOOK_DATABASE_URL: optionalUrl,
   MMS_DATABASE_URL: optionalUrl,
   // Recruitment's training_v1: only trained people sign a step that names a training (owner, 17 Nov 2026).
