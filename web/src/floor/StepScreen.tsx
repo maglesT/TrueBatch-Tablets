@@ -14,6 +14,7 @@ import { CERTIFICATE, fieldLabel, handEntered, LINK_OF } from '../../../shared/e
 import { answersField, inProcessFit, ipcCodes, labRequestId, sameUnit } from '../../../shared/engine/lims.js';
 import { askedFields, cutShort, notYetText } from '../../../shared/engine/batch.js';
 import { limitInReadingUnit, lineField, lineQuantity, weighTarget } from '../../../shared/engine/values.js';
+import { expiryMonth } from '../../../shared/templates/packing.js';
 import { plantText } from '../../../shared/plant-time.js';
 import { dispensingRooms, emptyNote, inLogbook, machineRefusal, roomRefusal } from '../../../shared/engine/picks.js';
 import { materialLines } from '../../../shared/master/schema.js';
@@ -317,6 +318,7 @@ export function StepScreen({ me, d, blocks, row, now, reload }: { me: Me; d: Bat
         <div>
           <section className="dash-panel" aria-label="Instruction">
             <p className="instr">{st.instruction || block.instruction}</p>
+            {block.id === 'coding-check' && doc.pack && codingShould(d) && <p className="notice info" role="note"><b>It should print:</b> {codingShould(d)}</p>}
             {st.training && <p className="muted small">{neededText(st.training, st.checker)}</p>}
             {settingsText(doc, block, st, row, mdUnit).length > 0 && <dl className="fields">{settingsText(doc, block, st, row, mdUnit).map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl>}
           </section>
@@ -564,4 +566,20 @@ function Correct({ f, unit, mdUnit, saved, picks, options, results, inProcess, o
       <FieldInput f={f} unit={unit} saved={saved} picks={picks} options={options} results={results} inProcess={inProcess} onChange={setRaw} />
     </ReasonDialog>
   );
+}
+
+/** What a pack should print (coding check): the BULK batch number (not the packing batch), its manufacturing month, the expiry from the shelf life, the MRP. */
+function codingShould(d: BatchDetail): string {
+  const pack = d.master.doc.pack;
+  const vals = d.steps.map((x) => x.values);
+  const bulk = vals.map((v) => v.bulk).find((v) => typeof v === 'string') as string | undefined;
+  const mfg = vals.map((v) => v.mfgDate).find((v) => typeof v === 'string') as string | undefined;
+  if (!pack || !bulk) return '';
+  const word = (m: string) => `${m.slice(5, 7)}/${m.slice(0, 4)}`;
+  const parts = [`batch no. ${bulk} (the bulk batch)`];
+  try {
+    if (mfg) { parts.push(`Mfg ${word(mfg)}`); parts.push(`Exp ${word(expiryMonth(mfg, String(pack.shelfLifeMonths), pack.expiryRule))}`); }
+  } catch { /* a date that cannot be read is left out */ }
+  if (pack.mrp) parts.push(`MRP Rs. ${pack.mrp}`);
+  return parts.join(' · ');
 }
