@@ -54,7 +54,12 @@ export const stepSchema = z.object({
   everyMinutesLater: z.object({ afterMinutes: z.number().int().positive().max(10_000), everyMinutes: z.number().int().positive().max(10_000) }).strict().optional(),
   // F4 by a rule: the step is done only when a header value is within the limit (F0040: the bag premix only for a
   // batch of at most 50 kg); otherwise it is not applicable, with no operator choice.
-  onlyIf: z.object({ header: z.enum(['batchSize', 'coreBatch']), limit: limitSchema }).strict().optional(),
+  // F4 by a value recorded in the batch (template round 22 Nov 2026): instead of a header value, `ref` is an earlier step's
+  // field or calculation ("stage/step/name"); the step waits for that value, then is done only when it is within the limit.
+  onlyIf: z.object({ header: z.enum(['batchSize', 'coreBatch']).optional(), ref: z.string().regex(/^[a-z0-9-]+\/[a-z0-9-]+\/[a-zA-Z0-9]+$/, 'stage/step/name').optional(), limit: limitSchema }).strict().optional(),
+  // F6 with an interval that changes by a value (as the target nears): when this step's latest round has `field` (a number
+  // it records, or one of its calculations) within the limit, the next round comes after `everyMinutes` instead.
+  everyMinutesBy: z.object({ field: z.string().regex(/^[a-z][a-zA-Z0-9]{0,39}$/), limit: limitSchema, everyMinutes: z.number().int().positive().max(10_000) }).strict().optional(),
   // A spray of a liquid made in excess: the amount of liquid to apply per amount charged (F0339: 971 g per 150 g).
   applyPerCharge: z.object({ liquid: text(40), charge: text(40) }).strict().optional(),
   // Order-critical: this step must come after the step with this key in the same stage (F0318: the drug after the PVP).

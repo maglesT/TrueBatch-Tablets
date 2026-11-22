@@ -8,7 +8,7 @@ import type { Stored, Value } from '../../../shared/engine/index.js';
 import type { Kind } from '../../../shared/templates/index.js';
 import { HEADER_VALUES, materialLines, type Limit, type MasterDoc, type SettingValue, type Step } from '../../../shared/master/schema.js';
 import { usedFields, verdictless, workedExample } from './example.js';
-import { HEADER_LABEL, kindOfUnit, labelClaimLines, neededKind, quantityChoices, unitLabel, unitsOf } from './model.js';
+import { earlierRefs, HEADER_LABEL, kindOf, kindOfUnit, labelClaimLines, neededKind, quantityChoices, unitLabel, unitsOf } from './model.js';
 import { lower, sentence, slotsOf, type Part } from './sentences.js';
 import { Decimal } from './ui.js';
 import { api } from '../api.js';
@@ -22,7 +22,7 @@ export function StepSettings({ doc, si, ti, onChange }: { doc: MasterDoc; si: nu
   const block = findBlock(step.block);
   if (!block) return <p className="error">No block {step.block.id} version {step.block.version} in the library.</p>;
   // An optional step field: set, or left out when undefined.
-  const opt = <K extends 'everyMinutesLater' | 'onlyIf' | 'orderAfter' | 'applyPerCharge'>(k: K, v: Step[K] | undefined) => {
+  const opt = <K extends 'everyMinutesLater' | 'everyMinutesBy' | 'onlyIf' | 'orderAfter' | 'applyPerCharge'>(k: K, v: Step[K] | undefined) => {
     const next: Step = { ...step, [k]: v };
     if (v === undefined) delete next[k];
     onChange(next);
@@ -108,8 +108,28 @@ export function StepSettings({ doc, si, ti, onChange }: { doc: MasterDoc; si: nu
             <label>After (minutes from the first round)<input type="number" min={1} value={step.everyMinutesLater?.afterMinutes ?? ''} onChange={(e) => opt('everyMinutesLater', e.target.value ? { afterMinutes: Number(e.target.value), everyMinutes: step.everyMinutesLater?.everyMinutes ?? step.everyMinutes! } : undefined)} /></label>
             {step.everyMinutesLater && <label>then a round every (minutes)<input type="number" min={1} value={step.everyMinutesLater.everyMinutes} onChange={(e) => opt('everyMinutesLater', { ...step.everyMinutesLater!, everyMinutes: Number(e.target.value) || 1 })} /></label>}
           </>}
-          <label>Only when the core batch is at most (kg)<Decimal label="Only when the core batch is at most (kg)" placeholder="always" value={step.onlyIf?.limit.high}
+          <label>Only when the core batch is at most (kg)<Decimal label="Only when the core batch is at most (kg)" placeholder="always" value={step.onlyIf?.header ? step.onlyIf.limit.high : undefined}
             onChange={(v) => opt('onlyIf', v ? { header: 'coreBatch', limit: { high: v, unit: 'kg' } } : undefined)} /></label>
+          {/* F4 by a value recorded earlier in the batch: the step waits for it, then is done only when it is within the limits. */}
+          <label>Done only when a value of an earlier step is within limits<select aria-label="Rule by an earlier value" value={step.onlyIf?.ref ?? ''}
+            onChange={(e) => { const r = earlierRefs(doc, si, ti).find((x) => x.ref === e.target.value); opt('onlyIf', r ? { ref: r.ref, limit: { unit: unitsOf(r.kind)[0]?.symbol ?? '' } } : undefined); }}>
+            <option value="">(always)</option>{earlierRefs(doc, si, ti).map((r) => <option key={r.ref} value={r.ref}>{r.label}</option>)}</select></label>
+          {step.onlyIf?.ref && <span className="limit">within <Decimal label="Rule lowest" placeholder="lowest" value={step.onlyIf.limit.low} onChange={(v) => opt('onlyIf', { ...step.onlyIf!, limit: { ...step.onlyIf!.limit, low: v || undefined } })} width={5} /> to{' '}
+            <Decimal label="Rule highest" placeholder="highest" value={step.onlyIf.limit.high} onChange={(v) => opt('onlyIf', { ...step.onlyIf!, limit: { ...step.onlyIf!.limit, high: v || undefined } })} width={5} />{' '}
+            <select aria-label="Rule unit" value={step.onlyIf.limit.unit} onChange={(e) => opt('onlyIf', { ...step.onlyIf!, limit: { ...step.onlyIf!.limit, unit: e.target.value } })}>
+              {unitsOf(kindOfUnit(step.onlyIf.limit.unit)).map((u) => <option key={u.symbol} value={u.symbol}>{unitLabel(u.symbol)}</option>)}</select></span>}
+          {step.everyMinutes && <>
+            <label>The next round comes sooner when a value is within limits<select aria-label="Interval by a value" value={step.everyMinutesBy?.field ?? ''}
+              onChange={(e) => { const f = block.fields.find((x) => x.name === e.target.value); const c = block.calcs.find((x) => x.name === e.target.value); const k = kindOf(block, e.target.value, step.settings);
+                opt('everyMinutesBy', f || c ? { field: e.target.value, limit: { unit: unitsOf(k)[0]?.symbol ?? '' }, everyMinutes: step.everyMinutesBy?.everyMinutes ?? Math.max(1, Math.floor(step.everyMinutes! / 2)) } : undefined); }}>
+              <option value="">(no)</option>{block.fields.filter((f) => f.kind === 'number' && !f.count).map((f) => <option key={f.name} value={f.name}>{f.label}</option>)}
+              {block.calcs.filter((c) => !/^(C\d|F2)$/.test(c.template)).map((c) => <option key={c.name} value={c.name}>{c.label}</option>)}</select></label>
+            {step.everyMinutesBy && <span className="limit">within <Decimal label="Interval lowest" placeholder="lowest" value={step.everyMinutesBy.limit.low} onChange={(v) => opt('everyMinutesBy', { ...step.everyMinutesBy!, limit: { ...step.everyMinutesBy!.limit, low: v || undefined } })} width={5} /> to{' '}
+              <Decimal label="Interval highest" placeholder="highest" value={step.everyMinutesBy.limit.high} onChange={(v) => opt('everyMinutesBy', { ...step.everyMinutesBy!, limit: { ...step.everyMinutesBy!.limit, high: v || undefined } })} width={5} />{' '}
+              <select aria-label="Interval unit" value={step.everyMinutesBy.limit.unit} onChange={(e) => opt('everyMinutesBy', { ...step.everyMinutesBy!, limit: { ...step.everyMinutesBy!.limit, unit: e.target.value } })}>
+                {unitsOf(kindOfUnit(step.everyMinutesBy.limit.unit)).map((u) => <option key={u.symbol} value={u.symbol}>{unitLabel(u.symbol)}</option>)}</select>{' '}
+              then every <input type="number" min={1} aria-label="Interval then every" value={step.everyMinutesBy.everyMinutes} onChange={(e) => opt('everyMinutesBy', { ...step.everyMinutesBy!, everyMinutes: Number(e.target.value) || 1 })} style={{ width: '5em' }} /> min</span>}
+          </>}
           <label>Order-critical: must come after<select value={step.orderAfter ?? ''} onChange={(e) => opt('orderAfter', e.target.value || undefined)}>
             <option value="">(not order-critical)</option>{doc.stages[si]!.steps.map((t, j) => t.key !== step.key && <option key={t.key} value={t.key}>{j + 1}. {stepTitle(doc, t)}</option>)}</select></label>
           {/^(coat|spray-coat)$/.test(block.id) && <>

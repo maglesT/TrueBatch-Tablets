@@ -153,12 +153,13 @@ function fullTablet(): MasterDoc {
   doc.stages[1]!.roomTypes = ['Granulation room'];
   doc.stages[1]!.steps.push({ key: 'check-all', block: { id: 'check', version: 1 }, name: 'Appearance of the granules', instruction: 'Look at the granules.',
     settings: { what: 'Appearance score', unit: 'mm', limit: { low: '1', high: '9', unit: 'mm', lowStrict: true, highStrict: true, alertLow: '2', alertHigh: '8' } },
-    checker: true, waitForCheck: true, critical: true, minMinutes: 5, everyMinutes: 30, everyMinutesLater: { afterMinutes: 60, everyMinutes: 15 },
+    checker: true, waitForCheck: true, critical: true, minMinutes: 5, everyMinutes: 30, everyMinutesLater: { afterMinutes: 60, everyMinutes: 15 }, everyMinutesBy: { field: 'reading', limit: { low: '1', high: '9', unit: 'mm', lowStrict: true, highStrict: true, alertLow: '2', alertHigh: '8' }, everyMinutes: 10 },
     onlyIf: { header: 'batchSize', limit: { low: '1000', high: '200000', unit: '', lowStrict: true, highStrict: true, alertLow: '2000', alertHigh: '100000' } },
     applyPerCharge: { liquid: '971 g', charge: '150 g' }, orderAfter: 'granulate', flow: { kind: 'repeat-until', maxRounds: 3, stop: 'readingCheck' },
     training: { code: 'SK-001', title: 'Visual inspection' } });
   // A round time on a step that does not repeat.
-  doc.stages[1]!.steps.push({ key: 'sample', block: { id: 'qa-sample', version: 1 }, checker: false, waitForCheck: false, critical: false, everyMinutes: 20, settings: {}, flow: { kind: 'optional-with-reason' } });
+  doc.stages[1]!.steps.push({ key: 'sample', block: { id: 'qa-sample', version: 1 }, checker: false, waitForCheck: false, critical: false, everyMinutes: 20, settings: {}, flow: { kind: 'optional-with-reason' },
+    onlyIf: { ref: 'granulation/dry/lod', limit: { low: '0', high: '2', unit: '%' } } });
   // The herbal line's calculation check, answered with a reason.
   const q = masterChecks(doc).find((p) => p.question?.key === 'herbal/senna')!;
   doc.answers = { 'herbal/senna': { about: q.message, choice: 'extract weight', reason: 'The extract is weighed as supplied.' } };

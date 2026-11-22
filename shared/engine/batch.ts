@@ -6,7 +6,7 @@ import { findBlock, labelled, asked, type Block } from '../blocks/index.js';
 import { materialLines, type MasterDoc, type Step } from '../master/schema.js';
 import { keyId, sinceUndo, stepState, type EventKind, type State, type StepEvent, type StepKey } from './state.js';
 import { c1WithinLimits, convert, Dec, findUnit } from '../templates/index.js';
-import { currentValues, durationId, durations, evaluate, failed, headerValue, inputChanges, type Current } from './values.js';
+import { currentValues, durationId, durations, evaluate, failed, headerValue, inputChanges, refValue, type Current } from './values.js';
 import { CERTIFICATE, fieldLabel, handEntered, handFields, isHand } from './links.js';
 
 export interface StepView extends Current {
@@ -76,12 +76,39 @@ export function stepPlace(doc: MasterDoc, k: StepKey): string {
 }
 
 /** F4 by a rule of the master on a header value (e.g. the bag premix only for a batch of at most 50 kg); null when the step is in. */
-export function leftOutBy(doc: MasterDoc, st: Step): string | null {
+export function leftOutBy(doc: MasterDoc, st: Step, events: readonly StepEvent[] = [], here?: StepKey): string | null {
   if (!st.onlyIf) return null;
+  if (st.onlyIf.ref) {
+    // F4 by a recorded value: not decided until the value is there (see waitsForRule).
+    const v = here ? recordedValue(doc, events, here, st.onlyIf.ref) : undefined;
+    if (v === undefined) return null;
+    const r = c1WithinLimits({ value: v, limit: st.onlyIf.limit });
+    return r.ok && r.check?.pass ? null : `Left out by the master's rule: only when ${refWords(doc, st.onlyIf.ref)} is ${r.ok ? r.check?.shown ?? '' : 'within its limit'}`;
+  }
+  if (!st.onlyIf.header) return null;
   const h = headerValue(doc, st.onlyIf.header);
   const value = typeof h === 'string' ? h : h.ok ? { value: h.value, unit: h.unit } : undefined;
   const r = value === undefined ? undefined : c1WithinLimits({ value, limit: st.onlyIf.limit });
   return r?.ok && r.check?.pass ? null : `Left out by the master's rule: only when the ${st.onlyIf.header === 'batchSize' ? 'batch size' : 'core batch weight'} is ${r?.ok ? r.check?.shown ?? '' : 'within its limit'}`;
+}
+/** The value an earlier step recorded or worked out ("stage/step/name"), as a number with its unit; undefined while it is not there. */
+export function recordedValue(doc: MasterDoc, events: readonly StepEvent[], here: StepKey, ref: string): { value: string; unit: string } | undefined {
+  const r = refValue(doc, events, here, ref, []);
+  const q = r as { value?: unknown; unit?: unknown } | undefined;
+  return q && typeof q === 'object' && !Array.isArray(q) && typeof q.value === 'string' && typeof q.unit === 'string' ? { value: q.value, unit: q.unit } : undefined;
+}
+/** A reference in words: "Granulation › Dry to an LOD limit › Loss on drying". */
+export function refWords(doc: MasterDoc, ref: string): string {
+  const [sk, tk, name] = ref.split('/') as [string, string, string];
+  const s = doc.stages.find((x) => x.key === sk);
+  const t = s?.steps.find((x) => x.key === tk);
+  const b = t && findBlock(t.block);
+  const what = b && [...b.fields, ...b.calcs].find((x) => x.name === name)?.label;
+  return s && t ? `${s.name} › ${stepTitle(doc, t)} › ${what ?? name}` : ref;
+}
+/** F4 by a recorded value: the step waits for the value its rule reads (null when it is there, or the rule reads a header value). */
+export function waitsForRule(doc: MasterDoc, st: Step, events: readonly StepEvent[], here: StepKey): string | null {
+  return st.onlyIf?.ref && recordedValue(doc, events, here, st.onlyIf.ref) === undefined ? `Waits for ${refWords(doc, st.onlyIf.ref)}: the master decides from it whether this step is done` : null;
 }
 export interface StageView { index: number; key: string; name: string; open: boolean; blocked?: string; closed: boolean }
 export interface Timer {
@@ -215,15 +242,16 @@ export function openSteps(doc: MasterDoc, events: readonly StepEvent[], now: Dat
           const inputChanged = inputChanges(events, c.uses);
           // A value entered by hand (a link absent or down) needs a second-person check (owner 15 Nov 2026).
           let { state, needsResign } = stepState(evs, st.checker || handEntered(c.source));
-          const leftOut = leftOutBy(doc, st);
+          const leftOut = leftOutBy(doc, st, events, key);
+          const waits = waitsForRule(doc, st, events, key);
           if (leftOut) state = 'not_applicable';
           if (inputChanged.length) {
             c.results = evaluate(doc, events, key, c.values);
             if (state === 'done' || state === 'done_awaiting_check' || state === 'checked') [state, needsResign] = ['in_progress', true];
           }
           const notYet = notYetOf(st, round, c.results);
-          last = { key, id: keyId(key), stageKey: s.key, stepKey: st.key, state: state === 'waiting' && gate === null ? 'open' : state, needsResign,
-            ...(state === 'waiting' && gate !== null ? { blocked: gate } : {}), events: evs, ...c, inputChanged, ...(leftOut ? { leftOut } : {}), ...(notYet ? { notYet } : {}) };
+          last = { key, id: keyId(key), stageKey: s.key, stepKey: st.key, state: state === 'waiting' && gate === null && !waits ? 'open' : state, needsResign,
+            ...(state === 'waiting' && (gate !== null || waits) ? { blocked: gate ?? waits! } : {}), events: evs, ...c, inputChanged, ...(leftOut ? { leftOut } : {}), ...(notYet ? { notYet } : {}) };
           steps.push(last);
           // A round that has events is always shown (an earlier round may be back in progress after a correction).
           if (!byKey.has(keyId({ ...key, round: round + 1 })) && (st.flow.kind !== 'repeat-until' || !finished(last, st.waitForCheck) || stopPassed(last, st) || round >= maxRounds(st))) break;
@@ -334,7 +362,11 @@ export function timers(doc: MasterDoc, events: readonly StepEvent[], now: Date):
       const first = steps.find((x) => x.id === keyId({ ...v.key, round: 1 }));
       const firstStart = first && earliest(first.events, 'started');
       const later = st.everyMinutesLater && firstStart && started >= plus(firstStart, st.everyMinutesLater.afterMinutes);
-      const every = later ? st.everyMinutesLater!.everyMinutes : st.everyMinutes;
+      // F6 by a value: the latest round's value within the master's limit shortens (or lengthens) the next interval.
+      const by = st.everyMinutesBy;
+      const seen = by ? (typeof v.values[by.field] === 'object' && !Array.isArray(v.values[by.field]) ? v.values[by.field] as { value: string; unit: string } : v.results[by.field]?.ok ? { value: (v.results[by.field] as { value: string }).value, unit: (v.results[by.field] as { unit: string }).unit } : undefined) : undefined;
+      const near = by && seen && (() => { const r = c1WithinLimits({ value: seen, limit: by.limit }); return r.ok && r.check?.pass === true; })();
+      const every = near ? by!.everyMinutes : later ? st.everyMinutesLater!.everyMinutes : st.everyMinutes;
       const id = `every:${keyId(key)}`;
       const skip = skipOf(v.events, id);
       const at = skip?.at ?? plus(started, every);

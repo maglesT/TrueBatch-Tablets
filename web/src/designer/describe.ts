@@ -4,7 +4,7 @@ import { findBlock } from '../../../shared/blocks/index.js';
 import { masterChecks } from '../../../shared/master/checks.js';
 import { masterSchema, materialLines, type FormulaLine, type MasterDoc, type Stage, type Step } from '../../../shared/master/schema.js';
 import { perPackText, unitName } from '../../../shared/engine/stock.js';
-import { stepTitle } from '../../../shared/engine/batch.js';
+import { refWords, stepTitle } from '../../../shared/engine/batch.js';
 import { neededText } from '../../../shared/engine/training.js';
 import { grouped, placeLabel } from './model.js';
 import { limitText, sentence, sentenceText, settingText, slotsOf } from './sentences.js';
@@ -77,7 +77,8 @@ export function stepText(doc: MasterDoc, t: Step, j: number, units?: Units): str
     t.training ? neededText(t.training, t.checker) : '',
     t.critical ? 'Critical step.' : '', t.minMinutes ? `Takes at least ${t.minMinutes} minutes.` : '', flow, every,
     t.everyMinutesLater ? `After ${t.everyMinutesLater.afterMinutes} minutes, a round every ${t.everyMinutesLater.everyMinutes} minutes.` : '',
-    t.onlyIf ? `Done only when the ${t.onlyIf.header === 'batchSize' ? 'batch size' : 'core batch weight'} is ${limitText(t.onlyIf.limit)}; otherwise left out.` : '',
+    t.onlyIf ? `Done only when ${t.onlyIf.ref ? `${refWords(doc, t.onlyIf.ref)} (an earlier step)` : t.onlyIf.header === 'batchSize' ? 'the batch size' : 'the core batch weight'} is ${limitText(t.onlyIf.limit)}; otherwise left out.` : '',
+    t.everyMinutesBy ? `When ${[...b.fields, ...b.calcs].find((x) => x.name === t.everyMinutesBy!.field)?.label.toLowerCase() ?? t.everyMinutesBy.field} of a round is ${limitText(t.everyMinutesBy.limit)}, the next round is after ${t.everyMinutesBy.everyMinutes} minutes.` : '',
     t.orderAfter ? `Order-critical: after step ${after < 0 ? '(no longer in this stage)' : `${after + 1}. ${stepTitle(doc, steps[after]!)}`}.` : '',
     t.applyPerCharge ? `Apply ${t.applyPerCharge.liquid} of the liquid per ${t.applyPerCharge.charge} charged, then stop.` : ''].filter(Boolean).join(' ');
 }

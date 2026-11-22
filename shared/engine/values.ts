@@ -135,7 +135,7 @@ function latestValues(events: readonly StepEvent[], stage: number, sub: number, 
 }
 
 /** An earlier step's field or calculation, "stage/step/name". In the same sub-batch stage: the same copy. */
-function refValue(doc: MasterDoc, events: readonly StepEvent[], here: StepKey, ref: string, uses: number[]): unknown {
+export function refValue(doc: MasterDoc, events: readonly StepEvent[], here: StepKey, ref: string, uses: number[]): unknown {
   const [sk, tk, name] = ref.split('/') as [string, string, string];
   const si = doc.stages.findIndex((s) => s.key === sk);
   const ti = doc.stages[si]?.steps.findIndex((t) => t.key === tk) ?? -1;

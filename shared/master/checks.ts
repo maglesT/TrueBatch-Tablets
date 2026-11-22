@@ -168,10 +168,32 @@ export function masterChecks(doc: MasterDoc): Problem[] {
         }
       }
       if (st.everyMinutes && st.flow.kind !== 'repeat-until') error(`${p}.everyMinutes`, 'Checks every N minutes need a repeat-until step');
+      const by = st.everyMinutesBy;
+      if (by) {
+        const f = block.fields.find((x) => x.name === by.field);
+        const isCalc = block.calcs.some((x) => x.name === by.field && !/^(C\d|F2)$/.test(x.template));
+        const r = c1WithinLimits({ value: { value: '0', unit: by.limit.unit }, limit: by.limit });
+        if (!st.everyMinutes) error(`${p}.everyMinutesBy`, 'An interval that changes by a value needs the interval of the first checks');
+        else if (!(f?.kind === 'number' && !f.count) && !isCalc) error(`${p}.everyMinutesBy`, `${by.field} is not a number this step records or works out`);
+        else if (!r.ok) error(`${p}.everyMinutesBy`, `The interval by a value: ${r.message}`);
+        if (block.periodic && by.everyMinutes > block.periodic.maxMinutes) error(`${p}.everyMinutesBy`, `Periodic checks every ${by.everyMinutes} min: they must be at least every ${block.periodic.maxMinutes} min`);
+      }
       const later = st.everyMinutesLater;
       if (later && !st.everyMinutes) error(`${p}.everyMinutesLater`, 'A later interval needs the interval of the first checks');
       if (later && block.periodic && later.everyMinutes > block.periodic.maxMinutes) error(`${p}.everyMinutesLater`, `Periodic checks every ${later.everyMinutes} min: they must be at least every ${block.periodic.maxMinutes} min`, 'TB-15');
-      if (st.onlyIf) {
+      if (st.onlyIf && !!st.onlyIf.header === !!st.onlyIf.ref) error(`${p}.onlyIf`, 'The rule for leaving the step out reads one value: a header value or a value of an earlier step');
+      else if (st.onlyIf?.ref) {
+        const why = refProblem(doc, si, ti, st.onlyIf.ref);
+        const r = c1WithinLimits({ value: { value: '0', unit: st.onlyIf.limit.unit }, limit: st.onlyIf.limit });
+        if (why) error(`${p}.onlyIf`, `The rule for leaving the step out: ${why}`);
+        else if (!r.ok) error(`${p}.onlyIf`, `The rule for leaving the step out: ${r.message}`);
+        else {
+          const [sk, tk, name] = st.onlyIf.ref.split('/') as [string, string, string];
+          const rb = findBlock(doc.stages.find((x) => x.key === sk)!.steps.find((x) => x.key === tk)!.block);
+          const rf = rb?.fields.find((f) => f.name === name);
+          if (rf && (rf.kind !== 'number' || rf.count)) error(`${p}.onlyIf`, `The rule for leaving the step out reads ${rf.label}, which is not a single number`);
+        }
+      } else if (st.onlyIf) {
         const r = c1WithinLimits({ value: { value: '0', unit: st.onlyIf.header === 'batchSize' ? 'tablets' : 'kg' }, limit: st.onlyIf.limit });
         if (!r.ok) error(`${p}.onlyIf`, `The rule for leaving the step out: ${r.message}`);
       }
@@ -494,6 +516,12 @@ function settingProblem(doc: MasterDoc, si: number, ti: number, block: Block, bs
     if (kind !== 'quantity') return `A header value is given where a ${kind} is wanted`;
     return v.header.startsWith('coated') && !doc.header.coatedWeightMg ? 'The header has no coated weight' : null;
   }
+  return refProblem(doc, si, ti, v.ref);
+}
+
+/** Why a reference to an earlier step's field or calculation ("stage/step/name") is not allowed here; null when it is. */
+export function refProblem(doc: MasterDoc, si: number, ti: number, ref: string): string | null {
+  const v = { ref };
   const [sk, tk, name] = v.ref.split('/') as [string, string, string];
   const ri = doc.stages.findIndex((x) => x.key === sk);
   const target = doc.stages[ri];
