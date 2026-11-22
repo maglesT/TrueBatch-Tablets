@@ -155,7 +155,7 @@ export function ReleaseScreen({ me, id }: { me: Me; id: number }) {
         <h3>Deviation notes without a number</h3>
         <Exceptions me={me} batchId={id} batchNo={d.batch.batchNo} exceptions={d.batch.exceptions} contentHash={d.batch.contentHash} deviationsLink={d.batch.deviationsLink}
           ended={decided} stepName={name} onDone={async (t) => { setNotice(t); await reload(); }} />
-        {r.unlinked.length > 0 && <Group title="Deviations naming this batch that no note links" empty="">{r.unlinked.map((x) => (
+        {r.unlinked.length > 0 && <Group title="DIVE deviations naming this batch that no note links" empty="">{r.unlinked.map((x) => (
           <li key={x.number} className="bad"><b>{x.number}</b><span>{x.title}</span><small>{deviationStatusWords(x.status)} in DIVE</small></li>))}</Group>}
         {r.bulk && (bulkUnchecked ? <Group title={`Open deviations of the bulk batch ${r.bulk.bulk}`} empty="">{[
           <li key="unchecked" className="bad"><b>{bulkNotCheckedText(bulkUnchecked)}</b><span>QA checks them in DIVE and types what was found before release.</span></li>]}</Group>
